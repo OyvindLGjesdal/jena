@@ -28,8 +28,7 @@ jobs:
       run: mvn --version
 
     - name: set env variable for JAVA_HOME
-      run: |
-	echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
+      run: echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
      
     - name: check maven version
       run: mvn --version && java --version
