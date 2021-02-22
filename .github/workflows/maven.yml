@@ -25,21 +25,15 @@ jobs:
       run: df -h
 
     - name: check maven version
-      run: mvn --version
+      run: emvn --version && java --version
 
-    - name: set env variable for JAVA_HOME
-      run: echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
-     
-    - name: check maven version
-      run: mvn --version && java --version
-
-#    - name: Set up JDK 11
-#      uses: actions/setup-java@v1
-#      with:
-#        java-version: '11'
+    - name: Set up JDK 11
+      uses: actions/setup-java@v1
+      with:
+        java-version: '11'
 
     - name: check disk after java
-      run: fsutil fsinfo drives
+      run: df -h
 
     - name: Build with Maven
-      run: mvn -B verify --file pom.xml
+      run: mvn -B -Dmaven.repo.local="C:\Progra~1\Git\.m2" verify --file pom.xml 
