@@ -33,4 +33,4 @@ jobs:
       run: df -h
 
     - name: Build with Maven
-      run: mvn -B -D"maven.repo.local"="C:\Progra~1\Git\.m2" verify --file pom.xml 
+      run: mvn -B -D"maven.repo.local"="C:\Progra~1\Git\.m2" -Dmaven.source.skip=true verify --file pom.xml 
