@@ -481,6 +481,7 @@ public class TestAdmin extends AbstractFusekiTest {
     @Test public void task_6() {
         String x1 = execSleepTask(null, 1000);
         String x2 = execSleepTask(null, 1000);
+        String x3 = execSleepTask(null, 1000);
         List<String> running = runningTasks();
         assertTrue(running.size()>1);
         waitForTasksToFinish(1000, 2000);
@@ -504,7 +505,10 @@ public class TestAdmin extends AbstractFusekiTest {
             } catch (HttpException ex) {
                 assertEquals(HttpSC.BAD_REQUEST_400, ex.getStatusCode());
             }
-        } finally {
+        } catch  (HttpException ex) {
+            assertEquals(HttpSC.BAD_REQUEST_400, ex.getStatusCode());
+        }
+        finally {
             waitForTasksToFinish(1000, 4000);
         }
     }
