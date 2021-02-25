@@ -33,4 +33,4 @@ jobs:
       run: df -h
 
     - name: Build with Maven
-      run: mvn `-B `-Dmaven`.repo`.local="C:\Progra~1\Git\.m2" `-Dmaven`.source`.skip=true verify `-`-file pom.xml 
+      run: bash -c "mvn -B -Dmaven.source.skip=true -Dmaven.javadoc.skip=true -Dsource.skip verify --file pom.xml"
