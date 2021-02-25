@@ -30,7 +30,7 @@ jobs:
         java-version: '11'
 
     - name: move checked out dir to /c/jena
-      run: bash -c "mv /d/a/jena/jena /c/jena"
+      run: bash -c "cp -r /d/a/jena/jena /c/jena"
 
     - name: Build with Maven
       run: bash -c "mvn -B verify --file pom.xml"
