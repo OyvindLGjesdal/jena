@@ -27,7 +27,7 @@ jobs:
       run: bash -c "cp -r /d/a/jena/jena /c/jena"
       runs-on: windows-latest
 
-    - name: "Build with Maven for windows-lates
+    - name: Build with Maven for windows-latest
       run: bash -c "cd /c/jena && mvn -B verify --file pom.xml
       runs_on: windows_latest
 
