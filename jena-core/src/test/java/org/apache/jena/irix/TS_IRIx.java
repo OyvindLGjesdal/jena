@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,18 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.jena.base;
+package org.apache.jena.irix;
 
-import java.io.File ;
-import java.util.Locale;
+import junit.framework.JUnit4TestAdapter;
+import junit.framework.TestSuite;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
 
-public class Sys {
-    private static final String OS_NAME = System.getProperty("os.name").toLowerCase(Locale.US);
-    /** Is this windows? */
+@RunWith(Suite.class)
+@Suite.SuiteClasses( {
+    // IRIx tests with matrix of providers.
+    TestIRIx.class,
+    TestRFC3986.class,
+    TestResolve.class,
+    TestNormalize.class,
+    TestRelative.class,
+} )
 
-    public static final boolean isWindows = (File.pathSeparatorChar == ';') ;
-
-    /** Is this mac? */
-    public static final boolean isMac =  OS_NAME.contains("mac");
+public class TS_IRIx {
+    public static TestSuite suite() {
+        TestSuite ts = new TestSuite();
+        ts.setName("IRIx");
+        ts.addTest(new JUnit4TestAdapter(TS_IRIx.class));
+        return ts;
+    }
 }
-

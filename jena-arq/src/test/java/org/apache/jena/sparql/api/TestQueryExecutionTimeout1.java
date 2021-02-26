@@ -57,7 +57,7 @@ public class TestQueryExecutionTimeout1
     }
 
     // Loaded CI.
-    private static boolean mayBeErratic = Sys.isWindows ;
+    private static boolean mayBeErratic = Sys.isWindows || Sys.isMac ;
     
     private int timeout(int time1, int time2) {
         return mayBeErratic ? time2 : time1 ;
@@ -193,7 +193,7 @@ public class TestQueryExecutionTimeout1
             rs.next() ; // First timeout does not go off. Resets timers.
             rs.next() ; // Second timeout never goes off 
             assertTrue(rs.hasNext()) ;
-            sleep(200) ;
+            sleep(timeout(200,250)) ;
             exceptionExpected(rs) ; 
         }
     }
@@ -221,7 +221,7 @@ public class TestQueryExecutionTimeout1
         ARQ.getContext().set(ARQ.queryTimeout, "20") ;
         QueryExecution qExec = QueryExecutionFactory.create(qs, ds) ;
         ResultSet rs = qExec.execSelect() ;
-        sleep(50) ;
+        sleep(timeout(50,150)) ;
         exceptionExpected(rs) ; 
     }
     
@@ -232,7 +232,7 @@ public class TestQueryExecutionTimeout1
         ARQ.getContext().set(ARQ.queryTimeout, "20,10") ;
         QueryExecution qExec = QueryExecutionFactory.create(qs, ds) ;
         ResultSet rs = qExec.execSelect() ;
-        sleep(50) ;
+        sleep(timeout(50,100)) ;
         exceptionExpected(rs) ; 
     }
 

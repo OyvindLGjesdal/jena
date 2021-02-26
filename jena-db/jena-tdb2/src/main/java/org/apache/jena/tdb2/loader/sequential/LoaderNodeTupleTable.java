@@ -139,7 +139,8 @@ public class LoaderNodeTupleTable implements Closeable, Sync
     }
 
 //    private void createSecondaryIndexes() {
-//        BuilderSecondaryIndexes.createSecondaryIndexes(output, primaryIndex, secondaryIndexes);
+//        BuilderSecondaryIndexes.creat
+//        eSecondaryIndexes(output, primaryIndex, secondaryIndexes);
 //    }
 
     private void attachSecondaryIndexes() {
