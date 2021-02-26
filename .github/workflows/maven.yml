@@ -30,7 +30,7 @@ jobs:
 
     - name: copy checked out dir to /c/jena
       run: bash -c "cp -r /d/a/jena/jena /c/jena"
-      if: matrix.os == windows-latest
+      if: matrix.os == 'windows-latest'
 
     - name: Build with Maven
       run: ${{ matrix.mvn-command }}
