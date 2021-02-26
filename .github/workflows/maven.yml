@@ -30,7 +30,7 @@ jobs:
     - name: Build with Maven for windows-latest
       run: bash -c "mvn -B verify --file pom.xml"
       if: matrix.os == 'windows-latest'
-      working_dir: c:\jena
+      working-directory: c:\jena
 
     - name: Build with Maven for macos-latest and ubuntu-latest
       run: mvn -B verify --file pom.xml
