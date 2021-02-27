@@ -82,7 +82,7 @@ public class TestQueryExecutionTimeout2
     @Test public void timeout_34()  { test2(10, 40, timeout(100, 250), true) ; }
 
     @Test public void timeout_35()  { test2(-1, 20, timeout(50, 250), true) ; }
-    @Test public void timeout_36()  { test2(-1, timeout(50,75), 20, false) ; }
+    @Test public void timeout_36()  { test2(-1, timeout(50,100), timeout(20,50), false) ; }
 
     @Test public void timeout_37()  { test2(200, 200, 50, false) ; }
     @Test public void timeout_38()  { test2(200, -1, 50, false) ; }
