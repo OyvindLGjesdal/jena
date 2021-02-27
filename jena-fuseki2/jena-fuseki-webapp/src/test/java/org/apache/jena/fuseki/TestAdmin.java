@@ -480,7 +480,7 @@ public class TestAdmin extends AbstractFusekiTest {
 
     @Test public void task_6() {
         String x1 = execSleepTask(null, 1000);
-        String x2 = execSleepTask(null, 1000);
+        String x2 = execSleepTask(null, 1050);
         List<String> running = runningTasks();
         assertTrue(running.size()>1);
         waitForTasksToFinish(1000, 3000);
