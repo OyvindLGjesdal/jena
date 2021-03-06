@@ -492,11 +492,11 @@ public class TestAdmin extends AbstractFusekiTest {
 
     @Test public void task_6() {
         final AtomicBoolean twoRunningJobs = new AtomicBoolean();
-        String x1 = execSleepTask(null, 1000);
+        String x1 = execSleepTask(null, 2000);
         String x2 = execSleepTask(null, 1000);
         List<String> running = runningTasks();
-        await().until(running::size,greaterThan(1));
-        await().timeout(2, TimeUnit.SECONDS).until(running::size,equalTo(0));
+        await().until(() -> running.size() > 1);
+        await().timeout(2, TimeUnit.SECONDS).until(() -> running.size() == 0);
     }
 
     @Test public void task_7() {
