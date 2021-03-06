@@ -26,11 +26,13 @@ import static org.apache.jena.riot.web.HttpOp.execHttpGet;
 import static org.apache.jena.riot.web.HttpOp.execHttpPost;
 import static org.apache.jena.riot.web.HttpOp.execHttpPostStream;
 import static org.junit.Assert.*;
+import static org.awaitility.Awaitility.await;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
 
 import org.apache.commons.lang3.SystemUtils;
@@ -486,10 +488,12 @@ public class TestAdmin extends AbstractFusekiTest {
     }
 
     @Test public void task_6() {
+        final AtomicBoolean twoRunningJobs = new AtomicBoolean();
         String x1 = execSleepTask(null, 1000);
         String x2 = execSleepTask(null, 1000);
         List<String> running = runningTasks();
-        assertTrue(running.size()>1);
+        twoRunningJobs.set(running.size()>1);
+        await().untilTrue(twoRunningJobs);
         waitForTasksToFinish(1000, 100, 2000);
     }
 
