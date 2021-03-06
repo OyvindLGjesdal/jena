@@ -59,6 +59,7 @@ import org.apache.jena.riot.WebContent;
 import org.apache.jena.riot.web.HttpOp;
 import org.apache.jena.riot.web.HttpResponseHandler;
 import org.apache.jena.web.HttpSC;
+import org.awaitility.Awaitility;
 import org.junit.*;
 
 /** Tests of the admin functionality */
@@ -73,6 +74,8 @@ public class TestAdmin extends AbstractFusekiTest {
     @Before public void setLogging() {
         LogCtl.setLevel(Fuseki.backupLogName, "ERROR");
         LogCtl.setLevel(Fuseki.compactLogName,"ERROR");
+        Awaitility.setDefaultPollDelay(20,TimeUnit.MILLISECONDS);
+        Awaitility.setDefaultPollInterval(50,TimeUnit.MILLISECONDS);
     }
 
     @After public void unsetLogging() {
@@ -492,7 +495,7 @@ public class TestAdmin extends AbstractFusekiTest {
 
     @Test public void task_6() {
         final AtomicBoolean twoRunningJobs = new AtomicBoolean();
-        String x1 = execSleepTask(null, 2000);
+        String x1 = execSleepTask(null, 1000);
         String x2 = execSleepTask(null, 1000);
         List<String> running = runningTasks();
         await().until(() -> running.size() > 1);
