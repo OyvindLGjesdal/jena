@@ -27,11 +27,14 @@ import static org.apache.jena.riot.web.HttpOp.execHttpPost;
 import static org.apache.jena.riot.web.HttpOp.execHttpPostStream;
 import static org.junit.Assert.*;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.equalTo;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.List;
 
@@ -492,9 +495,8 @@ public class TestAdmin extends AbstractFusekiTest {
         String x1 = execSleepTask(null, 1000);
         String x2 = execSleepTask(null, 1000);
         List<String> running = runningTasks();
-        twoRunningJobs.set(running.size()>1);
-        await().untilTrue(twoRunningJobs);
-        waitForTasksToFinish(1000, 100, 2000);
+        await().until(running::size,greaterThan(1));
+        await().timeout(2, TimeUnit.SECONDS).until(running::size,equalTo(0));
     }
 
     @Test public void task_7() {
