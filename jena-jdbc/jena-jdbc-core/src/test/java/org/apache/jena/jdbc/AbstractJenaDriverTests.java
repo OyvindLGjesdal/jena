@@ -634,25 +634,6 @@ public abstract class AbstractJenaDriverTests {
 
     /**
      * Tests using a driver to create a connection with its own URLs plus the
-     * standard logging parameter but setting it to a value that creates an
-     * error
-     * 
-     * @throws SQLException
-     */
-    @Test(expected = SQLException.class)
-    public void driver_connect_bad_06() throws SQLException {
-        String url = this.getConnectionUrl();
-        System.out.println("bad_06: " + url);
-        Assume.assumeNotNull(url);
-        // Try to use a non-existent file/class path resource
-        url = url + "&" + JenaDriver.PARAM_LOGGING + "=/nosuch.properties";
-
-        JenaDriver driver = this.getDriver();
-        driver.connect(url, null);
-    }
-
-    /**
-     * Tests using a driver to create a connection with its own URLs plus the
      * standard config parameter but setting it to a value that creates an error
      * 
      * @throws SQLException

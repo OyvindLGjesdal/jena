@@ -268,9 +268,10 @@ public abstract class JenaDriver implements Driver {
     @Override
     public final Connection connect(String url, Properties props) throws SQLException {
         // Make sure to return null if the URL is not supported
-        if (!this.acceptsURL(url))
+        if (!this.acceptsURL(url)) {
+            System.out.println("connect url not accepted (acceptsURL)");
             return null;
-
+        }
         // Compute the effective properties
         Properties ps = this.getEffectiveProperties(url, props);
         this.modifyProperties(ps);
