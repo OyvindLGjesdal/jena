@@ -642,6 +642,7 @@ public abstract class AbstractJenaDriverTests {
     @Test(expected = SQLException.class)
     public void driver_connect_bad_06() throws SQLException {
         String url = this.getConnectionUrl();
+        System.out.println("bad_06: " + url);
         Assume.assumeNotNull(url);
         // Try to use a non-existent file/class path resource
         url = url + "&" + JenaDriver.PARAM_LOGGING + "=/nosuch.properties";
