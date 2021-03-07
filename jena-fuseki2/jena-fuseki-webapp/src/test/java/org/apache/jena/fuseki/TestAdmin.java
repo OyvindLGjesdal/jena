@@ -493,7 +493,7 @@ public class TestAdmin extends AbstractFusekiTest {
     @Test public void task_6() {
         String x1 = execSleepTask(null, 1000);
         String x2 = execSleepTask(null, 1000);
-        await().until(() -> runningTasks().size() > 1);
+        await().timeout(500,TimeUnit.MILLISECONDS).until(() -> runningTasks().size() > 1);
         await().timeout(2000, TimeUnit.MILLISECONDS).until(() -> runningTasks().isEmpty());
     }
 
