@@ -659,28 +659,13 @@ public class TestAdmin extends AbstractFusekiTest {
     * @param pauseMillis
     * @param pollInterval
     * @param maxWaitMillis
-    * @return
     */
-   private static boolean waitForTasksToFinish(int pauseMillis, int pollInterval, int maxWaitMillis) {
-       // Wait for them to finish.
-       // Divide into chunks
-       if ( pauseMillis > 0 )
-           Lib.sleep(pauseMillis);
-       long start = System.currentTimeMillis();
-       long endTime = start + maxWaitMillis;
+   private static void waitForTasksToFinish(int pauseMillis, int pollInterval, int maxWaitMillis) {
        final int intervals = maxWaitMillis/pollInterval;
-       long now = start;
-       for (int i = 0 ; i < intervals ; i++ ) {
-           // May have waited (much) longer than the pollInterval : heavily loaded build systems.
-           if ( now-start > maxWaitMillis )
-               break;
-           List<String> x = runningTasks();
-           if ( x.isEmpty() )
-               return true;
-           Lib.sleep(pollInterval);
-           now = System.currentTimeMillis();
-       }
-       return false;
+       await().timeout(maxWaitMillis,TimeUnit.MILLISECONDS)
+               .pollDelay(pauseMillis,TimeUnit.MILLISECONDS)
+               .pollInterval(pollInterval, TimeUnit.MILLISECONDS)
+               .until(() ->  runningTasks().isEmpty());
    }
 
    private static boolean isRunning(JsonObject taskObj) {
