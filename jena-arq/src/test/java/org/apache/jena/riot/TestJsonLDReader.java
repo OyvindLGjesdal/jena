@@ -43,7 +43,6 @@ public class TestJsonLDReader {
         String jsonld = someSchemaDorOrgJsonld();
         Dataset ds = jsonld2dataset(jsonld, null);
         System.out.println(ds.getDefaultModel().listObjectsOfProperty(RDF.type).next().asResource().getURI());
-        System.out.println(ds.getDefaultModel().listObjectsOfProperty(ds.getDefaultModel().getProperty("http://schema.org/name")).next().asLiteral());
         assertJohnDoeIsOK(ds.getDefaultModel());
     }
 
@@ -119,13 +118,12 @@ public class TestJsonLDReader {
     }
 
     private String schemaOrgContext() {
-        return "\"@context\": \"http://schema.org/\"";
+        return "\"@context\": \"https://schema.org/\"";
     }
 
     // a subset of schema.org that can be used as @context for jsonld
     private String schemaOrgResolvedContext() {
         return "{\"name\":{\"@id\":\"http://schema.org/name\"},\"Person\": {\"@id\": \"http://schema.org/Person\"}}";
-
     }
 
     /**
