@@ -41,6 +41,7 @@ import org.junit.Test ;
  * Abstract tests for {@link JenaDriver} implementations
  * 
  */
+@SuppressWarnings("resource")
 public abstract class AbstractJenaDriverTests {
 
     static {
