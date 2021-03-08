@@ -122,7 +122,7 @@ public class TestJsonLDReader {
 
     // a subset of schema.org that can be used as @context for jsonld
     private String schemaOrgResolvedContext() {
-        return "{\"name\":{\"@id\":\"http://schema.org/name\"},\"Person\": {\"@id\": \"http://schema.org/Person\"}}";
+        return "{\"name\":{\"@id\":\"https://schema.org/name\"},\"Person\": {\"@id\": \"https://schema.org/Person\"}}";
 
     }
 
