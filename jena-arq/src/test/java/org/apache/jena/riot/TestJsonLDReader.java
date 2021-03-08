@@ -130,8 +130,8 @@ public class TestJsonLDReader {
      * Checking that the data loaded from someSchemaDorOrgJsonld into a model, is OK
      */
     private void assertJohnDoeIsOK(Model m) {
-        assertTrue(m.contains(null, RDF.type, m.createResource("http://schema.org/Person")));
-        assertTrue(m.contains(null, m.createProperty("http://schema.org/name"), "John Doe"));
+        assertTrue(m.contains(null, RDF.type, m.createResource("https://schema.org/Person")));
+        assertTrue(m.contains(null, m.createProperty("https://schema.org/name"), "John Doe"));
     }
 
 
