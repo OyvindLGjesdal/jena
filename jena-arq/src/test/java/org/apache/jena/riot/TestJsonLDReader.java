@@ -42,8 +42,8 @@ public class TestJsonLDReader {
     public final void simpleReadTest() throws IOException {
         String jsonld = someSchemaDorOrgJsonld();
         Dataset ds = jsonld2dataset(jsonld, null);
-        System.out.println(ds.getDefaultModel().listObjectsOfProperty(RDF.type).toString());
-        System.out.println(ds.getDefaultModel().listObjectsOfProperty(ds.getDefaultModel().getProperty("http://schema.org/name")).toString());
+        System.out.println(ds.getDefaultModel().listObjectsOfProperty(RDF.type).next().asResource().getURI());
+        System.out.println(ds.getDefaultModel().listObjectsOfProperty(ds.getDefaultModel().getProperty("http://schema.org/name")).next().asLiteral());
         assertJohnDoeIsOK(ds.getDefaultModel());
     }
 
