@@ -117,7 +117,7 @@ public class TestJsonLDReader {
     }
 
     private String schemaOrgContext() {
-        return "\"@context\": \"http://schema.org/\"";
+        return "\"@context\": \"https://schema.org/docs/jsonldcontext.jsonld\"";
     }
 
     // a subset of schema.org that can be used as @context for jsonld
