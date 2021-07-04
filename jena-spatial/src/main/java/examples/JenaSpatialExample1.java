@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory ;
 /** Build a spatial search dataset */
 public class JenaSpatialExample1 {
     static {
-        LogCtl.setLog4j();
+    //    LogCtl.setLog4j();
     }
     static Logger log = LoggerFactory.getLogger("JenaSpatialExample");
 
