@@ -103,6 +103,7 @@ jena-examples/**
 **/src/main/resources/std/shacl-shacl.ttl
 
 ## Jena Fuseki UI
+jena-fuseki2/jena-fuseki-ui/.env.default
 jena-fuseki2/jena-fuseki-ui/**/*.json
 jena-fuseki2/jena-fuseki-ui/node_modules/**/*
 jena-fuseki2/jena-fuseki-ui/node/**/*
