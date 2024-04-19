@@ -102,17 +102,6 @@
                             <arguments>run test:unit</arguments>
                         </configuration>
                     </execution>
-                    <!-- workaround to get a working cli using yarn -->
-                    <execution>
-                        <id>npm install -g dotenv-cli</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>test</phase>
-                        <configuration>
-                            <arguments>install -g dotenv-cli</arguments>
-                        </configuration>
-                    </execution>
                     <execution>
                         <id>yarn run test:e2e</id>
                         <goals>
