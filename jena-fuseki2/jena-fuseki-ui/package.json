@@ -12,7 +12,7 @@
     "test:concurrently" : "concurrently  --names 'SERVER,CLIENT,TESTS' --prefix-colors 'yellow,blue,green' --success 'first' --kill-others \"yarn run serve:fuseki\" \"yarn wait-on http://localhost:${FUSEKI_PORT}/$/ping && yarn run dev\" \"yarn wait-on http-get://localhost:${PORT}/index.html && cypress run $@\"",
     "test:e2e": "run-script-os",
     "test:e2e:nix": "cross-env FUSEKI_PORT=\"${FUSEKI_PORT:=3030}\" PORT=\"${PORT:=8080}\" yarn run test:concurrently",
-    "test:e2e:win32" : "SET /A FUSEKI_PORT=FUSEKI_PORT ^ 3030 & SET /A PORT=FUSEKI_PORT ^ 8080 & cross-env concurrently --names 'SERVER,CLIENT,TESTS' --prefix-colors 'yellow,blue,green' --success 'first' --kill-others \"yarn run serve:fuseki\" \"yarn wait-on http://localhost:${FUSEKI_PORT}/$/ping && yarn run dev\" \"yarn wait-on http-get://localhost:${PORT}/index.html && cypress run $@\"",
+    "test:e2e:win32" : "SET /a (FUSEKI_PORT=FUSEKI_PORT ^ 3030) & SET /a (PORT=PORT ^ 8080) & cross-env concurrently --names 'SERVER,CLIENT,TESTS' --prefix-colors 'yellow,blue,green' --success 'first' --kill-others \"yarn run serve:fuseki\" \"yarn wait-on http://localhost:${FUSEKI_PORT}/$/ping && yarn run dev\" \"yarn wait-on http-get://localhost:${PORT}/index.html && cypress run $@\"",
     "test:unit": "vitest run --environment jsdom",
     "rest": "cross-env FUSEKI_PORT=$FUSEKI_PORT PORT=${PORT} concurrently --names 'SERVER,CLIENT,TESTS' --prefix-colors 'yellow,blue,green' --success 'first' --kill-others \"yarn run serve:fuseki\" \"yarn wait-on http://localhost:${FUSEKI_PORT}/$/ping && yarn run dev\" \"yarn wait-on http-get://localhost:${PORT}/index.html && cypress run $@\"",
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src",
