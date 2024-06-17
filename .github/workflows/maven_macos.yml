@@ -26,4 +26,4 @@ jobs:
         java-version: '21'
 
     - name: Build with Maven
-      run: MAVEN_OPTS=--enable-native-access=org.apache.jena.jena-text mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
+      run: mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
