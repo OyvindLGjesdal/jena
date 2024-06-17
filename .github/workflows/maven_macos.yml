@@ -23,7 +23,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '17'
+        java-version: '21'
 
     - name: Build with Maven
-      run: mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
+      run: MAVEN_OPTS=--enable-native-access=org.apache.jena.jena-text mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
