@@ -113,11 +113,11 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
+	<!--     <configuration>
           <compilerArgs>
-            <arg>--enable-native-access=org.apache.lucene.core</arg>
+            <arg>-1-enable-native-access=org.apache.lucene.core</arg>
           </compilerArgs>
-        </configuration>
+	</configuration> -->
       </plugin>
       
       <plugin>
