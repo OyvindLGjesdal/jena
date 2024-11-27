@@ -18,7 +18,6 @@ jobs:
       run:
         working-directory: ./jena-fuseki2/jena-fuseki-ui
     # if: github.repository == 'apache/jena'
-
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
 
@@ -52,7 +51,7 @@ jobs:
   cypress-run:
     defaults:
       run:
-        working-directory:  ./jena-fuseki2/jena-fuseki-ui
+        working-directory: ./jena-fuseki2/jena-fuseki-ui
     # End-to-end tests, only run on GH for the ASF repository.
     # if: github.repository == 'apache/jena'
             working-directory: jena-fuseki2/jena-fuseki-ui
