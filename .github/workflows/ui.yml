@@ -54,7 +54,6 @@ jobs:
         working-directory: ./jena-fuseki2/jena-fuseki-ui
     # End-to-end tests, only run on GH for the ASF repository.
     # if: github.repository == 'apache/jena'
-            working-directory: jena-fuseki2/jena-fuseki-ui
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
