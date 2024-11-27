@@ -14,7 +14,7 @@ permissions:
 jobs:
   # Unit tests, faster, only run on GH for the ASF repository.
   unit-test-and-build:
-    if: github.repository == 'apache/jena'
+    # if: github.repository == 'apache/jena'
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ ubuntu-24.04 ]
         java_version: [ '21' ]
 
     steps:
