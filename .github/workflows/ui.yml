@@ -14,6 +14,9 @@ permissions:
 jobs:
   # Unit tests, faster, only run on GH for the ASF repository.
   unit-test-and-build:
+    defaults:
+      run:
+        working-directory: ./jena-fuseki2/jena-fuseki-ui
     # if: github.repository == 'apache/jena'
 
     runs-on: ${{ matrix.os }}
@@ -31,7 +34,6 @@ jobs:
 
       - name: Setup Node
         uses: actions/setup-node@v4
-        working-directory: jena-fuseki2/jena-fuseki-ui
         with:
           node-version: 'lts/*'
 
@@ -42,15 +44,18 @@ jobs:
           java-version: ${{ matrix.java_version }}
 
       - name: Build with Maven
-        run: mvn -B --file pom.xml --projects jena-fuseki2/jena-fuseki-ui --also-make-dependents test install
+        run: mvn -B --file pom.xml --also-make-dependents test install
 
       - name: Lint
-        working-directory: jena-fuseki2/jena-fuseki-ui
         run: yarn lint
 
   cypress-run:
+    defaults:
+      run:
+        working-directory:  ./jena-fuseki2/jena-fuseki-ui
     # End-to-end tests, only run on GH for the ASF repository.
     # if: github.repository == 'apache/jena'
+            working-directory: jena-fuseki2/jena-fuseki-ui
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -70,13 +75,11 @@ jobs:
 
       - name: Setup Node
         uses: actions/setup-node@v4
-        working_directory: jena-fuseki2/jena-fuseki-ui
         with:
           node-version: 'lts/*'
 
       - name: Test (E2E)
         uses: cypress-io/github-action@v6
-        working-directory: jena-fuseki2/jena-fuseki-ui
         env:
           BASE_URL: http://localhost:8080/
           FUSEKI_URL: http://localhost:3030/
