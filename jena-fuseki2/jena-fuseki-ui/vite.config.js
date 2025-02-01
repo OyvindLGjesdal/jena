@@ -63,8 +63,9 @@ export default defineConfig({
     assetsDir: 'static',
     sourcemap: 'true',
     rollupOptions: {
-      treeshake: "smallest",
-      moduleSideEffects: false
+      treeshake: {
+        moduleSideEffects: false
+      }
     }
   },
   test: {
