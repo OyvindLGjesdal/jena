@@ -65,8 +65,7 @@ export default defineConfig({
     rollupOptions: {
       treeshake: {
         preset: 'smallest',
-        propertyReadSideEffects: false,
-        external: ['@types/chai', '"@types/mocha','chai','eslint', 'mocha', 'node-sass','sass-loader', 'puppeteer','webpack','webpack-cli','webpack-dev-server','webpack-bundle-analyzer','typescript','webpack-livereload-plugin','webpack-bundle-analyzer','ts-loader','terser-webpack-plugin'],
+        external: ['@babel/core', '@babel/plugin-transform-runtime','@types/chai', '@babel/preset-env', '@types/mocha','@types/fs-extra','@types/node-static','@types/webpack-bundle-analyzer','@typescript-eslint/eslint-plugin','@typescript-eslint/parser','autoprefixer', 'babel-loader','better-npm-run','bundlesize', 'chai','eslint', 'mocha', 'node-sass','sass-loader', 'puppeteer','webpack','webpack-cli','webpack-dev-server','webpack-bundle-analyzer','typescript','webpack-livereload-plugin','webpack-bundle-analyzer','ts-loader','terser-webpack-plugin','eslint-config-prettier','eslint-plugin-jest','eslint-plugin-lodash','fs-extra','html-webpack-plugin','husky','lint-staged','mini-css-extract-plugin','postcss-bgimage','postcss-loader','prettier'],
       }
     }
   },
