@@ -52,6 +52,9 @@
   </scm>
   
   <properties>
+    <!-- sonar -->
+     <sonar.organization>oyvindlgjesdal-github</sonar.organization>
+     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <!-- Build -->
     <java.version>17</java.version>
 
