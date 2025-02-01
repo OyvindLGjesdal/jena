@@ -64,8 +64,9 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       treeshake: {
-      preset: 'smallest',
-      propertyReadSideEffects: false
+        preset: 'smallest',
+        propertyReadSideEffects: false,
+        external: ['@types/chai', '"@types/mocha','chai','eslint', 'mocha', 'node-sass','sass-loader', 'puppeteer','webpack','webpack-cli','webpack-dev-server','webpack-bundle-analyzer','typescript','webpack-livereload-plugin','webpack-bundle-analyzer','ts-loader','terser-webpack-plugin'],
       }
     }
   },
