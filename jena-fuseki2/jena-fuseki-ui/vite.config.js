@@ -64,7 +64,9 @@ export default defineConfig({
     sourcemap: 'true',
     rollupOptions: {
       treeshake: {
-        moduleSideEffects: false
+      preset: 'smallest',
+      propertyReadSideEffects: false
+
       }
     }
   },
