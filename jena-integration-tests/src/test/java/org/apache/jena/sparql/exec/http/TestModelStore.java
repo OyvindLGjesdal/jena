@@ -27,6 +27,11 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.StringReader;
 
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
 import org.apache.jena.atlas.web.HttpException;
 import org.apache.jena.http.HttpOp;
 import org.apache.jena.query.Dataset;
@@ -41,10 +46,6 @@ import org.apache.jena.riot.WebContent;
 import org.apache.jena.sparql.sse.SSE;
 import org.apache.jena.sparql.util.IsoMatcher;
 import org.apache.jena.test.conn.EnvTest;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 public class TestModelStore {
 
@@ -169,13 +170,14 @@ public class TestModelStore {
         assertTrue(s2.isEmpty());
     }
 
-    @Test public void gsp_dft_ct_1() {
-        ModelStore.service(url("/ds")).defaultGraph().contentType(RDFFormat.RDFXML).PUT(DIR+"data-rdfxml");
-    }
-
-    @Test public void gsp_dft_ct_2() {
-        ModelStore.service(url("/ds")).defaultGraph().contentTypeHeader(WebContent.contentTypeRDFXML).PUT(DIR+"data-rdfxml");
-    }
+    // Moved - investigation
+//    @Test public void gsp_dft_ct_1() {
+//        ModelStore.service(url("/ds")).defaultGraph().contentType(RDFFormat.RDFXML).PUT(DIR+"data-rdfxml");
+//    }
+//
+//    @Test public void gsp_dft_ct_2() {
+//        ModelStore.service(url("/ds")).defaultGraph().contentTypeHeader(WebContent.contentTypeRDFXML).PUT(DIR+"data-rdfxml");
+//    }
 
     // ----------------------------------------
 
