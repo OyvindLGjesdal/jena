@@ -31,6 +31,8 @@ import java.net.http.HttpResponse;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 import org.apache.jena.atlas.io.IO;
@@ -182,7 +184,11 @@ public class HttpRDF {
 
     /** Post a graph and expect an RDF graph back as the result. */
     public static Graph httpPostGraphRtn(String url, Graph graph) {
-        return httpPostGraphRtn(HttpEnv.getDftHttpClient(), url, graph,  HttpEnv.defaultTriplesFormat, null);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        Graph g = httpPostGraphRtn(HttpEnv.httpClientBuilder(executor).build(), url, graph,  HttpEnv.defaultTriplesFormat, null);
+        executor.shutdownNow();
+        return g;
     }
 
     /** Post a graph and expect an RDF graph back as the result. */

@@ -50,9 +50,21 @@ public class HttpEnv {
     public static HttpClient getHttpClient(String url, HttpClient specificHttpClient) {
         if ( specificHttpClient != null )
              return specificHttpClient;
+
         HttpClient requestHttpClient = RegistryHttpClient.get().find(url);
         if ( requestHttpClient == null )
             requestHttpClient = getDftHttpClient();
+        return requestHttpClient;
+    }
+
+    /** Return the {@link HttpClient} based on URL and a possible pre-selected {@link HttpClient}. */
+    public static HttpClient getHttpClient(String url, HttpClient specificHttpClient, ExecutorService e) {
+        if ( specificHttpClient != null )
+            return specificHttpClient;
+
+        HttpClient requestHttpClient = RegistryHttpClient.get().find(url);
+        if ( requestHttpClient == null )
+            requestHttpClient = httpClientBuilder(e).build();
         return requestHttpClient;
     }
 

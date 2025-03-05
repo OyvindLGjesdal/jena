@@ -182,7 +182,7 @@ public abstract class StoreProtocol<X extends StoreProtocol<X>> {
     protected HttpClient requestHttpClient(String serviceURL, String requestURL, ExecutorService e) {
         if ( httpClient != null )
             return httpClient;
-        return HttpEnv.httpClientBuilder(e).build();
+        return HttpEnv.getHttpClient(serviceURL, httpClient, e);
     }
 
     // Setup problems.
