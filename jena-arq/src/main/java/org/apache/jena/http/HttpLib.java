@@ -676,6 +676,7 @@ public class HttpLib {
         if ( modifier != null )
             modifier.accept(builder);
         HttpResponse<InputStream> response = execute(httpClient, builder.build());
+        httpClient.close();
         return response;
     }
 
