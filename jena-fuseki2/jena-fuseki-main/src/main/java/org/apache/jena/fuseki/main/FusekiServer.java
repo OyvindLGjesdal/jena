@@ -1850,7 +1850,7 @@ public class FusekiServer {
             Connector[] connectors = server.getConnectors();
             for ( int i = 0; i < connectors.length; i++ ) {
                 if ( connectors[i] instanceof ServerConnector serverConnector) {
-                    serverConnector.setHost("localhost");
+                    serverConnector.setHost(null);
                 }
             }
         }
