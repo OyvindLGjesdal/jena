@@ -21,6 +21,7 @@ package org.apache.jena.http;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Redirect;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.jena.http.sys.RegistryRequestModifier;
 import org.apache.jena.riot.RDFFormat;
@@ -42,6 +43,7 @@ public class HttpEnv {
     public static /* final */ int urlLimit = 2 * 1024;
 
     public static HttpClient getDftHttpClient() { return httpClient; }
+
     public static void setDftHttpClient(HttpClient dftHttpClient) { httpClient = dftHttpClient; }
 
     /** Return the {@link HttpClient} based on URL and a possible pre-selected {@link HttpClient}. */
@@ -62,6 +64,23 @@ public class HttpEnv {
 
     public static HttpClient.Builder httpClientBuilder() {
         return HttpClient.newBuilder()
+                // By default, the client has polling and connection-caching.
+                // Version HTTP/2 is the default, negotiating up from HTTP 1.1.
+                //.version(Version.HTTP_2)
+                .connectTimeout(Duration.ofSeconds(10))
+                // Redirect.NORMAL - this does not follow https to http 3xx.
+                // (Dec 2021) http://purl.org first switches to https://purl.org, then will redirect to an http: URL.
+                .followRedirects(Redirect.ALWAYS)
+                //.sslContext
+                //.sslParameters
+                //.proxy
+                //.authenticator
+                ;
+    }
+
+    public static HttpClient.Builder httpClientBuilder(ExecutorService executor) {
+        return HttpClient.newBuilder()
+                .executor(executor)
                 // By default, the client has polling and connection-caching.
                 // Version HTTP/2 is the default, negotiating up from HTTP 1.1.
                 //.version(Version.HTTP_2)
