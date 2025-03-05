@@ -478,7 +478,7 @@ public class JettyServer {
         connector.setPort(port);
         server.addConnector(connector);
         if ( loopback )
-            connector.setHost(null);
+            connector.setHost("localhost");
     }
 
 }
