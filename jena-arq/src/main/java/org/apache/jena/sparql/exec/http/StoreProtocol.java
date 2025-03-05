@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 
 import org.apache.jena.atlas.web.ContentType;
@@ -176,6 +177,12 @@ public abstract class StoreProtocol<X extends StoreProtocol<X>> {
         if ( httpClient != null )
             return httpClient;
         return HttpEnv.getHttpClient(serviceURL, httpClient);
+    }
+
+    protected HttpClient requestHttpClient(String serviceURL, String requestURL, ExecutorService e) {
+        if ( httpClient != null )
+            return httpClient;
+        return HttpEnv.httpClientBuilder(e).build();
     }
 
     // Setup problems.
