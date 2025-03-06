@@ -201,7 +201,7 @@ public class HttpRDF {
         httpClient.executor().ifPresent(executor -> {
          ExecutorService es  = (ExecutorService) executor;
          es.shutdownNow();// Use the executor
-        })
+        });
         return graphResponse;
     }
 
