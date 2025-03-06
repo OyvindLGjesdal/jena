@@ -184,11 +184,8 @@ public class HttpRDF {
 
     /** Post a graph and expect an RDF graph back as the result. */
     public static Graph httpPostGraphRtn(String url, Graph graph) {
-        ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        Graph g = httpPostGraphRtn(HttpEnv.httpClientBuilder(executor).build(), url, graph,  HttpEnv.defaultTriplesFormat, null);
-        executor.shutdownNow();
-        return g;
+        return httpPostGraphRtn(HttpEnv.getDftHttpClient(), url, graph,  HttpEnv.defaultTriplesFormat, null);
     }
 
     /** Post a graph and expect an RDF graph back as the result. */
