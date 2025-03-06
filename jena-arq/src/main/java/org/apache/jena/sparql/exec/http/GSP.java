@@ -21,6 +21,7 @@ package org.apache.jena.sparql.exec.http;
 import java.net.http.HttpClient;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
@@ -249,6 +250,10 @@ public class GSP extends StoreProtocol<GSP> {
         String url = graphRequestURL();
         HttpClient hc = requestHttpClient(serviceEndpoint, url);
         HttpRDF.httpPutGraph(hc, url, graph, requestFmt, httpHeaders);
+        httpClient.executor().ifPresent(executor -> {
+                    ExecutorService es  = (ExecutorService) executor;
+                    es.shutdownNow();// Use the executor
+                   });
     }
 
 //    /**
@@ -285,8 +290,7 @@ public class GSP extends StoreProtocol<GSP> {
      * The {@code graphName} be a valid, absolute URI (i.e. includes the scheme)
      * or the word "default", or null, for the default graph of the store
      * or the word "union" for the union graph of the store (this is a Jena extension).
-     * or the word "none" for graph operation but no naming. (this is a Jena extension).
-     * @param graphStore
+     * or the word "none" for graph operation but no naming. (this is a Jena extension)
      * @param graphName
      * @return String without the "?"
      */

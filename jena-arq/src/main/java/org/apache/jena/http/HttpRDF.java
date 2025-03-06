@@ -198,6 +198,10 @@ public class HttpRDF {
         Graph graphResponse = GraphFactory.createDefaultGraph();
         StreamRDF dest = StreamRDFLib.graph(graphResponse);
         httpResponseToStreamRDF(url, httpResponse, dest);
+        httpClient.executor().ifPresent(executor -> {
+         ExecutorService es  = (ExecutorService) executor;
+         es.shutdownNow();// Use the executor
+        })
         return graphResponse;
     }
 

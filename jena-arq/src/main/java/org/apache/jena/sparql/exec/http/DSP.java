@@ -84,7 +84,7 @@ public class DSP extends StoreProtocol<DSP>{
     public DatasetGraph GET() {
         ensureAcceptHeader(WebContent.defaultRDFAcceptHeader);
         DatasetGraph dsg = DatasetGraphFactory.createTxnMem();
-        HttpClient hc = requestHttpClient(serviceEndpoint, serviceEndpoint);
+        HttpClient hc = requestHttpClient(serviceEndpoint,  serviceEndpoint);
         HttpRDF.httpGetToStream(hc, serviceEndpoint, httpHeaders, StreamRDFLib.dataset(dsg));
         return dsg;
     }
