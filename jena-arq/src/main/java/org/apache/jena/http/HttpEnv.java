@@ -42,7 +42,11 @@ public class HttpEnv {
     public static /* final */ int urlLimit = 2 * 1024;
 
     public static HttpClient getDftHttpClient() { return httpClient; }
-    public static void setDftHttpClient(HttpClient dftHttpClient) { httpClient = dftHttpClient; }
+
+    //public static void setDftHttpClient(HttpClient dftHttpClient) { httpClient = dftHttpClient; }
+    public static void setDftHttpClient(HttpClient dftHttpClient) {
+        throw new UnsupportedOperationException("Cannot change the default HttpClient instance");
+    }
 
     /** Return the {@link HttpClient} based on URL and a possible pre-selected {@link HttpClient}. */
     public static HttpClient getHttpClient(String url, HttpClient specificHttpClient) {
@@ -54,9 +58,9 @@ public class HttpEnv {
         return requestHttpClient;
     }
 
-    private static HttpClient httpClient = buildDftHttpClient();
+    private static final HttpClient httpClient = buildDftHttpClient();
 
-    private static HttpClient buildDftHttpClient() {
+    private static final HttpClient buildDftHttpClient() {
         return httpClientBuilder().build();
     }
 
