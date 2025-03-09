@@ -60,7 +60,7 @@ public class HttpEnv {
 
     private static final HttpClient httpClient = buildDftHttpClient();
 
-    private static final HttpClient buildDftHttpClient() {
+    private static HttpClient buildDftHttpClient() {
         return httpClientBuilder().build();
     }
 
@@ -69,7 +69,7 @@ public class HttpEnv {
                 // By default, the client has polling and connection-caching.
                 // Version HTTP/2 is the default, negotiating up from HTTP 1.1.
                 //.version(Version.HTTP_2)
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(20))
                 // Redirect.NORMAL - this does not follow https to http 3xx.
                 // (Dec 2021) http://purl.org first switches to https://purl.org, then will redirect to an http: URL.
                 .followRedirects(Redirect.ALWAYS)
