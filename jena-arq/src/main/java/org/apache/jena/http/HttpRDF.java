@@ -21,6 +21,7 @@ package org.apache.jena.http;
 import static org.apache.jena.http.HttpLib.*;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -311,10 +312,12 @@ public class HttpRDF {
     }
 
     /*package*/ static BodyPublisher datasetToHttpBody(DatasetGraph dataset, RDFFormat syntax) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream(128*1024);
-        RDFDataMgr.write(out, dataset, syntax);
-        byte[] bytes = out.toByteArray();
-        IO.close(out);
-        return BodyPublishers.ofByteArray(bytes);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream(128*1024);) {
+            RDFDataMgr.write(out, dataset, syntax);
+            byte[] bytes = out.toByteArray();
+            return BodyPublishers.ofByteArray(bytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Error converting dataset to HTTP body");
     }
+}
 }
