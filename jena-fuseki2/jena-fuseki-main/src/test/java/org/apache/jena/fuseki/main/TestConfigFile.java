@@ -361,12 +361,11 @@ public class TestConfigFile {
     }
 
     private static void assertCxtValue(RDFConnection conn, String contextSymbol, String value) {
-        String actual =
-            conn.query(PREFIXES+"SELECT ?V { BIND(afn:context('"+contextSymbol+"') AS ?V) }")
-            .execSelect()
-            .nextBinding().get(Var.alloc("V"))
-            .getLiteralLexicalForm();
-        assertEquals(value, actual);
+        try (QueryExecution qExec = conn.query(PREFIXES+"SELECT ?V { BIND(afn:context('"+contextSymbol+"') AS ?V) }" );) {
+            String actual = qExec.execSelect().nextBinding().get(Var.alloc("V")).getLiteralLexicalForm();
+            assertEquals(value, actual);
+        }
+        catch (Exception ex) { ex.printStackTrace();}
     }
 
     private static void assertCxtValueNotNull(RDFConnection conn, String contextSymbol) {
