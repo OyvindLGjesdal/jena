@@ -115,7 +115,7 @@ public class ExFuseki_09_Https_Auth {
                                     .httpClient(hc2)
                                     .destination("https://localhost:3443/ds")
                                     .build();
-              QueryExecution qExec = conn.query("ASK{}");) {
+              QueryExecution qExec = conn.query("ASK{}")) {
             QueryExecUtils.executeQuery(qExec);
         } catch (Exception ex) {
             System.out.println(ex);
