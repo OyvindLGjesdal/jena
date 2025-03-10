@@ -139,7 +139,7 @@ public class UpdateExecHTTP implements UpdateExec {
         HttpRequest.Builder builder = HttpLib.requestBuilder(requestURL, httpHeaders, timeout, timeoutUnit);
         builder = contentTypeHeader(builder, contentType);
         HttpRequest request = builder.POST(body).build();
-        logUpdate(updateString, request);
+        //logUpdate(updateString, request);
         HttpResponse<InputStream> response = HttpLib.execute(httpClient, request);
         return HttpLib.handleResponseRtnString(response, this::setRetainedConnection);
     }
