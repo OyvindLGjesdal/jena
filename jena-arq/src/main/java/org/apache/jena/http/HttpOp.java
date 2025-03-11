@@ -160,7 +160,7 @@ public class HttpOp {
 
     /** POST params as a HTML form. */
     public static void httpPostForm(String url, Params params) {
-        try ( TypedInputStream in = execPostForm(HttpEnv.getDftHttpClient(), url, params, null) ) {}
+        TypedInputStream in = execPostForm(HttpEnv.getDftHttpClient(), url, params, null);
     }
 
     /** POST params as a HTML form. */
