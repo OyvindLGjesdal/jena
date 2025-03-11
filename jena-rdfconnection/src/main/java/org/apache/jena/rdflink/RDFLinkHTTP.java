@@ -427,7 +427,7 @@ public class RDFLinkHTTP implements RDFLink {
         // Use the update string as provided if possible, otherwise serialize the update.
         String updateStringToSend = ( updateString != null ) ? updateString  : update.toString();
         createUExecBuilder()
-            .updateString(updateStringToSend)
+                .updateString(updateStringToSend)
             .build()
             .execute();
     }
