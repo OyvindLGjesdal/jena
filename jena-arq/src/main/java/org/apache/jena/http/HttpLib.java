@@ -221,10 +221,15 @@ public class HttpLib {
      * @param httpResponse
      * @return TypedInputStream
      */
-    public static TypedInputStream handleResponseTypedInputStream(HttpResponse<InputStream> httpResponse) throws IOException {
+    public static TypedInputStream handleResponseTypedInputStream(HttpResponse<InputStream> httpResponse) {
         try (InputStream input = handleResponseInputStream(httpResponse)){
         String ct = HttpLib.responseHeader(httpResponse, HttpNames.hContentType);
-        return new TypedInputStream(input, ct);}
+        return new TypedInputStream(input, ct);
+        }
+        catch (IOException ex) {
+            ex.printStackTrace();
+            throw new HttpException(ex.getMessage());
+        }
     }
 
     /**
