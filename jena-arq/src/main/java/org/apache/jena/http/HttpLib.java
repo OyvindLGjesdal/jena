@@ -590,7 +590,7 @@ public class HttpLib {
             String[] userpasswd = uri.getUserInfo().split(":");
             if ( userpasswd.length == 2 ) {
                 // User info in the URI is not a good idea.
-                // Only if "user:password@host", not "user@host"
+                // Only      if "user:password@host", not "user@host"
                 key = HttpLib.endpointURI(uri);
                 // The auth key will include user:password making it specific.
                 authEnv.registerUsernamePassword(key, userpasswd[0], userpasswd[1]);
