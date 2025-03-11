@@ -344,6 +344,13 @@ public class HttpLib {
                 bytesRead += n;
             }
         } catch (IOException ex) {  throw new RuntimeException(ex);}
+        finally {
+            try {
+                input.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     /** String to {@link URI}. Throws {@link HttpException} on bad syntax or if the URI isn't absolute. */
