@@ -21,6 +21,7 @@ package org.apache.jena.http;
 import static org.apache.jena.http.HttpLib.*;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -150,6 +151,11 @@ public class HttpRDF {
         } finally {
             // Even if parsing finished, it is possible we only read part of the input stream (e.g. RDF/XML).
             finish(in);
+            try {
+                in.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
