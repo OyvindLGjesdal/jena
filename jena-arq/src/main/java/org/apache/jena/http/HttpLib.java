@@ -343,12 +343,12 @@ public class HttpLib {
                 }
                 bytesRead += n;
             }
-        } catch (IOException ex) {  throw new RuntimeException(ex);}
+        } catch (IOException ex) { }
         finally {
             try {
                 input.close();
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException("Finish" + e.getMessage());
             }
         }
     }
