@@ -71,9 +71,11 @@ public class TestPrefixesActionResponse {
 
     @Test
     public void getAllJson() {
-        TypedInputStream x = httpGet(testReadURL());
-        assertEquals("application/json", x.getContentType(), "Expected application/json");
-        String response = IO.readWholeFileAsUTF8(x);
+        try ( TypedInputStream x = httpGet(testReadURL())) {
+
+            assertEquals("application/json", x.getContentType(), "Expected application/json");
+            String response = IO.readWholeFileAsUTF8(x);
+
         // JSON array
         JsonElement elt = JsonParser.parseString(response);
         assertTrue(elt.isJsonArray());
@@ -92,6 +94,7 @@ public class TestPrefixesActionResponse {
 
         testJSON(x1, "prefix1", "http://example/ns#");
         testJSON(x2, "prefix2", "http://example/namespace/");
+        }
     }
 
     private void testJSON(JsonObject jsonObj, String prefixValue, String uriValue) {
@@ -103,19 +106,21 @@ public class TestPrefixesActionResponse {
 
     @Test
     public void getPrefixJson() {
-        TypedInputStream x = httpGet(testReadURL()+"?prefix=prefix1");
-        //assertEquals("application/json", x.getContentType(), "Expected application/json");
-        String response = IO.readWholeFileAsUTF8(x);
-        assertEquals("http://example/ns#", response);
+        try (TypedInputStream x = httpGet(testReadURL()+"?prefix=prefix1")) {
+            //assertEquals("application/json", x.getContentType(), "Expected application/json");
+            String response = IO.readWholeFileAsUTF8(x);
+            assertEquals("http://example/ns#", response);
+        }
     }
 
     @Test
     public void getPrefixNone() {
         // check content type
-        TypedInputStream x = execStream(testReadURL(), "?prefix=noSuchPrefix");
+        try (TypedInputStream x = execStream(testReadURL(), "?prefix=noSuchPrefix")){
         //assertEquals("application/json", x.getContentType(), "Expected application/json");
         String response = IO.readWholeFileAsUTF8(x);
         assertTrue(response.isEmpty());
+        }
     }
 
     private static TypedInputStream execStream(String url, String queryString) {
