@@ -20,7 +20,12 @@ package org.apache.jena.rdflink;
 
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
-import org.apache.jena.query.*;
+import org.apache.jena.query.Dataset;
+import org.apache.jena.query.DatasetFactory;
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecutionBuilder;
+import org.apache.jena.query.ReadWrite;
+import org.apache.jena.query.TxnType;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdfconnection.RDFConnection;
@@ -84,18 +89,10 @@ public class RDFLinkAdapter implements RDFLink {
     }
 
     @Override
-    public QueryExec query(Query query) {
-        try (QueryExecution qExec = conn.query(query)) {
-        return QueryExec.adapt(qExec);
-        }
-    }
+    public QueryExec query(Query query) { return QueryExec.adapt(conn.query(query)); }
 
     @Override
-    public QueryExec query(String queryString) {
-        try (QueryExecution qExec = conn.query(queryString)) {
-            return QueryExec.adapt(qExec);
-        }
-    }
+    public QueryExec query(String queryString) { return QueryExec.adapt(conn.query(queryString)); }
 
     @Override
     public QueryExecBuilder newQuery() {
