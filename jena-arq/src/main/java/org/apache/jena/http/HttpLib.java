@@ -345,13 +345,10 @@ public class HttpLib {
             }
         } catch (IOException ex) { }
         finally {
-            try {
-                input.close();
-            } catch (IOException e) {
-                throw new RuntimeException("Finish" + e.getMessage());
-            }
+            IO.close(input);
         }
     }
+
 
     /** String to {@link URI}. Throws {@link HttpException} on bad syntax or if the URI isn't absolute. */
     public static URI toRequestURI(String uriStr) {
