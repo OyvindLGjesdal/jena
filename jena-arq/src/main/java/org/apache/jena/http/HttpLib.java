@@ -272,9 +272,9 @@ public class HttpLib {
     static HttpException exception(HttpResponse<InputStream> response, int httpStatusCode) {
         URI uri = response.request().uri();
         InputStream in = response.body();
-        if ( in == null )
-            return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
         try {
+            if ( in == null )
+                return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
             String msg;
             try {
                 msg = IO.readWholeFileAsUTF8(in);
