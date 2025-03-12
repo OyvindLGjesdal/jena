@@ -57,7 +57,7 @@ public class HttpEnv {
     private static HttpClient httpClient = buildDftHttpClient();
 
     private static HttpClient buildDftHttpClient() {
-        return httpClientBuilder().build();
+        return httpClientBuilder().version(HttpClient.Version.HTTP_1_1).build();
     }
 
     public static HttpClient.Builder httpClientBuilder() {
