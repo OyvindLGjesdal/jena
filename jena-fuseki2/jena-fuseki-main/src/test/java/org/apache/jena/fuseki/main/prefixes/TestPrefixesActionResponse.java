@@ -72,28 +72,23 @@ public class TestPrefixesActionResponse {
     @Test
     public void getAllJson() {
         try ( TypedInputStream x = httpGet(testReadURL())) {
-
             assertEquals("application/json", x.getContentType(), "Expected application/json");
             String response = IO.readWholeFileAsUTF8(x);
-
         // JSON array
-        JsonElement elt = JsonParser.parseString(response);
-        assertTrue(elt.isJsonArray());
-        JsonArray array = elt.getAsJsonArray();
-        assertEquals(2, array.size());
-
-        JsonObject x1 = array.get(0).getAsJsonObject();
-        JsonObject x2 = array.get(1).getAsJsonObject();
-
-        String fPrefix0 = x1.get("prefix").getAsString();
-        if ( fPrefix0.equals("prefix2") ) {
-            JsonObject tmp = x1;
-            x1 = x2;
-            x2 = tmp;
-        }
-
-        testJSON(x1, "prefix1", "http://example/ns#");
-        testJSON(x2, "prefix2", "http://example/namespace/");
+            JsonElement elt = JsonParser.parseString(response);
+            assertTrue(elt.isJsonArray());
+            JsonArray array = elt.getAsJsonArray();
+            assertEquals(2, array.size());
+            JsonObject x1 = array.get(0).getAsJsonObject();
+            JsonObject x2 = array.get(1).getAsJsonObject();
+            String fPrefix0 = x1.get("prefix").getAsString();
+            if ( fPrefix0.equals("prefix2") ) {
+                JsonObject tmp = x1;
+                x1 = x2;
+                x2 = tmp;
+            }
+            testJSON(x1, "prefix1", "http://example/ns#");
+            testJSON(x2, "prefix2", "http://example/namespace/");
         }
     }
 
