@@ -272,9 +272,9 @@ public class HttpLib {
     static HttpException exception(HttpResponse<InputStream> response, int httpStatusCode) {
         URI uri = response.request().uri();
         InputStream in = response.body();
+        if ( in == null )
+            return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
         try {
-            if ( in == null )
-                return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
             String msg;
             try {
                 msg = IO.readWholeFileAsUTF8(in);
@@ -343,12 +343,11 @@ public class HttpLib {
                 }
                 bytesRead += n;
             }
-        } catch (IOException ex) { }
+        } catch (IOException ex) { /*ignore*/ }
         finally {
             IO.close(input);
         }
     }
-
 
     /** String to {@link URI}. Throws {@link HttpException} on bad syntax or if the URI isn't absolute. */
     public static URI toRequestURI(String uriStr) {
@@ -594,7 +593,7 @@ public class HttpLib {
             String[] userpasswd = uri.getUserInfo().split(":");
             if ( userpasswd.length == 2 ) {
                 // User info in the URI is not a good idea.
-                // Only      if "user:password@host", not "user@host"
+                // Only if "user:password@host", not "user@host"
                 key = HttpLib.endpointURI(uri);
                 // The auth key will include user:password making it specific.
                 authEnv.registerUsernamePassword(key, userpasswd[0], userpasswd[1]);
