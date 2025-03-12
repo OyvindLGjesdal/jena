@@ -83,9 +83,6 @@ public class HttpTest {
             if ( expectedStatusCode > 0 )
                 Assertions.assertEquals(expectedStatusCode, ex.getStatusCode(), ex.getMessage()+" ::");
         }
-        catch (Exception ex) {ex.printStackTrace();
-        fail("Other exception:");
-        }
     }
 
     public static void expectQuery403(Runnable action) {
