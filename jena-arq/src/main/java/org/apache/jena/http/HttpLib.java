@@ -284,7 +284,7 @@ public class HttpLib {
                 msg = null;
             }
             return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode), msg);
-        } finally { IO.close(in); }
+        } finally { finish(in); }
     }
 
     private static long getContentLength(HttpResponse<InputStream> response) {
