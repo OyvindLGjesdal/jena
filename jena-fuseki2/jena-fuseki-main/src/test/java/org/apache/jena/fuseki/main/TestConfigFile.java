@@ -365,7 +365,6 @@ public class TestConfigFile {
             String actual = qExec.execSelect().nextBinding().get(Var.alloc("V")).getLiteralLexicalForm();
             assertEquals(value, actual);
         }
-        catch (Exception ex) { ex.printStackTrace();}
     }
 
     private static void assertCxtValueNotNull(RDFConnection conn, String contextSymbol) {
