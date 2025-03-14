@@ -93,11 +93,13 @@ public class TestFusekiShaclValidation {
         }
         catch (HttpException ex) {
             System.err.println("shacl_no_data_graph: HTTP Exception: " + ex.getMessage() + " | URL: ");
+            throw ex;
         } catch (QueryExceptionHTTP ex) {
             System.err.println("Query Exception HTTP: " + ex.getMessage() + " | URL: " );
+            throw ex;
         } catch (Exception ex) {
             System.err.println("General Exception: " + ex.getMessage() + " | URL: ");
-            ex.printStackTrace();
+            throw ex;
         }
     }
 

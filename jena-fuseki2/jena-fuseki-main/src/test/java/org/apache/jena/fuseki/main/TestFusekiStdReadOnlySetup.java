@@ -201,9 +201,12 @@ public class TestFusekiStdReadOnlySetup {
         }
         catch (HttpException ex) {
             System.err.println("HTTP Exception: " + ex.getMessage() + " | URL: " + dest);
+            throw ex;
         } catch (QueryExceptionHTTP ex) {
             System.err.println("Query Exception HTTP: " + ex.getMessage() + " | URL: " + dest + " response: " + ex.getResponse());
+            throw ex;
         } catch (Exception ex) {
+            throw ex;
             System.err.println("General Exception: " + ex.getMessage() + " | URL: " + dest);
         }
     }
