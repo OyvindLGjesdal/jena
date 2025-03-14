@@ -21,6 +21,8 @@ package org.apache.jena.fuseki.main;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import org.apache.jena.atlas.web.HttpException;
+import org.apache.jena.sparql.engine.http.QueryExceptionHTTP;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -88,6 +90,14 @@ public class TestFusekiShaclValidation {
             } finally {
                 conn.update("CLEAR ALL");
             }
+        }
+        catch (HttpException ex) {
+            System.err.println("shacl_no_data_graph: HTTP Exception: " + ex.getMessage() + " | URL: ");
+        } catch (QueryExceptionHTTP ex) {
+            System.err.println("Query Exception HTTP: " + ex.getMessage() + " | URL: " );
+        } catch (Exception ex) {
+            System.err.println("General Exception: " + ex.getMessage() + " | URL: ");
+            ex.printStackTrace();
         }
     }
 

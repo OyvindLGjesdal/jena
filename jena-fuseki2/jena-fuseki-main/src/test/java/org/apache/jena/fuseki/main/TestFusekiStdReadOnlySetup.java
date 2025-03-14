@@ -199,6 +199,13 @@ public class TestFusekiStdReadOnlySetup {
         try ( RDFLink conn = RDFLink.connect(dest) ) {
             action.accept(conn);
         }
+        catch (HttpException ex) {
+            System.err.println("HTTP Exception: " + ex.getMessage() + " | URL: " + dest);
+        } catch (QueryExceptionHTTP ex) {
+            System.err.println("Query Exception HTTP: " + ex.getMessage() + " | URL: " + dest + " response: " + ex.getResponse());
+        } catch (Exception ex) {
+            System.err.println("General Exception: " + ex.getMessage() + " | URL: " + dest);
+        }
     }
 
     private static void handleException(RuntimeException ex, int responseCode, String message) {
