@@ -98,9 +98,8 @@ public class ExFuseki_09_Https_Auth {
             .destination("https://localhost:3443/ds")
             .build();
 
-        try ( RDFConnection conn = connSingle ;
-              QueryExecution qExec = conn.query("ASK{}"); ) {
-
+        try ( RDFConnection conn = connSingle ) {
+            QueryExecution qExec = conn.query("ASK{}");
             QueryExecUtils.executeQuery(qExec);
         }
 
@@ -114,8 +113,8 @@ public class ExFuseki_09_Https_Auth {
         try ( RDFConnection conn = RDFConnectionFuseki.create()
                                     .httpClient(hc2)
                                     .destination("https://localhost:3443/ds")
-                                    .build();
-              QueryExecution qExec = conn.query("ASK{}")) {
+                                    .build(); ) {
+            QueryExecution qExec = conn.query("ASK{}");
             QueryExecUtils.executeQuery(qExec);
         } catch (Exception ex) {
             System.out.println(ex);

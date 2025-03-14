@@ -35,7 +35,6 @@ import org.apache.jena.rdfconnection.RDFConnection;
 import org.apache.jena.rdfconnection.RDFConnectionRemote;
 import org.apache.jena.sparql.core.DatasetGraph ;
 import org.apache.jena.sparql.core.DatasetGraphFactory ;
-import org.apache.jena.sparql.exec.QueryExec;
 import org.apache.jena.system.Txn ;
 import org.apache.jena.update.UpdateException;
 import org.apache.jena.vocabulary.RDF;
@@ -108,18 +107,16 @@ public class TestRDFConnectionRemote extends AbstractTestRDFConnection {
     @Test(expected=QueryParseException.class)
     public void non_standard_syntax_0() {
         // Default setup - local checking.
-        try ( RDFConnection conn = connection() ;
-              QueryExecution qExec = conn.query("FOOBAR")) {
-            ResultSet rs = qExec.execSelect();
+        try ( RDFConnection conn = connection() ) {
+            ResultSet rs = conn.query("FOOBAR").execSelect();
         }
     }
 
     @Test(expected=QueryParseException.class)
     public void non_standard_syntax_1() {
         RDFConnection conn = RDFConnectionRemote.service(server.datasetURL("/ds")).parseCheckSPARQL(true).build();
-        try (conn;
-             QueryExecution qExec = conn.query("FOOBAR")) {
-            ResultSet rs = qExec.execSelect();
+        try ( conn ) {
+            ResultSet rs = conn.query("FOOBAR").execSelect();
         }
     }
 
