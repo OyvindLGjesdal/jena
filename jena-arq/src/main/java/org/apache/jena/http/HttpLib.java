@@ -289,6 +289,7 @@ public class HttpLib {
                 if ( msg.isBlank())
                     msg = null;
             } catch (RuntimeIOException e) {
+                // get the exception here
                 msg = null;
             }
             return new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode), msg);

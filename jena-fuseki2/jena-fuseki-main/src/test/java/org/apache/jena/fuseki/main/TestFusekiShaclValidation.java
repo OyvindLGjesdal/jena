@@ -83,13 +83,10 @@ public class TestFusekiShaclValidation {
     public void shacl_no_data_graph() {
         try ( RDFConnection conn = RDFConnection.connect(serverURL+"/ds")) {
             conn.put(DIR+"data1.ttl");
-            try {
-                FusekiTestLib.expect404(()->{
+            FusekiTestLib.expect404(()->{
                     ValidationReport report = validateReport(serverURL+"/ds/shacl?graph=urn:abc:noGraph", DIR+"shapes1.ttl");
                 });
-            } finally {
-                conn.update("CLEAR ALL");
-            }
+            conn.update("CLEAR ALL");
         }
         catch (HttpException ex) {
             System.err.println("shacl_no_data_graph: HTTP Exception: " + ex.getMessage() + " | URL: ");
