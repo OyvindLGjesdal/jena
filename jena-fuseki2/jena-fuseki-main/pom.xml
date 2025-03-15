@@ -213,9 +213,12 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <includes>
-            <include>**/TS_*.java</include>
+            <!--<include>**/TS_*.java</include>-->
+            <!--<include>**/TestFusekiShaclValidation2.java</include>-->
+            <include>**/TS_FusekiMain.java</include>
           </includes>
-          <argLine>-Djdk.httpclient.HttpClient.log=errors,requests,headers,frames[:control:data:window:all..],content,ssl,trace,channel</argLine>
+          <!--<argLine>-Djdk.httpclient.HttpClient.log=errors,requests,headers,frames[:control:data:window:all..],content,ssl,trace,channel</argLine>-->
+          <argLine>-Djdk.httpclient.HttpClient.log=errors,requests,headers</argLine>
         </configuration>
       </plugin>
 
