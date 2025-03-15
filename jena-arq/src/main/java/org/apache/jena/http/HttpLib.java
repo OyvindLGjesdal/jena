@@ -183,7 +183,7 @@ public class HttpLib {
         else if ( inRange(httpStatusCode, 200, 299) ) {
             // Success. Continue processing.
         }
-        else if ( inRange(httpStatusCode, 300, 399) ) {
+        else if ( inRange(httpStatusCode, 300, 599) ) {
             // We had follow redirects on (default client) so it's http->https,
             // or the application passed on a HttpClient with redirects off.
             // Either way, we should not continue processing.
@@ -194,7 +194,7 @@ public class HttpLib {
             }
             throw new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
         }
-        else if ( inRange(httpStatusCode, 400, 499) ) {
+        else if ( inRange(httpStatusCode, 400, 599) ) {
             try {
                 finish(response);
             } catch (Exception ex) {
