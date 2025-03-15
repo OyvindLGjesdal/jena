@@ -195,8 +195,16 @@ public class HttpLib {
             throw new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
         }
         else if ( inRange(httpStatusCode, 400, 499) ) {
-            throw exception(response, httpStatusCode);
+            try {
+                finish(response);
+            } catch (Exception ex) {
+                throw new HttpException("Error discarding body of "+httpStatusCode , ex);
+            }
+            throw new HttpException(httpStatusCode, HttpSC.getMessage(httpStatusCode));
+
+//            throw exception(response, httpStatusCode);
         }
+
         else if ( inRange(httpStatusCode, 500, 599) ) {
             throw exception(response, httpStatusCode);
         }
