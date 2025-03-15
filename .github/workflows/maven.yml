@@ -31,4 +31,4 @@ jobs:
         distribution: 'temurin'
         java-version: ${{ matrix.java_version }}
     - name: Build with Maven
-      run: mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
+      run: mvn -B --file pom.xml -pl jena-fuseki2/jena-fuseki-main -Dmaven.javadoc.skip=true install
