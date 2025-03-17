@@ -186,7 +186,7 @@ public class HttpLib {
         // update end of range to 599 to cover exception for larger range
         // to debug if replacing exception(response, httpStatusCode) removes
         // CI failure
-        else if ( inRange(httpStatusCode, 300, 599) ) {
+        else if ( inRange(httpStatusCode, 300, 399) ) {
             // We had follow redirects on (default client) so it's http->https,
             // or the application passed on a HttpClient with redirects off.
             // Either way, we should not continue processing.
