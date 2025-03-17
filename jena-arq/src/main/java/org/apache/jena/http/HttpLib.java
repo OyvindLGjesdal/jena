@@ -672,6 +672,7 @@ public class HttpLib {
         URI uri = toRequestURI(url);
         HttpRequest.Builder builder = requestBuilderFor(url);
         builder.uri(uri);
+        builder.version(HttpClient.Version.HTTP_1_1);
         builder.method(style.method(), body);
         if ( modifier != null )
             modifier.accept(builder);

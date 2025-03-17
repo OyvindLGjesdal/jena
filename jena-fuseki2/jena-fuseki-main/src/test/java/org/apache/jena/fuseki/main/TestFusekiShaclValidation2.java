@@ -117,6 +117,7 @@ public class TestFusekiShaclValidation2 {
                     });
                 } finally {
                     conn.update("CLEAR ALL");
+
                 }
             }
         });

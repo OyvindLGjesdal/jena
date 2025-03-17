@@ -66,6 +66,7 @@ public class HttpEnv {
                 // Version HTTP/2 is the default, negotiating up from HTTP 1.1.
                 //.version(Version.HTTP_2)
                 .connectTimeout(Duration.ofSeconds(10))
+
                 // Redirect.NORMAL - this does not follow https to http 3xx.
                 // (Dec 2021) http://purl.org first switches to https://purl.org, then will redirect to an http: URL.
                 .followRedirects(Redirect.ALWAYS)
