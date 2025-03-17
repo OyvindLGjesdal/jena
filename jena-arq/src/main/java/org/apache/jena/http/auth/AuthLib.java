@@ -118,7 +118,7 @@ public class AuthLib {
         HttpRequest.Builder request2builder = HttpLib.createBuilder(request);
         request2builder = authRequestModifier.addAuth(request2builder);
 
-        HttpRequest httpRequest2 = request2builder.build();
+        HttpRequest httpRequest2 = request2builder.version(HttpClient.Version.HTTP_1_1).build();
         HttpResponse<T> httpResponse2 = HttpLib.executeJDK(httpClient, httpRequest2, bodyHandler);
         // Pass back to application regardless of response code.
         return httpResponse2;

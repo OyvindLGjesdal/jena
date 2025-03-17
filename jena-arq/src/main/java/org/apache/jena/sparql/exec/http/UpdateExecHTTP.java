@@ -137,6 +137,7 @@ public class UpdateExecHTTP implements UpdateExec {
 
     private String executeUpdate(String requestURL, BodyPublisher body, String contentType) {
         HttpRequest.Builder builder = HttpLib.requestBuilder(requestURL, httpHeaders, timeout, timeoutUnit);
+        builder.version(HttpClient.Version.HTTP_1_1);
         builder = contentTypeHeader(builder, contentType);
         HttpRequest request = builder.POST(body).build();
         logUpdate(updateString, request);

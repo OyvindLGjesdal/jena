@@ -136,6 +136,7 @@ public class HttpRDF {
 
     /*package*/ static void httpResponseToStreamRDF(String url, HttpResponse<InputStream> response, StreamRDF dest) {
         InputStream in = handleResponseInputStream(response);
+
         String base = determineBaseURI(url, response);
         Lang lang = determineSyntax(response, Lang.RDFXML);
         try {

@@ -326,6 +326,7 @@ public class HttpOp {
         if ( bodyPublisher == null )
             bodyPublisher = BodyPublishers.noBody();
         HttpRequest.Builder builder = HttpLib.requestBuilderFor(url).uri(toRequestURI(url));
+        builder.version(HttpClient.Version.HTTP_1_1);
         HttpLib.contentTypeHeader(builder, contentType);
         HttpLib.acceptHeader(builder, acceptHeader);
         HttpRequest request = builder.POST(bodyPublisher).build();

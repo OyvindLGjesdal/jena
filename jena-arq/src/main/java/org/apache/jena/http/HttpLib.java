@@ -479,6 +479,7 @@ public class HttpLib {
     public static Builder requestBuilder(String url, Map<String, String> httpHeaders, long readTimeout, TimeUnit readTimeoutUnit) {
         HttpRequest.Builder builder = HttpLib.requestBuilderFor(url);
         headers(builder, httpHeaders);
+        builder.version(HttpClient.Version.HTTP_1_1);
         builder.uri(toRequestURI(url));
         if ( readTimeout >= 0 )
             builder.timeout(Duration.ofMillis(readTimeoutUnit.toMillis(readTimeout)));
