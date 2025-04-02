@@ -58,21 +58,27 @@ public class TestDatasetWithWildcardQueryFailing extends TestDatasetWithConfigur
         final String testName = "testAnalyzingQueryParserAnalyzesWildcards";
         final String turtle = StrUtils.strjoinNL(
                 TURTLE_PROLOG,
-                "<" + RESOURCE_BASE + testName + ">",
-                "  rdfs:label 'Universal Edition'",
+                "<http://rdfh.ch/a/b>",
+                "  rdfs:label 'Universal Edition' ; ",
+                "  rdfs:label 'unniversal Eedition' ;",
                 ".",
-                "<" + RESOURCE_BASE + "testtest/" + "_1>",
-                "  rdfs:label 'Umiversal Edition'",
-                "."
+
+                "<http://rdfh.ch/0806/xiy9FauqRQqVl_dsLWMYVQ>  rdfs:label 'Universal Edition' ;",
+                "rdfs:label  'unniversal edition' ;",
+                "rdfs:label 'universal edition' ."
+              //  "<" + RESOURCE_BASE + "testtest/" + "_1>",
+              // "  rdfs:label 'umiiversal Edition'",
+              //  "."
                 );
         String queryString = StrUtils.strjoinNL(
                 QUERY_PROLOG,
-                "SELECT ?s",
+                "SELECT distinct ?s ",
                 "WHERE {",
-                "    ?s text:query ( rdfs:label \"uni*\" 10 ) .",
+                "    ?s text:query ( rdfs:label \"uni*\" ) .",
+                "    ?s rdfs:label ?label .",
                 "}"
                 );
-        Set<String> expectedURIs = Set.of(RESOURCE_BASE + testName);
+        Set<String> expectedURIs = Set.of("http://rdfh.ch/a/b","http://rdfh.ch/0806/xiy9FauqRQqVl_dsLWMYVQ");
         doTestSearch(turtle, queryString, expectedURIs);
     }
 }
