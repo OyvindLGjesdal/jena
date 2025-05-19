@@ -14,7 +14,7 @@ permissions:
 jobs:
   # Unit tests, faster, only run on GH for the ASF repository.
   unit-test-and-build:
-    if: github.repository == 'apache/jena'
+  #  if: github.repository == 'apache/jena'
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -50,7 +50,7 @@ jobs:
 
   cypress-run:
     # End-to-end tests, only run on GH for the ASF repository.
-    if: github.repository == 'apache/jena'
+   # if: github.repository == 'apache/jena'
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
