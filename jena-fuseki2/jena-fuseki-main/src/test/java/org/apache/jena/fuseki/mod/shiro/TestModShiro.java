@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.net.Authenticator;
 import java.net.http.HttpClient;
+import java.util.concurrent.Executor;
 
+import org.apache.jena.base.Sys;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -122,10 +124,11 @@ public class TestModShiro {
         String dsLocal = "/local/ds";
         try {
             attemptByAddr(server, dsPublic);
+
             HttpException httpEx = assertThrows(HttpException.class, ()->attemptByAddr(server, dsLocal));
             assertEquals(403, httpEx.getStatusCode(), "Expected HTTP 403");
+           attemptByLocalhost(server, dsLocal);
 
-            attemptByLocalhost(server, dsLocal);
         } finally {
             server.stop();
         }
@@ -144,7 +147,7 @@ public class TestModShiro {
 
         try {
             // No user-password
-            {
+           {
                 HttpException httpEx = assertThrows(HttpException.class, ()->attemptByLocalhost(server, dsname));
                 assertEquals(401, httpEx.getStatusCode(), "Expected HTTP 401");
             }
@@ -153,24 +156,35 @@ public class TestModShiro {
             {
                 Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
                 HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
+
                 attemptByLocalhost(server, httpClient, dsname);
-                // and a SPARQL query
+                //and a SPARQL query
                 QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}").ask();
             }
 
             // user-password via registration
             {
-                AuthEnv.get().registerUsernamePassword(server.serverURL(), "user1", "passwd1");
+               AuthEnv.get().registerUsernamePassword(server.serverURL(), "user1", "passwd1");
                 attemptByLocalhost(server, dsname);
                 AuthEnv.get().unregisterUsernamePassword(server.serverURL());
             }
 
             // try the ping (proxy for admin operations)
             {
-                Authenticator authenticator = AuthLib.authenticator("admin", "pw");
-                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
-                HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                Authenticator authenticatorAdmin = AuthLib.authenticator("admin", "pw");
+                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticatorAdmin).build();
+                System.out.println(HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping"));
                 AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+
+                Authenticator authenticatorUser1 = AuthLib.authenticator("user1", "passwd1");
+                HttpClient httpClient2 = HttpEnv.httpClientBuilder().authenticator(authenticatorUser1).build();
+                // expect forbidden
+              //  HttpException httpEx =
+                System.out.println(HttpOp.httpGetString(httpClient2, server.serverURL()+"$/ping"));
+            //    assertEquals(403, httpEx.getStatusCode(), "Expected HTTP 401");
+                //AuthEnv.get().toString();
+                AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+
             }
 
             {
