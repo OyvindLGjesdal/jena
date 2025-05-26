@@ -18,13 +18,10 @@
 
 package org.apache.jena.fuseki.mod.shiro;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import java.net.Authenticator;
 import java.net.http.HttpClient;
 
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +45,8 @@ import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.exec.http.GSP;
 import org.apache.jena.sparql.exec.http.QueryExecHTTP;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModShiro {
     static final String unlocal = determineUnlocal();
@@ -165,13 +164,25 @@ public class TestModShiro {
                 AuthEnv.get().unregisterUsernamePassword(server.serverURL());
             }
 
-            // try the ping (proxy for admin operations)
+            // try the ping (proxy for admin operations as admin user)
+            Pattern startOfDateTimePattern  = Pattern.compile("[0-9]{4}-.*");
             {
                 Authenticator authenticator = AuthLib.authenticator("admin", "pw");
                 HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
-                HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                assertTrue(startOfDateTimePattern.matcher(pingResultString).find(),
+                        "admin user should be able to ping: " + pingResultString);
                 AuthEnv.get().unregisterUsernamePassword(server.serverURL());
             }
+            // try the ping (proxy for  operations as user1 user without access)
+            {
+                Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
+                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
+                String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                assertFalse(startOfDateTimePattern.matcher(pingResultString).find(),
+                        "user1 user should not be able to ping: " + pingResultString);
+            }
+
 
             {
                 // Bad password
