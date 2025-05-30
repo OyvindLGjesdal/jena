@@ -57,15 +57,12 @@ public class ExFuseki_10_Https_Setup {
     private static void client() {
         // Need to provide a suitable HttpClient that can handle https.
         // Allow self-signed
-        HttpClient hc = trustLocalhostUnsigned().build();
-
-        RDFConnection connSingle = RDFConnectionFuseki.create()
-            .httpClient(hc)
-            .destination("https://localhost:3443/ds")
-            .build();
-
-        try ( RDFConnection conn = connSingle ) {
-            QueryExecution qExec = conn.query("ASK{}");
+        try (HttpClient hc = trustLocalhostUnsigned().build();
+               RDFConnection connSingle = RDFConnectionFuseki.create()
+                       .httpClient(hc)
+                       .destination("https://localhost:3443/ds")
+                       .build()) {
+            QueryExecution qExec = connSingle.query("ASK{}");
             QueryExecUtils.executeQuery(qExec);
         }
     }

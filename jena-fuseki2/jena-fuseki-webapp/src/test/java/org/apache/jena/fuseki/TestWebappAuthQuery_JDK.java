@@ -32,6 +32,7 @@ import org.junit.runners.MethodSorters;
 public class TestWebappAuthQuery_JDK extends AbstractTestWebappAuth_JDK {
     @Test
     public void query_auth_jdk_01_no_auth() {
+
         QueryExecutionHTTP qe = QueryExecutionHTTP.create().endpoint(authServiceQuery()).query("ASK { }").build();
         // No auth credentials should result in an error
         HttpTest.expectQuery401(()->qe.execAsk());
@@ -40,17 +41,20 @@ public class TestWebappAuthQuery_JDK extends AbstractTestWebappAuth_JDK {
     @Test
     public void query_auth_jdk_02_bad_auth() {
         // Auth - bad password
-        QueryExecutionHTTP qe = withAuthJDK(QueryExecutionHTTP.create().endpoint(authServiceQuery()).query("ASK { }"),
-                                              "allowed", "incorrect");
-        HttpTest.expectQuery401(()->qe.execAsk());
+
+        try (QueryExecutionHTTP qe = withAuthJDK(QueryExecutionHTTP.create().endpoint(authServiceQuery()).query("ASK { }"),
+                                              "allowed", "incorrect")) {
+            HttpTest.expectQuery401(() -> qe.execAsk());
+        }
     }
 
     @Test
     public void query_auth_jdk_03_good_auth() {
         // Auth credentials for valid user with correct password
-        QueryExecutionHTTP qe = withAuthJDK(QueryExecutionHTTP.create().endpoint(authServiceQuery()).query("ASK { }"),
-                                              "allowed", "password");
-        Assert.assertTrue(qe.execAsk());
+        try (QueryExecutionHTTP qe = withAuthJDK(QueryExecutionHTTP.create().endpoint(authServiceQuery()).query("ASK { }"),
+                                              "allowed", "password")) {
+            Assert.assertTrue(qe.execAsk());
+        }
     }
 
     @Test

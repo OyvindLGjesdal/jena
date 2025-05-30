@@ -21,6 +21,7 @@ import static org.apache.jena.http.HttpLib.handleResponseRtnString;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
@@ -37,12 +38,13 @@ public class TestWebappMetrics extends AbstractFusekiWebappTest {
     public void can_retrieve_metrics() {
         String r = ServerCtl.urlRoot() + "$/metrics";
         HttpRequest request = HttpRequest.newBuilder().uri(HttpLib.toRequestURI(r)).build();
-        HttpResponse<InputStream> response = HttpLib.executeJDK(HttpEnv.getDftHttpClient(), request, BodyHandlers.ofInputStream());
-        String body = handleResponseRtnString(response);
-
-        String ct = response.headers().firstValue(HttpNames.hContentType).orElse(null);
-        assertTrue(ct.contains(WebContent.contentTypeTextPlain));
-        assertTrue(ct.contains(WebContent.charsetUTF8));
-        assertTrue(body.contains("fuseki_requests_good"));
+        try (HttpClient hc = HttpEnv.getDftHttpClient()) {
+            HttpResponse<InputStream> response = HttpLib.executeJDK(hc, request, BodyHandlers.ofInputStream());
+            String body = handleResponseRtnString(response);
+            String ct = response.headers().firstValue(HttpNames.hContentType).orElse(null);
+            assertTrue(ct.contains(WebContent.contentTypeTextPlain));
+            assertTrue(ct.contains(WebContent.charsetUTF8));
+            assertTrue(body.contains("fuseki_requests_good"));
+        }
     }
 }
