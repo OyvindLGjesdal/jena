@@ -48,6 +48,6 @@ public class TestMetrics extends AbstractFusekiTest {
         assertTrue(ct.contains(WebContent.contentTypeTextPlain));
         assertTrue(ct.contains(WebContent.charsetUTF8));
         assertTrue(body.contains("fuseki_requests_good"));
-        HttpEnv.closeDftHttpClient();
+       // HttpEnv.closeDftHttpClient();
     }
 }
