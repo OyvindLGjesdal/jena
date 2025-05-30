@@ -220,7 +220,7 @@ public class TestFusekiServerBuild {
                 assertFalse(rs.hasNext());
             });
         } finally {
-            HttpEnv.closeDftHttpClient();
+            //HttpEnv.closeDftHttpClient();
             server.stop();
             }
     }
