@@ -217,17 +217,19 @@ public class TestServiceAuth {
 
     @Test public void service_auth_good_cxt_1() {
         Context context = minimalContext();
-        HttpClient hc = env.httpClientAuthGood();
-        context.set(Service.httpQueryClient, hc);
-        runServiceQueryWithContext(env.datasetURL(), context);
+        try (HttpClient hc = env.httpClientAuthGood()) {
+            context.set(Service.httpQueryClient, hc);
+            runServiceQueryWithContext(env.datasetURL(), context);
+        }
     }
 
     @Test(expected=QueryExceptionHTTP.class)
     public void service_auth_bad_cxt_2() {
         Context context = minimalContext();
-        HttpClient hc = env.httpClientAuthBadRetry();    // Bad
-        context.set(Service.httpQueryClient, hc);
-        runServiceQueryWithContext(env.datasetURL(), context);
+        try (HttpClient hc = env.httpClientAuthBadRetry()) {    // Bad
+            context.set(Service.httpQueryClient, hc);
+            runServiceQueryWithContext(env.datasetURL(), context);
+        }
     }
 
     @Test public void service_auth_good_dsg_cxt() {
@@ -235,9 +237,10 @@ public class TestServiceAuth {
         DatasetGraph local = DatasetGraphZero.create();
         Context context = local.getContext();
         minimalContext(context);
-        HttpClient hc = env.httpClientAuthGood();
-        context.set(Service.httpQueryClient, hc);
-        runServiceQueryWithDataset(SERVICE, local);
+        try (HttpClient hc = env.httpClientAuthGood()) {
+            context.set(Service.httpQueryClient, hc);
+            runServiceQueryWithDataset(SERVICE, local);
+        }
     }
 
     @Test(expected=QueryExceptionHTTP.class)
@@ -246,9 +249,10 @@ public class TestServiceAuth {
         DatasetGraph local = DatasetGraphZero.create();
         Context context = local.getContext();
         minimalContext(context);
-        HttpClient hc = env.httpClientAuthBad();    // Bad
-        context.set(Service.httpQueryClient, hc);
-        runServiceQuery(SERVICE);
+        try( HttpClient hc = env.httpClientAuthBad()) {   // Bad
+            context.set(Service.httpQueryClient, hc);
+            runServiceQuery(SERVICE);
+        }
     }
 
     public void service_query_auth_context_silent() {

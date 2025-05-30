@@ -65,6 +65,7 @@ public class TestSetupHTTP  {
 
     @AfterClass
     public static void afterClass() {
+        httpClient.close();
         server.stop();
     }
 
