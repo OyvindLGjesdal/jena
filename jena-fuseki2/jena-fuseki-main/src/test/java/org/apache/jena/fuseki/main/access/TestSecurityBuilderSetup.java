@@ -178,8 +178,8 @@ public class TestSecurityBuilderSetup {
     }
 
     @Test public void access_allow_nowhere() {
-        HttpClient hc = LibSec.httpClient(authSetup1);
-        try( TypedInputStream in = HttpOp.httpGet(hc, serverURL+"nowhere") ) {
+        try( HttpClient hc = LibSec.httpClient(authSetup1);
+               TypedInputStream in = HttpOp.httpGet(hc, serverURL+"nowhere") ) {
             // null for 404.
             assertNull(in);
         } catch (HttpException ex) {
@@ -189,8 +189,8 @@ public class TestSecurityBuilderSetup {
     }
 
     @Test public void access_allow_ds() {
-        HttpClient hc = LibSec.httpClient(authSetup1);
-        try( TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ds") ) {
+        try( HttpClient hc = LibSec.httpClient(authSetup1);
+             TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ds") ) {
             assertNotNull(in);
         }
     }
@@ -198,16 +198,16 @@ public class TestSecurityBuilderSetup {
     // Service level : ctl.
     @Test public void access_service_ctl_user1() {
         // user1 -- allowed.
-        HttpClient hc = LibSec.httpClient(authSetup1);
-        try( TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
+        try( HttpClient hc = LibSec.httpClient(authSetup1);
+             TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
             assertNotNull(in);
         }
     }
 
     @Test public void access_service_ctl_user2() {
         // user2 -- can login, not allowed.
-        HttpClient hc = LibSec.httpClient(authSetup2);
-        try( TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
+        try( HttpClient hc = LibSec.httpClient(authSetup2);
+              TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
             fail("Didn't expect to succeed");
         } catch (HttpException ex) {
             if ( ex.getStatusCode() != HttpSC.FORBIDDEN_403)
@@ -217,8 +217,8 @@ public class TestSecurityBuilderSetup {
 
     @Test public void access_service_ctl_userX() {
         // userX -- can't login, not allowed.
-        HttpClient hc = LibSec.httpClient(authSetupX);
-        try( TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
+        try( HttpClient hc = LibSec.httpClient(authSetupX);
+             TypedInputStream in = HttpOp.httpGet(hc, serverURL+"ctl") ) {
             fail("Didn't expect to succeed");
         } catch (HttpException ex) {
             if ( ex.getStatusCode() != HttpSC.UNAUTHORIZED_401)

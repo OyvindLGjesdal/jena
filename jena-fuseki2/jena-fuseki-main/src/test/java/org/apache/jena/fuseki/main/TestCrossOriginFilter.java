@@ -278,17 +278,18 @@ public class TestCrossOriginFilter {
     }
 
     private static HttpResponse<InputStream> httpOptions(String URL, String...headers) {
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(URL))
-                .method(METHOD_OPTIONS, BodyPublishers.noBody())
-                .headers(headers)
-                .build();
-        try {
-            return httpClient.send(request, BodyHandlers.ofInputStream());
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            return null;
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(URL))
+                    .method(METHOD_OPTIONS, BodyPublishers.noBody())
+                    .headers(headers)
+                    .build();
+            try {
+                return httpClient.send(request, BodyHandlers.ofInputStream());
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+                return null;
+            }
         }
     }
 
