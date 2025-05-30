@@ -219,7 +219,10 @@ public class TestFusekiServerBuild {
                 RowSet rs = qExec.select();
                 assertFalse(rs.hasNext());
             });
-        } finally { server.stop(); }
+        } finally {
+            HttpEnv.closeDftHttpClient();
+            server.stop();
+            }
     }
 
     @Test public void dataservice_read_op_02() {

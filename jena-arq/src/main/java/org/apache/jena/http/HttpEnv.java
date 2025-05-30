@@ -55,6 +55,10 @@ public class HttpEnv {
         return requestHttpClient;
     }
 
+    public static void closeDftHttpClient() {
+        httpClient.close();
+    }
+
     private static HttpClient httpClient = buildDftHttpClient();
 
     private static HttpClient buildDftHttpClient() {
