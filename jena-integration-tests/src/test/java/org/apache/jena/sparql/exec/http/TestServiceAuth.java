@@ -199,7 +199,7 @@ public class TestServiceAuth {
     }
 
     @Test public void service_auth_good_registry_3_prefix() {
-        HttpClient hc = env.httpClientAuthGood();
+        try (HttpClient hc = env.httpClientAuthGood()) {
         String serviceURL = env.datasetURL();
         // Prefix of the URL.
         String serverURL = env.serverBaseURL();
@@ -210,9 +210,11 @@ public class TestServiceAuth {
         try {
             runServiceQuery(serviceURL);
         } finally {
+            RegistryHttpClient.get().find(serverURL).close();
             RegistryHttpClient.get().remove(serverURL);
             //RegistryHttpClient.get().clear();
         }
+    }
     }
 
     @Test public void service_auth_good_cxt_1() {
