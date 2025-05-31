@@ -137,7 +137,7 @@ public class TestSecurityConfig {
     @Test public void access_serverAny_user1() {
         test(DIR+"config-server-1.ttl", fusekiServer->{
             // Must be logged in.
-            try( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
+            try ( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
                  InputStream in = HttpOp.httpGet(hc, fusekiServer.serverURL()) ) {
                 assertNull(in);
             } catch (HttpException  ex) {
