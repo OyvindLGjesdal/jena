@@ -86,31 +86,30 @@ public class ExFuseki_09_Https_Auth {
 
     private static void client(SSLContext sslContext) {
         Authenticator authenticator1 = AuthLib.authenticator(USER, PASSWORD);
-        HttpClient hc = HttpClient.newBuilder()
+        System.out.println("Good client set up");
+        try ( HttpClient hc = HttpClient.newBuilder()
                 .authenticator(authenticator1)
                 .connectTimeout(Duration.ofSeconds(10))
                 .sslContext(sslContext)
                 .build();
 
-        System.out.println("Good client set up");
-        RDFConnection connSingle = RDFConnectionFuseki.create()
-            .httpClient(hc)
-            .destination("https://localhost:3443/ds")
-            .build();
-
-        try ( RDFConnection conn = connSingle ) {
+              RDFConnection conn = RDFConnectionFuseki.create()
+                .httpClient(hc)
+                .destination("https://localhost:3443/ds")
+                .build() ) {
             QueryExecution qExec = conn.query("ASK{}");
             QueryExecUtils.executeQuery(qExec);
         }
 
         System.out.println("Bad client set up");
         Authenticator authenticator2 = AuthLib.authenticator(USER, "wrong-trousers-gromit");
-        HttpClient hc2 = HttpClient.newBuilder()
+
+        try ( HttpClient hc2 = HttpClient.newBuilder()
                 .authenticator(authenticator2)
                 .connectTimeout(Duration.ofSeconds(10))
                 .sslContext(sslContext)
                 .build();
-        try ( RDFConnection conn = RDFConnectionFuseki.create()
+              RDFConnection conn = RDFConnectionFuseki.create()
                                     .httpClient(hc2)
                                     .destination("https://localhost:3443/ds")
                                     .build(); ) {

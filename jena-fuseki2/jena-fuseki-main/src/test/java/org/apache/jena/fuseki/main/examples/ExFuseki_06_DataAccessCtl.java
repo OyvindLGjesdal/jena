@@ -91,13 +91,13 @@ public class ExFuseki_06_DataAccessCtl {
 
         // ---- HttpClient connection with user and password basic authentication.
         Authenticator authenticator = AuthLib.authenticator("user1", "pw1");
-        HttpClient client = HttpClient.newBuilder()
+
+        // ---- Use it.
+        try (HttpClient client = HttpClient.newBuilder()
                 .authenticator(authenticator)
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
-
-        // ---- Use it.
-        try (RDFConnection conn = RDFConnectionRemote.newBuilder()
+             RDFConnection conn = RDFConnectionRemote.newBuilder()
                 .destination(URL)
                 .httpClient(client)
                 .build()) {
