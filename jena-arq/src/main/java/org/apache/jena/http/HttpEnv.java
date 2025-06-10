@@ -43,7 +43,6 @@ public class HttpEnv {
     public static /* final */ int urlLimit = 2 * 1024;
 
     public static HttpClient getDftHttpClient() { return httpClient; }
-
     public static void setDftHttpClient(HttpClient dftHttpClient) { httpClient = dftHttpClient; }
 
     /** Return the {@link HttpClient} based on URL and a possible pre-selected {@link HttpClient}. */
@@ -54,6 +53,10 @@ public class HttpEnv {
         if ( requestHttpClient == null )
             requestHttpClient = getDftHttpClient();
         return requestHttpClient;
+    }
+
+    public static void closeDftHttpClient() {
+        httpClient.close();
     }
 
     private static HttpClient httpClient = buildDftHttpClient();

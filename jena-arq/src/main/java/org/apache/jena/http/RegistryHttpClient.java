@@ -19,7 +19,6 @@
 package org.apache.jena.http;
 
 import java.net.http.HttpClient;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.apache.jena.http.sys.AbstractRegistryWithPrefix;
@@ -41,14 +40,7 @@ public class RegistryHttpClient extends AbstractRegistryWithPrefix<String, HttpC
     private static RegistryHttpClient singleton = new RegistryHttpClient();
     public static RegistryHttpClient get() { return singleton; }
 
-
     private RegistryHttpClient() {
         super(Function.identity());
     }
-
-    @Override
-    public void clear() {
-
-RegistryHttpClient.get()    }
-
-    }
+}
