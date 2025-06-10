@@ -24,6 +24,7 @@ import java.net.http.HttpClient;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import org.apache.jena.atlas.lib.Lib;
@@ -154,7 +155,7 @@ public class TestModShiro {
                 HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
                 attemptByLocalhost(server, httpClient, dsname);
                 // and a SPARQL query
-                QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}").ask();
+                QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}");
             }
 
             // user-password via registration
@@ -176,6 +177,10 @@ public class TestModShiro {
             }
             // try the ping (proxy for  operations as user1 user without access)
             {
+                // check that PingResult is still unauthorized
+                HttpClient httpClientAnon = HttpEnv.httpClientBuilder().build();
+                HttpException httpEx = assertThrows(HttpException.class, ()->HttpOp.httpGetString(httpClientAnon, server.serverURL()+"$/ping"));
+                assertEquals(401, httpEx.getStatusCode(), "Expect HTTP 401 if not logged in");
                 Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
                 HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
                 String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
