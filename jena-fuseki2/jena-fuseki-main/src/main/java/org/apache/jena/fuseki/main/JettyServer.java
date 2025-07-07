@@ -54,6 +54,7 @@ import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.util.thread.ThreadPool;
+import org.eclipse.jetty.util.thread.VirtualThreadPool;
 import org.eclipse.jetty.xml.XmlConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +75,7 @@ public class JettyServer {
 
     protected final Server server;
     protected int port;
+    private static QueuedThreadPool threadPool;
 
     public static Builder create() {
         return new Builder();
@@ -109,7 +111,12 @@ public class JettyServer {
      *  To synchronise with the server stopping, call {@link #join}.
      */
     public JettyServer start() {
-        try { server.start(); }
+        try { server.start();
+            int maxLeasedThreads = threadPool.getMaxLeasedThreads();
+            int availableThreads = 42;
+            int maxThreads = maxLeasedThreads + availableThreads;
+            threadPool.setMaxThreads(maxThreads);
+        }
         catch (Exception e) { throw new RuntimeException(e); }
         if ( port == 0 )
             port = ((ServerConnector)server.getConnectors()[0]).getLocalPort();
@@ -449,7 +456,12 @@ public class JettyServer {
 
     public static Server jettyServer(String jettyConfig) {
         try {
-            Server server = new Server();
+            threadPool = new QueuedThreadPool();
+            VirtualThreadPool virtualExecutor = new VirtualThreadPool();
+
+            threadPool.setVirtualThreadsExecutor(virtualExecutor);
+
+            Server server = new Server(threadPool);
             Resource configXml = JettyLib.newResource(jettyConfig);
             XmlConfiguration configuration = new XmlConfiguration(configXml);
             configuration.configure(server);
@@ -461,7 +473,9 @@ public class JettyServer {
     }
 
     public static Server jettyServer(int minThreads, int maxThreads) {
-        ThreadPool threadPool = null;
+        VirtualThreadPool virtualExecutor = new VirtualThreadPool();
+        threadPool = new QueuedThreadPool();
+        threadPool.setVirtualThreadsExecutor(virtualExecutor);
         // Jetty 9.4 and 12.0 : the Jetty default is max=200, min=8
         if ( minThreads < 0 )
             minThreads = 2;
@@ -469,7 +483,6 @@ public class JettyServer {
             maxThreads = 20;
         maxThreads = Math.max(minThreads, maxThreads);
         // Args reversed: Jetty uses (max,min)
-        threadPool = new QueuedThreadPool(maxThreads, minThreads);
         Server server = new Server(threadPool);
         return server;
     }
