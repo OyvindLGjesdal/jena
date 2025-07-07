@@ -18,11 +18,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         java_version: ['17', '21']
-        runs: ['1', '2','3','4','5']
 
     steps:
     - uses: actions/checkout@v4
