@@ -202,6 +202,80 @@ public class TestModShiro {
         }
     }
 
+    @Test public void access_userPassword_group() {
+        String dsname = "/ds";
+        DatasetGraph dsg = DatasetGraphFactory.createTxnMem();
+        FusekiServer server = serverBuilderWithShiro("testing/Shiro/shiro_user_group_password.ini")
+            .add(dsname, dsg)
+            .enablePing(true)
+            .build();
+        server.start();
+
+        String URL = server.datasetURL(dsname);
+
+        try {
+            // No user-password
+            {
+                HttpException httpEx = assertThrows(HttpException.class, ()->attemptByLocalhost(server, dsname));
+                assertEquals(401, httpEx.getStatusCode(), "Expected HTTP 401");
+            }
+
+            // user-password via authenticator: localhost
+            {
+                Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
+                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
+                attemptByLocalhost(server, httpClient, dsname);
+                // and a SPARQL query
+                QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}");
+            }
+
+            // user-password via registration
+            {
+                AuthEnv.get().registerUsernamePassword(server.serverURL(), "user1", "passwd1");
+                attemptByLocalhost(server, dsname);
+                AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+            }
+
+            // try the ping (proxy for admin operations as admin user)
+            Pattern startOfDateTimePattern  = Pattern.compile("[0-9]{4}-.*");
+            {
+                Authenticator authenticator = AuthLib.authenticator("admin", "pw");
+                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
+                String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                assertTrue(startOfDateTimePattern.matcher(pingResultString).find(),
+                    "admin user should be able to ping: " + pingResultString);
+                AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+            }
+            // try the ping (proxy for  operations as user1 user without access)
+            {
+                // check that PingResult is still unauthorized
+                HttpClient httpClientAnon = HttpEnv.httpClientBuilder().build();
+                HttpException httpEx = assertThrows(HttpException.class, ()->HttpOp.httpGetString(httpClientAnon, server.serverURL()+"$/ping"));
+                assertEquals(401, httpEx.getStatusCode(), "Expect HTTP 401 if not logged in");
+                Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
+                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
+                //  check again that the user is logged in and can access ds
+                HttpOp.httpGetString(httpClient, server.datasetURL(dsname));
+                System.out.println(server.serverURL()+ "$/ping");
+             String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                assertFalse(startOfDateTimePattern.matcher(pingResultString).find(),
+                   "user1 user should not be able to ping: " + pingResultString);
+            }
+            {
+                // Bad password
+                AuthEnv.get().registerUsernamePassword(server.serverURL(), "user1", "passwd2");
+             //   attemptByLocalhost(server, dsname);
+                HttpException httpEx = assertThrows(HttpException.class, ()->attemptByLocalhost(server, dsname));
+                assertEquals(401, httpEx.getStatusCode(), "Expected HTTP 401");
+                AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+            }
+
+        } finally {
+            server.stop();
+        }
+    }
+
+
     @Test public void shiroByCommandLine() {
         String dsname = "/ds";
         FusekiModule fmod = FMod_Shiro.create();
