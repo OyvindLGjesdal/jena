@@ -408,10 +408,12 @@ public class IRI3986 implements IRI {
 
     @Override
     public String path() {
+        // Assigning to a object member is atomic and even if two part/assignment
+        // overlap, they are the same value-equals string.
         if ( hasPath() && path == null )
             path = part(iriStr, path0, path1);
         if ( path == null )
-            return "";
+            path = "";
         return path;
     }
 
@@ -511,8 +513,6 @@ public class IRI3986 implements IRI {
 
     /**
      * Don't make the parts during parsing but wait until needed, if at all.
-     * Assigning to a object member is atomic and even if two part/assignment
-     * overlap, they are the same value-equals string.
      */
     private static String part(String str, int start, int finish) {
         if ( start >= 0 ) {
@@ -743,7 +743,7 @@ public class IRI3986 implements IRI {
 //        if ( strictResolver && ! this.hasScheme() )
 //            return other;
         // Be lax - don't require base to have scheme.
-        // Rel path resolves against rel path.
+        // Relative path resolves against relative path.
         /* 5.2.2. Transform References */
         IRI3986 iri = AlgResolveIRI.resolve(this, other);
         if ( iri != other )
@@ -1491,7 +1491,7 @@ public class IRI3986 implements IRI {
         // See also rfc7230#section-2.7.1
 
         if ( hasUserInfo() ) {
-            schemeReport(this,  Issue.iri_user_info_present, URIScheme.GENERAL, "Deprectaed; user info");
+            schemeReport(this,  Issue.iri_user_info_present, URIScheme.GENERAL, "Use of user info is deprecated");
             int idx = contains(iriStr, ':',  userinfo0, userinfo1);
             if ( idx >= 0 && idx < userinfo1-1 )
                 schemeReport(this,  Issue.iri_password, URIScheme.GENERAL, "Non-empty password");
@@ -1510,21 +1510,6 @@ public class IRI3986 implements IRI {
             if ( containsUppercase(iriStr, host0, host1) )
                 schemeReport(this, Issue.iri_host_not_lowercase, URIScheme.GENERAL, "Host name should be lowercase");
         }
-
-        // Done HTTP/HTTPS
-//        if ( hasHost() ) {
-//            String host = host();
-//            if ( containsUppercase(host) ) {
-//                schemeReport(this, Issue.iri_host_not_lowercase, URIScheme.GENERAL, "Host name includes uppercase characters: '"+host+"'");
-//            }
-//        }
-
-        // Done HTTP/HTTPS
-//        if ( hasUserInfo() ) {
-//            schemeReport(this, Issue.iri_user_info_present, URIScheme.GENERAL, "userinfo (e.g. user:password) in authority section");
-//            if ( userInfo().contains(":") )
-//                schemeReport(this, Issue.iri_user_password, scheme, "userinfo contains password in authority section");
-//        }
 
         // RFC 3986 section 2.1
         /* If two URIs differ only in the case of hexadecimal digits used in
@@ -1634,13 +1619,13 @@ public class IRI3986 implements IRI {
                         if ( port == 80 )
                             schemeReport(this, Issue.http_omit_well_known_port, scheme, "Default port 80 should be omitted");
                         else if ( port < 1024 && port != 80 )
-                            schemeReport(this, Issue.http_port_not_advised, scheme, "HTTP ports under 1024 should only be 80, not "+port);
+                            schemeReport(this, Issue.http_port_not_advised, scheme, "An HTTP port under 1024 should only be 80, not "+port);
                         break;
                     case HTTPS :
                         if ( port == 443 )
                             schemeReport(this, Issue.http_omit_well_known_port, scheme, "Default port 443 should be omitted");
                         else if ( port < 1024 && port != 443 )
-                            schemeReport(this, Issue.http_port_not_advised, scheme, "HTTPS ports under 1024 should only be 443, not "+port);
+                            schemeReport(this, Issue.http_port_not_advised, scheme, "An HTTPS ports under 1024 should only be 443, not "+port);
                         break;
                     default :
                         throw new IllegalStateException();

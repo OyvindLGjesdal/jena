@@ -18,16 +18,16 @@
 
 package fuseki;
 
+import org.apache.jena.fuseki.main.FusekiMainRunner;
+
 /**
  * Run FusekiMain.
+ * @deprecated Use {@link FusekiMainRunner#run}.
  */
+@Deprecated(forRemoval = true)
 public class run {
-    // This class must not depend on any Jena code (it would trigger
-    // early logging initialization) except FusekiLogging.setLogging.
-    //static { FusekiLogging.setLogging(); }
-
     public static void main (String... args) {
         // This does FusekiLogging.setLogging
-        org.apache.jena.fuseki.main.cmds.FusekiMainCmd.main(args);
+        FusekiMainRunner.run(args);
     }
 }

@@ -18,15 +18,17 @@
 
 package org.apache.jena.sparql.algebra;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.Test;
+
+import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.graph.NodeTransform;
 import org.apache.jena.sparql.graph.NodeTransformLib;
 import org.apache.jena.sparql.sse.SSE;
-import org.junit.Test;
 
 /** Tests of node transformation : {@link NodeTransformLib}. */
 public class TestNodeTransform {
@@ -109,4 +111,28 @@ public class TestNodeTransform {
                 ? Var.alloc(n.getName() + "ZZZ")
                 : n;
     };
+
+    @Test
+    public void transformPropFunc() {
+        Op inOp = SSE.parseOp("""
+            (propfunc <urn:p>
+              <urn:x> ("y" ?z)
+              (table unit))
+            """);
+
+        // Property function name is not affected by node transform.
+        Op expectedOp = SSE.parseOp("""
+            (propfunc <urn:p>
+              <URN:X> ("Y" ?Z)
+              (table unit))
+            """);
+
+        Op actualOp = NodeTransformLib.transform(x ->
+            x.isURI() ? NodeFactory.createURI(x.getURI().toUpperCase()) :
+            x.isVariable() ? Var.alloc(x.getName().toUpperCase()) :
+            x.isLiteral() ? NodeFactory.createLiteralString(x.getLiteralLexicalForm().toUpperCase()) :
+            x, inOp);
+
+        assertEquals(expectedOp, actualOp);
+    }
 }

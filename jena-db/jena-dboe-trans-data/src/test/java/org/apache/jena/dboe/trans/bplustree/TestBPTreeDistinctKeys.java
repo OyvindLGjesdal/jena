@@ -18,25 +18,31 @@
 
 package org.apache.jena.dboe.trans.bplustree;
 
+import static org.apache.jena.dboe.index.testlib.IndexTestLib.testInsert;
+import static org.apache.jena.dboe.test.RecordLib.TestRecordLength;
+import static org.apache.jena.dboe.test.RecordLib.toIntList;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.io.*;
+import java.util.*;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
 import org.apache.jena.atlas.io.IndentedWriter;
 import org.apache.jena.atlas.lib.Bytes;
 import org.apache.jena.dboe.base.record.Record;
 import org.apache.jena.dboe.base.record.RecordFactory;
 import org.apache.jena.dboe.test.RecordLib;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.io.*;
-import java.util.*;
-
-import static org.apache.jena.dboe.index.testlib.IndexTestLib.testInsert;
-import static org.apache.jena.dboe.test.RecordLib.TestRecordLength;
-import static org.apache.jena.dboe.test.RecordLib.toIntList;
-import static org.junit.Assert.*;
-
-@RunWith(Parameterized.class)
+@ParameterizedClass(name = "Random Size={0}, Tree Order={1}, Node dup={2}, Record dup={3}")
+@MethodSource("provideArgs")
 public class TestBPTreeDistinctKeys extends TestBPTreeModes {
     public static final byte[] DISTINCT_KEYS = new byte[] {
             0x00,
@@ -55,25 +61,25 @@ public class TestBPTreeDistinctKeys extends TestBPTreeModes {
 
     public static final int[] TREE_ORDERS = new int[] { 2, 4 };
 
-    @Parameterized.Parameters(name = "Random Size={0}, Tree Order={1}, Node dup={2}, Record dup={3}")
-    public static Collection<Object[]> data() {
-        List<Object[]> parameters = new ArrayList<>();
+
+    private static Stream<Arguments> provideArgs() {
+        List<Arguments> list =new ArrayList<>();
         boolean[] modes = new boolean[] { true, false };
         for (int size : RANDOM_SIZES) {
             for (int order : TREE_ORDERS) {
                 for (boolean nodeDup : modes) {
                     for (boolean recordDup : modes) {
-                        parameters.add(new Object[] { size, order, nodeDup, recordDup });
+                        list.add(Arguments.of(size, order, nodeDup, recordDup));
                     }
                 }
             }
         }
-        return parameters;
+        return list.stream();
     }
 
-    int randomSize, treeOrder;
-    List<Integer> randomData;
-    List<Integer> expectedData;
+    private int randomSize, treeOrder;
+    private List<Integer> randomData;
+    private List<Integer> expectedData;
 
     public TestBPTreeDistinctKeys(int randomSize, int treeOrder, boolean nodeMode, boolean recordsMode) {
         super(nodeMode, recordsMode);
@@ -118,25 +124,23 @@ public class TestBPTreeDistinctKeys extends TestBPTreeModes {
         return expected;
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void bptree_distinct_by_key_bad_01() {
         BPlusTree bpt = makeRangeIndex(this.treeOrder, 0);
-        Iterator<Record> iter = bpt.distinctByKeyPrefix(0);
-        Assert.assertFalse(iter.hasNext());
+        assertThrows(IllegalArgumentException.class, ()->bpt.distinctByKeyPrefix(0));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void bptree_distinct_by_key_bad_02() {
         BPlusTree bpt = makeRangeIndex(this.treeOrder, 0);
-        Iterator<Record> iter = bpt.distinctByKeyPrefix(6);
-        Assert.assertFalse(iter.hasNext());
+        assertThrows(IllegalArgumentException.class, ()->bpt.distinctByKeyPrefix(6));
     }
 
     @Test
     public void bptree_distinct_by_key_01() {
         BPlusTree bpt = makeRangeIndex(this.treeOrder, 0);
         Iterator<Record> iter = bpt.distinctByKeyPrefix(1);
-        Assert.assertFalse(iter.hasNext());
+        assertFalse(iter.hasNext());
     }
 
     @Test
@@ -309,11 +313,11 @@ public class TestBPTreeDistinctKeys extends TestBPTreeModes {
         for (int i = 0; i < expected.size(); i++) {
             if (i >= actual.size()) {
                 dumpOnFailure(bpt, null);
-                Assert.fail("Missing key at Index " + i + ", expected " + expected.get(i));
+                fail("Missing key at Index " + i + ", expected " + expected.get(i));
             }
             if ((int) actual.get(i) != expected.get(i)) {
                 dumpOnFailure(bpt, bpt.getRecordFactory().create(Bytes.packInt(expected.get(i))));
-                Assert.fail("Actual key at Index " + i + " is incorrect (" + actual.get(
+                fail("Actual key at Index " + i + " is incorrect (" + actual.get(
                         i) + "), expected " + expected.get(i));
             }
         }

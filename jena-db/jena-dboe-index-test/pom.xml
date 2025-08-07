@@ -27,7 +27,7 @@
   <parent>
     <groupId>org.apache.jena</groupId>
     <artifactId>jena-db</artifactId>
-    <version>5.5.0-SNAPSHOT</version>
+    <version>5.6.0-SNAPSHOT</version>
   </parent> 
 
   <properties>
@@ -39,7 +39,7 @@
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-dboe-index</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>5.6.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -51,12 +51,6 @@
     <dependency>
       <groupId>org.junit.platform</groupId>
       <artifactId>junit-platform-suite</artifactId>
-      <scope>compile</scope>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
       <scope>compile</scope>
     </dependency>
     

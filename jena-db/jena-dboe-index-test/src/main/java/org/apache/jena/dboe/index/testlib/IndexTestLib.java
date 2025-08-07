@@ -26,9 +26,10 @@ import static org.apache.jena.atlas.test.Gen.strings;
 import static org.apache.jena.dboe.test.RecordLib.intToRecord;
 import static org.apache.jena.dboe.test.RecordLib.r;
 import static org.apache.jena.dboe.test.RecordLib.toIntList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.*;
 
@@ -37,7 +38,6 @@ import org.apache.jena.dboe.base.record.Record;
 import org.apache.jena.dboe.index.Index;
 import org.apache.jena.dboe.index.RangeIndex;
 import org.apache.jena.dboe.test.RecordLib;
-import org.junit.Assert;
 
 public class IndexTestLib {
 
@@ -86,7 +86,7 @@ public class IndexTestLib {
             for ( Integer ii : x.subSet(lo, hi) )
                 expected.add(ii);
             if ( ! expected.equals(slice) )
-                assertEquals(format("(%d,%d)", lo, hi), expected, slice);
+                assertEquals(expected, slice, format("(%d,%d)", lo, hi));
         }
     }
 
@@ -191,7 +191,7 @@ public class IndexTestLib {
 
         List<Record> x = intToRecord(vals, RecordLib.TestRecordLength);
         for ( Record r : x )
-            Assert.assertFalse(index.contains(r));
+            assertFalse(index.contains(r));
         long size2 = index.size();
 
         assertEquals(size1 - count, size2);
@@ -222,8 +222,8 @@ public class IndexTestLib {
         // Make a unique list of expected records. Remove duplicates
         List<Integer> y = unique(asList(records));
 
-        assertEquals("Expected records size and tree size different", y.size(), index.size());
-        assertEquals("Expected records size and iteration over all keys are of different sizes", y.size(), x.size());
+        assertEquals(y.size(), index.size(), ()->"Expected records size and tree size different");
+        assertEquals(y.size(), x.size(), ()->"Expected records size and iteration over all keys are of different sizes");
 
         if ( index instanceof RangeIndex ) {
             // Check sorted order

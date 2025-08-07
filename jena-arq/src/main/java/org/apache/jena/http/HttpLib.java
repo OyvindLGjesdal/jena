@@ -43,6 +43,7 @@ import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
 
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.lib.IRILib;
@@ -134,7 +135,7 @@ public class HttpLib {
 
     /**
      * Get the InputStream from an HttpResponse, handling possible compression settings.
-     * The application must consume or close the {@code InputStream} (see {@link #finish(InputStream)}).
+     * The application must consume or close the {@code InputStream} (see {@link #finishInputStream(InputStream)}).
      * Closing the InputStream may close the HTTP connection.
      * Assumes the status code has been handled e.g. {@link #handleHttpStatusCode} has been called.
      */
@@ -150,6 +151,8 @@ public class HttpLib {
                     return responseInput;
                 case "gzip" :
                     return new GZIPInputStream(responseInput, 2*1024);
+                case "bzip2" :
+                    return new BZip2CompressorInputStream(responseInput, true);
                 case "inflate" :
                     return new InflaterInputStream(responseInput);
                 case "br" : // RFC7932
@@ -235,7 +238,7 @@ public class HttpLib {
      */
     public static void handleResponseNoBody(HttpResponse<InputStream> response) {
         handleHttpStatusCode(response);
-        finish(response);
+        finishResponse(response);
     }
 
     /**
@@ -262,8 +265,11 @@ public class HttpLib {
         }
         try {
             return IO.readWholeFileAsUTF8(input);
-        } catch (RuntimeIOException e) { throw new HttpException(e); }
-        finally { IO.close(input); }
+        } catch (RuntimeIOException e) {
+            throw new HttpException(e);
+        } finally {
+            finishInputStream(input);
+        }
     }
 
     /**
@@ -304,18 +310,18 @@ public class HttpLib {
      * {@code close} may close the underlying HTTP connection.
      *  See {@link BodySubscribers#ofInputStream()}.
      */
-    private static void finish(HttpResponse<InputStream> response) {
+    public static void finishResponse(HttpResponse<InputStream> response) {
         InputStream input = response.body();
         if ( input == null )
             return;
-        finish(input);
+        finishInputStream(input);
     }
 
     /** Read to end of {@link InputStream}.
      *  {@code close} may close the underlying HTTP connection.
      *  See {@link BodySubscribers#ofInputStream()}.
      */
-    public static void finish(InputStream input) {
+    public static void finishInputStream(InputStream input) {
         consumeAndClose(input);
     }
 

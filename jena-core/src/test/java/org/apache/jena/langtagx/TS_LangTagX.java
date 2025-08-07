@@ -21,9 +21,6 @@ package org.apache.jena.langtagx;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
-import junit.framework.JUnit4TestAdapter;
-import junit.framework.TestSuite;
-
 //JUnit5. Does not mix with JUnit3. So until jena-core updates to JUnit 4 or 5 ...
 //@Suite
 //@SelectClasses({
@@ -32,11 +29,4 @@ import junit.framework.TestSuite;
     TestLangTagX.class
 })
 
-public class TS_LangTagX {
-    public static TestSuite suite() {
-        TestSuite ts = new TestSuite();
-        ts.setName("LangTagX");
-        ts.addTest(new JUnit4TestAdapter(TS_LangTagX.class));
-        return ts;
-    }
-}
+public class TS_LangTagX {}

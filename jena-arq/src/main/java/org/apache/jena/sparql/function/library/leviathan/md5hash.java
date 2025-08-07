@@ -24,9 +24,9 @@ import org.apache.jena.sparql.expr.NodeValue ;
 import org.apache.jena.sparql.function.FunctionBase1 ;
 
 public class md5hash extends FunctionBase1 {
-    
-    private ExprDigest digest = new E_MD5(NodeValue.makeBoolean(true).getExpr());
-    
+
+    private ExprDigest digest = new E_MD5(NodeValue.makeBoolean(true));
+
     @Override
     public NodeValue exec(NodeValue v) {
         return digest.eval(v);

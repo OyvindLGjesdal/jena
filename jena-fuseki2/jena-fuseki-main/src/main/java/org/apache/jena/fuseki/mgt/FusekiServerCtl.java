@@ -59,6 +59,9 @@ import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.assembler.AssemblerUtils;
 import org.apache.jena.system.G;
 
+/**
+ * Each server with management has a {@code FusekiServerCtl} object for its per-server configuration.
+ */
 public class FusekiServerCtl {
     public static final String envFusekiBase          = "FUSEKI_BASE";
     public static final String envFusekiShiro         = "FUSEKI_SHIRO";
@@ -108,15 +111,16 @@ public class FusekiServerCtl {
     /** Directory for assembler files */
     public static Path        dirTemplates       = null;
 
-    private static boolean    initialized        = false;
     // Marks the end of successful initialization.
     /*package*/static boolean serverInitialized  = false;
 
     // Default - "run" in the current directory.
-    public static final String dftFusekiBase = "run";
+    public static final String dftFusekiBase    = "run";
 
     private Path fusekiBase = null;
 
+    // Server-wide lock for configuration changes.
+    private final Object serverLock            = new Object();
 
     public FusekiServerCtl(Path location) {
         if ( location == null )
@@ -129,6 +133,9 @@ public class FusekiServerCtl {
         return fusekiBase;
     }
 
+    public Object getServerlock() {
+        return serverLock;
+    }
 
     private Path envFusekiBase() {
         // Does not guarantee existence
@@ -377,8 +384,8 @@ public class FusekiServerCtl {
 
     /** Running a full-features server sets some global state. Clear this up. (mainly for tests.)*/
     public static void clearUpSystemState() {
-        System.getProperties().remove(FusekiServerCtl.envFusekiShiro);
-        System.getProperties().remove(FusekiServerCtl.envFusekiBase);
+        Lib.unsetenv(FusekiServerCtl.envFusekiShiro);
+        Lib.unsetenv(FusekiServerCtl.envFusekiBase);
         FusekiMain.resetCustomisers();
     }
 
@@ -420,10 +427,12 @@ public class FusekiServerCtl {
     }
 
     /** Return the filenames of all matching files in the configuration directory (absolute paths returned ). */
-    public static List<String> existingConfigurationFile(String baseFilename) {
+    public static List<String> existingConfigurationFile(String serviceName) {
+        String filename = DataAccessPoint.isCanonical(serviceName) ? serviceName.substring(1) : serviceName;
         try {
             List<String> paths = new ArrayList<>();
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(FusekiServerCtl.dirConfiguration, baseFilename+".*") ) {
+            // This ".* is a file glob pattern, not a regular expression  - it looks for file extensions.
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(FusekiServerCtl.dirConfiguration, filename+".*") ) {
                 stream.forEach((p)-> paths.add(FusekiServerCtl.dirConfiguration.resolve(p).toString() ));
             }
             return paths;
@@ -431,5 +440,4 @@ public class FusekiServerCtl {
             throw new InternalErrorException("Failed to read configuration directory "+FusekiServerCtl.dirConfiguration);
         }
     }
-
 }

@@ -20,13 +20,12 @@ package org.apache.jena.riot.tokens;
 
 import static org.apache.jena.riot.system.ErrorHandlerFactory.errorHandlerExceptions;
 import static org.apache.jena.riot.system.ErrorHandlerFactory.errorHandlerSimple;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.Reader;
+
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.io.PeekReader;
@@ -35,7 +34,6 @@ import org.apache.jena.riot.RiotException;
 import org.apache.jena.riot.RiotParseException;
 import org.apache.jena.riot.system.ErrorHandlerFactory.ErrorHandlerRecorder;
 import org.apache.jena.sparql.ARQConstants;
-import org.junit.Test;
 
 public class TestTokenizerText {
 
@@ -82,7 +80,7 @@ public class TestTokenizerText {
     private static Token tokenizeAndTestExact(String input, TokenType tokenType, String tokenImage1, String tokenImage2) {
         Tokenizer tokenizer = tokenizer(input);
         Token token = testNextToken(tokenizer, tokenType, tokenImage1, tokenImage2);
-        assertFalse("Excess tokens", tokenizer.hasNext());
+        assertFalse(tokenizer.hasNext(), ()->"Excess tokens");
         return token;
     }
 
@@ -154,15 +152,10 @@ public class TestTokenizerText {
     }
 
     @Test
-    // (expected=RiotParseException.class) We test the message.
     public void tokenUnit_iri3() {
-        try {
-            // That's one \
-            tokenFirst("<abc\\>def>");
-        } catch (RiotParseException ex) {
-            String x = ex.getMessage();
-            assertTrue(x.contains("Illegal"));
-        }
+        RiotParseException ex = assertThrows(RiotParseException.class, () -> tokenFirst("<abc\\>def>"));
+        String x = ex.getMessage();
+        assertTrue(x.contains("Illegal"));
     }
 
     @Test
@@ -184,76 +177,93 @@ public class TestTokenizerText {
     }
 
     // Bad IRIs
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri10() {
-        tokenFirst("<abc def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri11() {
-        tokenFirst("<abc<def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc<def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri12() {
-        tokenFirst("<abc{def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc{def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri13() {
-        tokenFirst("<abc}def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc}def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri14() {
-        tokenFirst("<abc|def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc|def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri15() {
-        tokenFirst("<abc^def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc^def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri16() {
-        tokenFirst("<abc`def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc`def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri17() {
-        tokenFirst("<abc\tdef>");          // Java escae - real tab
+        // Java escape - real tab
+        assertThrows(RiotException.class, () ->
+            tokenFirst("<abc\tdef>")
+        );
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri18() {
-        tokenFirst("<abc\u0007def>");      // Java escape - codepoint 7
+        // Java escape - codepoint 7
+        assertThrows(RiotException.class, ()->
+            tokenFirst("<abc\u0007def>")
+        );
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri19() {
-        tokenFirst("<abc\\>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc\\>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri20() {
-        tokenFirst("<abc\\def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc\\def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri21() {
-        // \\\\ is a double \\ in the data.
+        // \\\\ is a double \\ in the data
         // RDF 1.1 - \\ is not legal in a IRIREF
-        tokenFirst("<abc\\\\def>");
+        assertThrows(RiotException.class, () -> tokenFirst("<abc\\\\def>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri22() {
-        tokenFirst("<abc\\u00ZZdef>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc\\u00ZZdef>"));
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenUnit_iri23() {
-        tokenFirst("<abc\\uZZ20def>");
+		assertThrows(RiotException.class, ()->
+					 tokenFirst("<abc\\uZZ20def>"));
     }
 
     @Test
@@ -276,10 +286,12 @@ public class TestTokenizerText {
         tokenizeAndTestExact("'a\\'\\\"\\n\\t\\r\\f'", StringType.STRING1, "a'\"\n\t\r\f");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str5() {
+		assertThrows(RiotParseException.class, ()->
         // This is a raw newline. \n is a Java string escape.
-        tokenizeAndTestExact("'\n'", StringType.STRING1, "\n");
+        tokenizeAndTestExact("'\n'", StringType.STRING1, "\n")
+					 );
     }
 
     @Test
@@ -292,15 +304,18 @@ public class TestTokenizerText {
         tokenizeAndTestExact("\"\"", StringType.STRING2, "");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str8() {
-        Tokenizer tokenizer = tokenizer("\"");
-        assertTrue(tokenizer.hasNext());
+		assertThrows(RiotParseException.class, ()->{
+					 Tokenizer tokenizer = tokenizer("\"");
+					 assertTrue(tokenizer.hasNext());
+		});
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str9() {
-        tokenFirst("'abc");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'abc"));
     }
 
     @Test
@@ -315,34 +330,40 @@ public class TestTokenizerText {
 
     // Raw newline and carriage return not allowed in single quoted strings
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str12() {
-        tokenFirst("'abc\rdef'");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'abc\rdef'"));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str13() {
-        tokenFirst("'abc\ndef'");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'abc\ndef'"));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str14() {
-        tokenFirst("\"abc\rdef\"");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("\"abc\rdef\""));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str15() {
-        tokenFirst("\"abc\ndef\"");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("\"abc\ndef\""));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str16() {
-        tokenFirst("'\r'");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'\r'"));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str17() {
-        tokenFirst("\"\n\"");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("\"\n\""));
     }
 
     @Test
@@ -390,14 +411,16 @@ public class TestTokenizerText {
         tokenizeAndTestExact("\"\"\"'''''''''''''''''\"\"\"", StringType.LONG_STRING2, "'''''''''''''''''");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str_long10() {
-        tokenFirst("\"\"\"abcdef");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("\"\"\"abcdef"));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_str_long11() {
-        tokenFirst("'''");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'''"));
     }
 
     @Test
@@ -436,12 +459,14 @@ public class TestTokenizerText {
         tokenizeAndTestExact("_:123 ", TokenType.BNODE, "123");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_bNode3() {
-        Tokenizer tokenizer = tokenizer("_:");
-        assertTrue(tokenizer.hasNext());
-        Token token = tokenizer.next();
-        assertNotNull(token);
+		assertThrows(RiotParseException.class, ()->{
+            Tokenizer tokenizer = tokenizer("_:");
+            assertTrue(tokenizer.hasNext());
+            Token token = tokenizer.next();
+            assertNotNull(token);
+		});
     }
 
     @Test
@@ -791,9 +816,10 @@ public class TestTokenizerText {
         tokenizeAndTestFirst("0xABCXYZ", TokenType.HEX, "0xABC");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenUnit_hex3() {
-        tokenFirst("0xXYZ");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("0xXYZ"));
     }
 
     @Test
@@ -850,13 +876,15 @@ public class TestTokenizerText {
         tokenizeAndTestLiteralDT("'123'  ^^<xyz>", StringType.STRING1, "123", TokenType.IRI, "xyz", null);
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralDT_bad_1() {
         // Can't split ^^
-        Tokenizer tokenizer = tokenizer("'123'^ ^<x> ");
-        assertTrue(tokenizer.hasNext());
-        Token token = tokenizer.next();
-        assertNotNull(token);
+		assertThrows(RiotParseException.class, ()->{
+				Tokenizer tokenizer = tokenizer("'123'^ ^<x> ");
+				assertTrue(tokenizer.hasNext());
+				Token token = tokenizer.next();
+				assertNotNull(token);
+			});
     }
 
     @Test
@@ -875,19 +903,22 @@ public class TestTokenizerText {
         //testNextToken(tokenizer, TokenType.LITERAL_LANG, "lang");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralLang_3() {
-        tokenFirst("''@ lang ");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("''@ lang "));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralLang_4() {
-        tokenFirst("''@lang- ");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("''@lang- "));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralLang_5() {
-        tokenFirst("'abc'@- ");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("'abc'@- "));
     }
 
     @Test
@@ -905,14 +936,16 @@ public class TestTokenizerText {
         tokenizeAndTestExact("'X'  @a", TokenType.LITERAL_LANG, "X", "a");
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralLang_bad_1() {
-        tokenFirst("''@9-b");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("''@9-b"));
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenLiteralLang_bad_2() {
-        tokenFirst("''@  tag");
+		assertThrows(RiotParseException.class, ()->
+					 tokenFirst("''@  tag"));
     }
 
     @Test
@@ -1012,37 +1045,26 @@ public class TestTokenizerText {
         assertFalse(tokenizer.hasNext());
     }
 
-    // Check the RiotParseException is about bad encoding.
-    private void expectBadEncoding(Runnable action) {
-        try {
-            action.run();
-        } catch ( RiotParseException ex ) {
-            assertTrue(ex.getMessage().contains("Bad character encoding"));
-            throw ex;
-        }
-    }
-
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenizer_charset_str_2() {
-        expectBadEncoding(()->{
+        assertThrows(RiotParseException.class, ()->{
             Tokenizer tokenizer = tokenizerASCII("'abcdé'");
             // ASCII only -> bad.
             Token t = tokenizer.next();
         });
     }
 
-    @Test(expected = RiotParseException.class)
+    @Test
     public void tokenizer_charset_str_3() {
-        expectBadEncoding(()->{
+        assertThrows(RiotParseException.class, ()->{
             Tokenizer tokenizer = tokenizerASCII("'α'");
             // ASCII only -> bad.
             Token t = tokenizer.next();
         });
     }
 
-    @Test(expected = RiotParseException.class)
     public void tokenizer_charset_uri_1() {
-        expectBadEncoding(()->{
+        assertThrows(RiotParseException.class, ()->{
             Tokenizer tokenizer = tokenizerASCII("<http://example/abcdé>");
             // ASCII only -> bad.
             Token t = tokenizer.next();
@@ -1059,18 +1081,22 @@ public class TestTokenizerText {
         testNextToken(tokenizer, TokenType.IRI);
     }
 
-    @Test(expected=RiotParseException.class)
+    @Test
     public void token_replacementChar_bnode_1() {
+		assertThrows(RiotParseException.class, ()->{
         Tokenizer tokenizer = tokenizer("ns\uFFFD:xyz");
         testNextToken(tokenizer, TokenType.PREFIXED_NAME);
         //assertFalse(tokenizer.hasNext());
+		});
     }
 
-    @Test(expected=RiotParseException.class)
+    @Test
     public void token_replacementChar_bnode_2() {
-        Tokenizer tokenizer = tokenizer("ns:\uFFFDabc");
-        testNextToken(tokenizer, TokenType.PREFIXED_NAME);
-        //assertFalse(tokenizer.hasNext());
+        assertThrows(RiotParseException.class, () -> {
+            Tokenizer tokenizer = tokenizer("ns:\uFFFDbc");
+            testNextToken(tokenizer, TokenType.PREFIXED_NAME);
+            // assertFalse(tokenizer.hasNext());
+        });
     }
 
     private static final int CountWaringsOnReplacementChar = 0;
@@ -1116,7 +1142,7 @@ public class TestTokenizerText {
         PeekReader pr = PeekReader.make(r);
         Token t = testExpectWarning(pr, TokenType.STRING, CountWaringsOnReplacementChar);
         int char0 = t.getImage().codePointAt(0);
-        assertEquals("Expected Unicode REPLACEMENT CHARACTER", 0xFFFD, char0);
+        assertEquals(0xFFFD, char0, ()->"Expected Unicode REPLACEMENT CHARACTER");
     }
 
     @Test
@@ -1135,10 +1161,12 @@ public class TestTokenizerText {
         testExpectWarning("ex:abc\uFFFD", TokenType.PREFIXED_NAME, 1);
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenStr_replacementChar_prefixedName_2() {
         // Unicode escape
-        testExpectWarning("ex:abc\\uFFFD", TokenType.PREFIXED_NAME, 0);
+		assertThrows(RiotException.class, ()->
+		    testExpectWarning("ex:abc\\uFFFD", TokenType.PREFIXED_NAME, 0)
+		        );
     }
 
     @Test
@@ -1147,11 +1175,13 @@ public class TestTokenizerText {
         // and no escaped characters for blank node labels.
     }
 
-    @Test(expected=RiotException.class)
+    @Test
     public void tokenIRI_tab() {
-        // Raw tab in a IRI string. Illegal - this is an error.
-        Tokenizer tokenizer = tokenizer("<http://example/invalid/iri/with_\t_tab>");
-        testNextToken(tokenizer, TokenType.IRI);
+        assertThrows(RiotException.class, () -> {
+            // Raw tab in a IRI string. Illegal - this is an error.
+            Tokenizer tokenizer = tokenizer("<http://example/invalid/iri/with_\t_tab>");
+            testNextToken(tokenizer, TokenType.IRI);
+        });
     }
 
     private static Token testExpectWarning(String input, TokenType expectedTokenType, int warningCount) {
@@ -1166,10 +1196,10 @@ public class TestTokenizerText {
         Token token = tokenizer.next();
         if ( expectedTokenType != null )
             assertEquals(expectedTokenType, token.getType());
-        assertFalse("Expected one token", tokenizer.hasNext());
-        assertEquals("Warnings: ", warningCount, errHandler.getWarningCount());
-        assertEquals("Errors: ", 0, errHandler.getErrorCount());
-        assertEquals("Fatal: ", 0, errHandler.getFatalCount());
+        assertFalse(tokenizer.hasNext(), ()->"Expected one token");
+        assertEquals(warningCount, errHandler.getWarningCount(), ()->"Warnings: ");
+        assertEquals(0, errHandler.getErrorCount(), ()->"Errors: ");
+        assertEquals(0, errHandler.getFatalCount(), ()->"Fatal: ");
         return token;
     }
 
@@ -1349,6 +1379,266 @@ public class TestTokenizerText {
         Tokenizer tokenizer = tokenizer("\n \n", true);
         testNextToken(tokenizer, TokenType.NL);
         testNextToken(tokenizer, TokenType.NL);
+        assertFalse(tokenizer.hasNext());
+    }
+
+    // U+D800-U+DBFF is a high surrogate (first part of a pair)
+    // U+DC00-U+DFFF is a low surrogate (second part of a pair)
+    // so D800-DC00 is legal.
+
+    @Test public void turtle_surrogate_pair_esc_esc_01() {
+        // escaped high, escaped low
+        surrogate("'\\ud800\\udc00'");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_esc_02() {
+        // escaped high, escaped low
+        surrogate("'''\\ud800\\udc00'''");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_esc_03() {
+        // escaped high, escaped low
+        surrogate("<\\ud800\\udc00>");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_raw_01() {
+        // escaped high, raw low
+        surrogate("'\\ud800\udc00'");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_raw_02() {
+        // escaped high, raw low
+        surrogate("'''\\ud800\udc00'''");
+    }
+    @Test public void turtle_surrogate_pair_esc_raw_03() {
+        // escaped high, raw low
+        surrogate("<\\ud800\udc00>");
+    }
+    @Test public void turtle_surrogate_pair_esc_raw_04() {
+        // escaped high, raw low
+        surrogate("_:b\ud800\udc00");
+    }
+
+    // Compilation failure - illegal escape character
+//    @Test public void turtle_surrogate_pair_raw_esc_01() {
+//        // raw high, escaped low
+//        surrogate("'\ud800\\udc00'");
+//    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_01() {
+        // raw high, raw low
+        surrogate("'\ud800\udc00'");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_02() {
+        // raw high, raw low
+        surrogate("'''\ud800\udc00'''");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_03() {
+        // raw high, raw low
+        surrogate("<\ud800\udc00>");
+    }
+
+    // Blank nodes label allow unicode but not unicode escapes.
+    @Test public void turtle_surrogate_pair_raw_raw_04() {
+        // raw high, raw low
+        surrogate("_:b\ud800\udc00");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_05() {
+        // escaped high, escaped low
+        surrogate("ns:\ud800\udc00");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_06() {
+        // escaped high, escaped low
+        surrogate("\ud800\udc00:local");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_esc_internal_01() {
+        // escaped high, escaped low
+        surrogate("'a\\ud800\\udc00x'");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_esc_internal_02() {
+        // escaped high, escaped low
+        surrogate("'''a\\ud800\\udc00x'''");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_esc_internal_03() {
+        // escaped high, escaped low
+        surrogate("<a\\ud800\\udc00x>");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_raw_internal_01() {
+        // escaped high, raw low
+        surrogate("'z\\ud800\udc00z'");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_raw_internal_02() {
+        // escaped high, raw low
+        surrogate("'''z\\ud800\udc00z'''");
+    }
+
+    @Test public void turtle_surrogate_pair_esc_raw_internal_03() {
+        // escaped high, raw low
+        surrogate("<z\\ud800\udc00z>");
+    }
+
+    // Compilation failure - illegal escape character
+//    @Test public void turtle_surrogate_pair_raw_esc() {
+//        // raw high, escaped low
+//        surrogate("'a\ud800\\udc00'z");
+//    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_internal_01() {
+        // raw high, raw low
+        surrogate("'a\ud800\udc00z'");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_internal_02() {
+        // raw high, raw low
+        surrogate("'''a\ud800\udc00z'''");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_internal_03() {
+        // raw high, raw low
+        surrogate("<a\ud800\udc00z>");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw_internal_04() {
+        // raw high, raw low
+        surrogate("_:ba\ud800\udc00z");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw__internal05() {
+        // escaped high, escaped low
+        surrogate("ns:x\ud800\udc00y");
+    }
+
+    @Test public void turtle_surrogate_pair_raw_raw__internal06() {
+        // escaped high, escaped low
+        surrogate("x\ud800\udc00y:local");
+    }
+
+    @Test
+    public void turtle_bad_surrogate_01() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'\\ud800'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_01a() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'''\\ud800''''"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_02() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'a\\ud800z'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_02a() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'''a\\ud800z'''"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_02b() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("<a\\ud800z>"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_03() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'\\udfff'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_04() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'a\\udfffz'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_05() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'\\U0000d800'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_06() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'a\\U0000d800z'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_07() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'\\U0000dfff'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_08() {
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'a\\U0000dfffz'"));
+    }
+
+    @Test
+    public void turtle_bad_surrogate_09() {
+        // Wrong way round: low-hig);
+		assertThrows(RiotParseException.class, ()->
+					 surrogate("'\\uc800\\ud800'")
+					 );
+    }
+
+    @Test
+    public void turtle_bad_surrogate_10() {
+		assertThrows(RiotParseException.class, ()->
+        // Wrong way round: low-high
+        surrogate("'a\\uc800\\ud800z'")
+					 );
+    }
+
+    // Compilation failure - illegal escape character
+//    @Test
+//     public void turtle_bad_surrogate_11() {
+//      // raw low - escaped high
+// 		assertThrows(RiotParseException.class, ()->
+// 					 surrogate("'\ud800\\ud800'"));
+//     }
+//
+//     @Test
+//     public void turtle_bad_surrogate_12() {
+//      // raw low - escaped high
+// 		assertThrows(RiotParseException.class, ()->
+// 					 surrogate("'a\ud800\\ud800z'"));
+//     }
+
+    @Test
+    public void turtle_bad_surrogate_13() {
+        // escaped low - raw high
+		assertThrows(RiotParseException.class, ()->
+        surrogate("'\\uc800\ud800'")
+					 );
+    }
+
+    @Test
+    public void turtle_bad_surrogate_14() {
+        // escaped low - raw high
+		assertThrows(RiotParseException.class, ()->
+        surrogate("'a\\uc800\ud800z'")
+					 );
+    }
+
+    private void surrogate(String string) {
+        Tokenizer tokenizer = tokenizer(string);
+        assertTrue(tokenizer.hasNext());
+        tokenizer.next();
         assertFalse(tokenizer.hasNext());
     }
 

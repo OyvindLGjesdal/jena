@@ -93,8 +93,8 @@ String VersionSpecifier() : { Token t ; String version ; }
     | t = <STRING_LITERAL2> { version = stripQuotes(t.image) ; }
     )
     {
-      checkString(version, t.beginLine, t.beginColumn) ;
       version = unescapeStr(version, t.beginLine, t.beginColumn) ;
+      checkRDFString(version, t.beginLine, t.beginColumn) ;
       return version;
     }
 }
@@ -1341,6 +1341,7 @@ Node ReifiedTripleSubject(TripleCollector acc) : { Node s; String iri; }
   | s = BooleanLiteral()
   | s = BlankNode()
   | s = ReifiedTriple(acc)
+  | s = TripleTerm()
   )
   { return s; }
 }
@@ -1375,6 +1376,7 @@ Node TripleTermSubject() : { Node n; String iri; }
   | n = NumericLiteral()
   | n = BooleanLiteral()
   | n = BlankNode()
+  | n = TripleTerm() { return n; }
   )
   { return n; }
 }
@@ -1406,6 +1408,7 @@ Node TripleTermDataSubject() : { Node n = null; String iri; }
  | n = RDFLiteral()
  | n = NumericLiteral()
  | n = BooleanLiteral()
+ | n = TripleTermData()
  )
  { return n; }
 }
@@ -1575,6 +1578,7 @@ Node ExprTripleTermSubject() : { Node n; String iri; }
   | n = NumericLiteral()
   | n = BooleanLiteral()
   | n = Var()
+  | n = ExprTripleTerm()
   )
   { return n; }
 }
@@ -1929,7 +1933,7 @@ String String() : { Token t ; String lex ; }
   | t = <STRING_LITERAL_LONG2> { lex = stripQuotes3(t.image) ; }
   )
     { lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
-      checkString(lex, t.beginLine, t.beginColumn) ;
+      checkRDFString(lex, t.beginLine, t.beginColumn) ;
       return lex ;
     }
 }
@@ -2151,18 +2155,17 @@ TOKEN :
 | < DECIMAL: (<DIGITS>)? "." <DIGITS> >
 | < DOUBLE:
       (
-        (["0"-"9"])+ "." (["0"-"9"])* <EXPONENT>
-        | "." (["0"-"9"])+ (<EXPONENT>)
-        | (["0"-"9"])+ <EXPONENT>
-      )
+        ( (["0"-"9"])+ ("." (["0"-"9"])* )? )
+        | ( "." (["0"-"9"])+ )
+      ) <EXPONENT>
       >
+| < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
 | < INTEGER_POSITIVE: <PLUS> <INTEGER> >
 | < DECIMAL_POSITIVE: <PLUS> <DECIMAL> >
 | < DOUBLE_POSITIVE: <PLUS> <DOUBLE> >
 | < INTEGER_NEGATIVE: <MINUS> <INTEGER> >
 | < DECIMAL_NEGATIVE: <MINUS> <DECIMAL> >
 | < DOUBLE_NEGATIVE: <MINUS> <DOUBLE> >
-| < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
 | < #QUOTE_3D: "\"\"\"">
 | < #QUOTE_3S: "'''">
 | <ECHAR: "\\" ( "t"|"b"|"n"|"r"|"f"|"\\"|"\""|"'") >

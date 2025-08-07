@@ -215,7 +215,6 @@ public class DatasetOperations {
                 dataset.end();
             }
         }
-
     }
 
     private static void prepareSpatialExtension(Dataset dataset, ArgsConfig argsConfig) throws SpatialIndexException {
@@ -229,10 +228,10 @@ public class DatasetOperations {
         if (!isEmpty) {
             if (argsConfig.getSpatialIndexFile() != null) {
                 File spatialIndexFile = argsConfig.getSpatialIndexFile();
-                GeoSPARQLConfig.setupSpatialIndex(dataset, spatialIndexFile);
+                GeoSPARQLConfig.setupSpatialIndex(dataset, spatialIndexFile.toPath());
             } else if (argsConfig.isTDBFileSetup()) {
                 File spatialIndexFile = new File(argsConfig.getTdbFile(), SPATIAL_INDEX_FILE);
-                GeoSPARQLConfig.setupSpatialIndex(dataset, spatialIndexFile);
+                GeoSPARQLConfig.setupSpatialIndex(dataset, spatialIndexFile.toPath());
             } else {
                 GeoSPARQLConfig.setupSpatialIndex(dataset);
             }

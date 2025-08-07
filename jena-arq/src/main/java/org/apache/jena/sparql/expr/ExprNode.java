@@ -40,7 +40,7 @@ public abstract class ExprNode implements Expr
     public boolean isSatisfied(Binding binding, FunctionEnv funcEnv) {
         try {
             NodeValue v = eval(binding, funcEnv);
-            boolean b = XSDFuncOp.booleanEffectiveValue(v);
+            boolean b = XSDFuncOp.effectiveBooleanValue(v);
             return b;
         }
         catch (ExprEvalException ex) {
@@ -48,7 +48,11 @@ public abstract class ExprNode implements Expr
         }
     }
 
+    /** @deprecated Unnecessary - to be removed */
+    @Deprecated(forRemoval = true)
     public boolean isExpr()     { return true; }
+    /** @deprecated Unnecessary - to be removed */
+    @Deprecated(forRemoval = true)
     public final Expr getExpr() { return this; }
 
     // --- interface Constraint
@@ -57,7 +61,7 @@ public abstract class ExprNode implements Expr
     public abstract NodeValue eval(Binding binding, FunctionEnv env);
 
     @Override
-    public final Set<Var> getVarsMentioned() {
+    public Set<Var> getVarsMentioned() {
         return ExprVars.getVarsMentioned(this);
     }
 
