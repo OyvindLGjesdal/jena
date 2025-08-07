@@ -256,7 +256,7 @@ public class TestQuery extends AbstractFusekiTest {
 
     @Test
     public void query_describe_conneg() throws IOException {
-        try (HttpClient client = HttpEnv.httpClientBuilder().build()) {
+        try ( HttpClient client = HttpEnv.httpClientBuilder().build() ) {
             String query = "DESCRIBE ?s WHERE {?s ?p ?o}";
             for (MediaType type : rdfOfferTest.entries()) {
                 String contentType = type.toHeaderString();
@@ -268,7 +268,7 @@ public class TestQuery extends AbstractFusekiTest {
                                 .acceptHeader(contentType)
                                 .build();
 
-                try (qExec) {
+                try ( qExec ) {
                     Graph graph = qExec.describe();
                     String x = qExec.getHttpResponseContentType();
                     assertEquals(contentType, x);
