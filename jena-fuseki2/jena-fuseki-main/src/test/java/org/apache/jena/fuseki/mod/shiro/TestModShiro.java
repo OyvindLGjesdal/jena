@@ -257,9 +257,16 @@ public class TestModShiro {
                 //  check again that the user is logged in and can access ds
                 HttpOp.httpGetString(httpClient, server.datasetURL(dsname));
                 System.out.println(server.serverURL()+ "$/ping");
-             String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
-                assertFalse(startOfDateTimePattern.matcher(pingResultString).find(),
-                   "user1 user should not be able to ping: " + pingResultString);
+                //String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                //assertEquals(pingResultString, "OK", "PingResult: " + pingResultString);
+
+               String pingResultString = HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
+                assertEquals(pingResultString, "OK", "PingResult: " + pingResultString);
+                HttpException httpEx2 = assertThrows(HttpException.class, ()->HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping"));
+                assertEquals(403, httpEx2.getStatusCode(), "Expect HTTP 403 if not logged in" + httpEx2.getResponse() + httpEx2.getMessage() + httpEx2.getStatusLine() + httpEx2.getStatusCode());
+
+           //     assertFalse(startOfDateTimePattern.matcher(pingResultString).find(),
+               //    "user1 user should not be able to ping: " + pingResultString);
             }
             {
                 // Bad password
