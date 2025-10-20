@@ -77,8 +77,10 @@ public class FileSender {
                 .setHeader(HttpNames.hContentType, ctHeaderValue)
                 .method(method, BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<InputStream> response = HttpLib.executeJDK(HttpClient.newHttpClient(), request, BodyHandlers.ofInputStream());
-        HttpLib.handleResponseNoBody(response);
-        return response.statusCode();
+        try (HttpClient hc = HttpClient.newHttpClient()) {
+            HttpResponse<InputStream> response = HttpLib.executeJDK(hc, request, BodyHandlers.ofInputStream());
+            HttpLib.handleResponseNoBody(response);
+            return response.statusCode();
+        }
     }
 }

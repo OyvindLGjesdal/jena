@@ -105,16 +105,16 @@ public class TestSecurityConfig {
                 expectQuery401(()->conn.queryAsk("ASK{}"));
             }
             // db1 - secured - try wrong user
-            HttpClient hcUser2 = LibSec.httpClient(authSetup2(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote.newBuilder().destination(datasetURL(fusekiServer, "database1"))
+            try ( HttpClient hcUser2 = LibSec.httpClient(authSetup2(fusekiServer));
+                 RDFConnection conn = RDFConnectionRemote.newBuilder().destination(datasetURL(fusekiServer, "database1"))
                     .httpClient(hcUser2)
                     .build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
 
             // db1 - secured - with user
-            HttpClient hcUser1 = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote.newBuilder().destination(datasetURL(fusekiServer, "database1"))
+            try ( HttpClient hcUser1 = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote.newBuilder().destination(datasetURL(fusekiServer, "database1"))
                     .httpClient(hcUser1)
                     .build() ) {
                 conn.queryAsk("ASK{}");
@@ -137,8 +137,8 @@ public class TestSecurityConfig {
     @Test public void access_serverAny_user1() {
         test(DIR+"config-server-1.ttl", fusekiServer->{
             // Must be logged in.
-            HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
-            try( InputStream in = HttpOp.httpGet(hc, fusekiServer.serverURL()) ) {
+            try ( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
+                 InputStream in = HttpOp.httpGet(hc, fusekiServer.serverURL()) ) {
                 assertNull(in);
             } catch (HttpException  ex) {
                 // 404 is OK - no static file area.
@@ -151,8 +151,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_db1() {
         test(DIR+"config-server-1.ttl", fusekiServer->{
             // Must be logged in.
-            HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "database1")).httpClient(hc).build() ) {
                 conn.queryAsk("ASK{}");
             }
@@ -162,8 +162,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_db2() {
         test(DIR+"config-server-1.ttl", fusekiServer->{
             // Must be logged in.
-            HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "database2")).httpClient(hc).build() ) {
                 conn.queryAsk("ASK{}");
             }
@@ -173,8 +173,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_db1_wrongUser() {
         test(DIR+"config-server-1.ttl", fusekiServer->{
             // Must be logged in.
-            HttpClient hc = LibSec.httpClient(authSetup2(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                         .newBuilder().destination(datasetURL(fusekiServer, "database1")).httpClient(hc).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -185,8 +185,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_user1() {
         test(DIR+"config-server-2.ttl", fusekiServer->{
             // Must be logged in as user1
-            HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup1(fusekiServer));
+                 RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "database1")).httpClient(hc).build() ) {
                 conn.queryAsk("ASK{}");
             }
@@ -197,8 +197,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_user2() {
         test(DIR+"config-server-2.ttl", fusekiServer->{
             // user2 does not have service access
-            HttpClient hc = LibSec.httpClient(authSetup2(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "database1")).httpClient(hc).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -209,8 +209,8 @@ public class TestSecurityConfig {
     @Test public void access_dataset_user3() {
         test(DIR+"config-server-2.ttl", fusekiServer->{
             // user3 does not have server access
-            HttpClient hc = LibSec.httpClient(authSetup3(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetup3(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "database1")).httpClient(hc).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -229,8 +229,8 @@ public class TestSecurityConfig {
 
     @Test public void serviceAndEndpoint_unknownUser() {
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc = LibSec.httpClient(authSetupX(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc = LibSec.httpClient(authSetupX(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                 .newBuilder().destination(datasetURL(fusekiServer, "db")).httpClient(hc).build() ) {
                 // Fails authentication.
                 expectQuery401(()->conn.queryAsk("ASK{}"));
@@ -241,8 +241,8 @@ public class TestSecurityConfig {
     // Deny - not in every endpoint
     @Test public void serviceAndEndpoint_user1() {
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db"))
                     .httpClient(hc1).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
@@ -253,9 +253,9 @@ public class TestSecurityConfig {
     // Go to endpoint.
     @Test public void serviceAndEndpointDirect_user1() {
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
 
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db"))
                     .queryEndpoint(datasetURL(fusekiServer, "db")+"/query1")
                     .httpClient(hc1).build() ) {
@@ -266,9 +266,9 @@ public class TestSecurityConfig {
 
     @Test public void serviceAndEndpoint_user2() {
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
             // -- Dataset query. User2 is not in dataset.
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
+                 RDFConnection conn = RDFConnectionRemote
                 .newBuilder().destination(datasetURL(fusekiServer, "db")).httpClient(hc2).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -278,9 +278,9 @@ public class TestSecurityConfig {
     // Still "no" - dataset excludes.
     @Test public void serviceAndEndpointDirect_user2() {
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
             // -- Dataset query. User2 is not in dataset.
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                 .newBuilder().destination(datasetURL(fusekiServer, "db"))
                 .queryEndpoint(datasetURL(fusekiServer, "db")+"/query2")
                 .httpClient(hc2).build() ) {
@@ -292,8 +292,8 @@ public class TestSecurityConfig {
     @Test public void serviceAndEndpoint_user3() {
         // Not user3 - it is not in every endpoint.
         test(DIR+"config-server-3.ttl", fusekiServer->{
-            HttpClient hc3 = LibSec.httpClient(authSetup3(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc3 = LibSec.httpClient(authSetup3(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                 .newBuilder().destination(datasetURL(fusekiServer, "db")).httpClient(hc3).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -304,8 +304,8 @@ public class TestSecurityConfig {
     // Deny - not in every endpoint
     @Test public void endpoint_user1() {
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2"))
                     .httpClient(hc1).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
@@ -317,9 +317,9 @@ public class TestSecurityConfig {
     // Go to endpoint.
     @Test public void endpointDirect_user1() {
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
 
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2"))
                     .queryEndpoint(datasetURL(fusekiServer, "db2")+"/query1")
                     .httpClient(hc1).build() ) {
@@ -330,9 +330,9 @@ public class TestSecurityConfig {
 
     @Test public void endpoint_user2() {
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
             // -- Dataset query. User2 is not in dataset.
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2")).httpClient(hc2).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -342,9 +342,9 @@ public class TestSecurityConfig {
     // Yes by endpoint only.
     @Test public void endpointDirect_user2() {
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
             // -- Dataset query. User2 is onthis specific endpoint.
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2"))
                     .queryEndpoint(datasetURL(fusekiServer, "db2")+"/query2")
                     .httpClient(hc2).build() ) {
@@ -356,9 +356,9 @@ public class TestSecurityConfig {
     // No - not at this endpoint.
     @Test public void endpointDirect_user2a() {
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
             // -- Dataset query. User2 is onthis specific endpoint.
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc2 = LibSec.httpClient(authSetup2(fusekiServer));
+                  RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2"))
                     .queryEndpoint(datasetURL(fusekiServer, "db2")+"/query3")
                     .httpClient(hc2).build() ) {
@@ -370,8 +370,8 @@ public class TestSecurityConfig {
     @Test public void endpoint_user3() {
         // Not user3 - it is not in every endpoint.
         test(DIR+"config-server-4.ttl", fusekiServer->{
-            HttpClient hc3 = LibSec.httpClient(authSetup3(fusekiServer));
-            try ( RDFConnection conn = RDFConnectionRemote
+            try ( HttpClient hc3 = LibSec.httpClient(authSetup3(fusekiServer));
+                 RDFConnection conn = RDFConnectionRemote
                     .newBuilder().destination(datasetURL(fusekiServer, "db2")).httpClient(hc3).build() ) {
                 expectQuery403(()->conn.queryAsk("ASK{}"));
             }
@@ -381,14 +381,15 @@ public class TestSecurityConfig {
     @Test public void endpoint_with_deny() {
         // Deny on endpoint.
         test(DIR+"config-server-5.ttl", fusekiServer->{
-            HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer));
+            try (HttpClient hc1 = LibSec.httpClient(authSetup1(fusekiServer))) {
             attempt(fusekiServer, "db5", hc1, "query");
             // Ways to say "deny"
             expectQuery403(()->attempt(fusekiServer, "db5", hc1, "q1"));
             expectQuery403(()->attempt(fusekiServer, "db5", hc1, "q2"));
             expectQuery403(()->attempt(fusekiServer, "db5", hc1, "q3"));
             expectQuery403(()->attempt(fusekiServer, "db5", hc1, "q4"));
-        });
+        }});
+
     }
 
     private static void attempt(FusekiServer server, String db, HttpClient httpClient, String endpoint) {

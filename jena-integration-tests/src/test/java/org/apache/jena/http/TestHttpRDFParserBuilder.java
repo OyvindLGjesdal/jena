@@ -76,7 +76,7 @@ public class TestHttpRDFParserBuilder {
         final boolean[] proxyHasBeenCalled = {false};
         final var url = url("/ds?default");
         // create a custom httpClient and validate that it has been used
-        var customHttpEnv = HttpClient.newBuilder()
+        try (var customHttpEnv = HttpClient.newBuilder()
                 .proxy(new ProxySelector() {
                     @Override
                     public List<Proxy> select(URI uri) {
@@ -93,7 +93,7 @@ public class TestHttpRDFParserBuilder {
                     }
 
                 })
-                .build();
+                .build()) {
         var graph2 = GraphFactory.createGraphMem();
         var builder = RDFParserBuilder.create()
                 .source(url)
@@ -102,5 +102,6 @@ public class TestHttpRDFParserBuilder {
         builder.parse(graph2);
         assertTrue(graph1.isIsomorphicWith(graph2));
         assertTrue(proxyHasBeenCalled[0], ()->"ProxySelector in custom HttpClient has not been called.");
+        }
     }
 }

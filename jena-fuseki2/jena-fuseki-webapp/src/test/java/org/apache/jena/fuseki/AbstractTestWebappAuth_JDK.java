@@ -86,7 +86,8 @@ public class AbstractTestWebappAuth_JDK {
     public static QueryExecutionHTTP withAuthJDK(QueryExecutionHTTPBuilder builder, String user, String passwd) {
         Authenticator authenticator = AuthLib.authenticator(user, passwd);
         HttpClient hc = HttpClient.newBuilder().authenticator(authenticator).build();
-        return builder.httpClient(hc).build();
+            return builder.httpClient(hc).build();
+
     }
     public static UpdateExecutionHTTP withAuthJDK(UpdateExecutionHTTPBuilder builder, String user, String passwd) {
         Authenticator authenticator = AuthLib.authenticator(user, passwd);

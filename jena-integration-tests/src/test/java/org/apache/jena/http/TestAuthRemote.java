@@ -299,7 +299,9 @@ public class TestAuthRemote {
     private void exec_auth_registry_prefix(String key) {
         RegistryHttpClient.get().addPrefix(key, env.httpClientAuthGood());
         try { exec_register_test(); }
-        finally { RegistryHttpClient.get().clear(); }
+        finally {
+            RegistryHttpClient.get().find(key).close();
+            RegistryHttpClient.get().clear(); }
     }
 
     private void exec_register_test() {

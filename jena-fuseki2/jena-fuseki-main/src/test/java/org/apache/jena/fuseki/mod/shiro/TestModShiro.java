@@ -152,10 +152,11 @@ public class TestModShiro {
             // user-password via authenticator: localhost
             {
                 Authenticator authenticator = AuthLib.authenticator("user1", "passwd1");
-                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
-                attemptByLocalhost(server, httpClient, dsname);
-                // and a SPARQL query
-                QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}").ask();
+                try (HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build()) {
+                    attemptByLocalhost(server, httpClient, dsname);
+                    // and a SPARQL query
+                    QueryExecHTTP.service(URL).httpClient(httpClient).query("ASK{}").ask();
+                }
             }
 
             // user-password via registration
@@ -168,9 +169,10 @@ public class TestModShiro {
             // try the ping (proxy for admin operations)
             {
                 Authenticator authenticator = AuthLib.authenticator("admin", "pw");
-                HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build();
-                HttpOp.httpGetString(httpClient, server.serverURL()+"$/ping");
-                AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+                try (HttpClient httpClient = HttpEnv.httpClientBuilder().authenticator(authenticator).build()) {
+                    HttpOp.httpGetString(httpClient, server.serverURL() + "$/ping");
+                    AuthEnv.get().unregisterUsernamePassword(server.serverURL());
+                }
             }
 
             {
