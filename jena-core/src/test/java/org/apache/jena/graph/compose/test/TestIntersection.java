@@ -19,8 +19,8 @@
 package org.apache.jena.graph.compose.test;
 
 import junit.framework.TestSuite;
-import org.apache.jena.graph.Graph ;
-import org.apache.jena.graph.compose.Intersection ;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.compose.Intersection;
 
 public class TestIntersection extends TestDyadic
 {
@@ -31,7 +31,7 @@ public class TestIntersection extends TestDyadic
     { return new TestSuite( TestIntersection.class ); }
 
     @Override
-    public Graph getGraph()
+    public Graph getNewGraph()
     {
         Graph gBase = graphWith( "" ), g1 = graphWith( "" );
         return new Intersection( gBase, g1 ); 

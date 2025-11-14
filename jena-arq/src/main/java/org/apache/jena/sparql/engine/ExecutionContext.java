@@ -21,6 +21,7 @@ package org.apache.jena.sparql.engine;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.jena.atlas.iterator.Iter;
@@ -108,13 +109,39 @@ public class ExecutionContext implements FunctionEnv
     }
 
     /**
+     * ExecutionContext for normal execution over a dataset,
+     * with default for {@link OpExecutorFactory}.
+     */
+    public static ExecutionContext create(DatasetGraph dataset, Context context) {
+        Objects.requireNonNull(dataset, "dataset is null in call to ExecutionContext create(DatasetGraph dataset, Context context)");
+        Graph dftGraph = dataset.getDefaultGraph();
+        return create(dataset, dftGraph, context);
+    }
+
+    /**
+     * ExecutionContext for execution without a dataset,
+     * with default for {@link OpExecutorFactory}.
+     */
+    public static ExecutionContext create(Context context) {
+        return create(null, null, context);
+    }
+
+
+    /**
      * ExecutionContext for normal execution over a dataset, with defaults for
      * {@link Context} and {@link OpExecutorFactory}.
      */
-    public static ExecutionContext create(DatasetGraph dataset, Context context) {
-        Graph dftGraph = (dataset == null) ? null : dataset.getDefaultGraph();
+    public static ExecutionContext create(DatasetGraph dataset, Graph activeGraph) {
+        Context cxt = ARQ.getContext().copy();
+        return create(dataset, activeGraph, cxt);
+    }
+
+    /**
+     * ExecutionContext for normal execution over a dataset.
+     */
+    public static ExecutionContext create(DatasetGraph dataset, Graph activeGraph, Context context) {
         return new ExecutionContext(context,
-                                    dftGraph, dataset,
+                                    activeGraph, dataset,
                                     QC.getFactory(context),
                                     Context.getCancelSignal(context));
     }
@@ -131,39 +158,12 @@ public class ExecutionContext implements FunctionEnv
     /**
      * ExecutionContext for normal execution over a graph.
      */
-    public static ExecutionContext createForGraph(Graph graph,  Context cxt) {
+    public static ExecutionContext createForGraph(Graph graph, Context cxt) {
         DatasetGraph dsg = (graph == null) ? null : DatasetGraphFactory.wrap(graph);
-        return create(dsg, cxt);
+        return create(dsg, graph, cxt);
     }
 
-    // ---- Previous generation - constructors
-
-    /**
-     * Setup with defaults of global settings
-     * @deprecated Use {@link #create(DatasetGraph)}
-     * */
-    @Deprecated(forRemoval = true)
-    public ExecutionContext(DatasetGraph dataset) {
-        this(dataset, QC.getFactory(ARQ.getContext()));
-    }
-
-    /** Setup with defaults of global settings but explicit {@link OpExecutorFactory}.
-     * @deprecated Use {@link #create(DatasetGraph)}
-     */
-    @Deprecated(forRemoval = true)
-    public ExecutionContext(DatasetGraph dataset, OpExecutorFactory factory) {
-        this(ARQ.getContext().copy(), dataset.getDefaultGraph(), dataset, factory);
-    }
-
-    /** @deprecated Use a "create" function where possible. */
-    @Deprecated
-    public ExecutionContext(Context params, Graph activeGraph, DatasetGraph dataset, OpExecutorFactory factory) {
-        this(params, activeGraph, dataset, factory, Context.getCancelSignal(params));
-    }
-
-    /** @deprecated This will be changed to be private. */
-    @Deprecated
-    public ExecutionContext(Context params, Graph activeGraph, DatasetGraph dataset, OpExecutorFactory factory, AtomicBoolean cancelSignal) {
+    private ExecutionContext(Context params, Graph activeGraph, DatasetGraph dataset, OpExecutorFactory factory, AtomicBoolean cancelSignal) {
         this.context = params;
         this.dataset = dataset;
         this.openIterators = new ArrayList<>();
@@ -173,8 +173,6 @@ public class ExecutionContext implements FunctionEnv
         this.executor = factory;
         this.cancelSignal = cancelSignal;
     }
-
-    // ---- Previous generation - constructors
 
     @Override
     public Context getContext() {

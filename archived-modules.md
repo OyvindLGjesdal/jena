@@ -6,12 +6,30 @@ release. For each module, the location of the last code in git is given.
 Retired modules can be incorporated back into Jena releases if there is
 sufficient activity to maintain the code over the long term.
 
+### Apache Jena IRI
+
+The last release of jena-jdbc was with Jena 5.6.0 on 2025-10-15.
+The source code is available from git with tag "jena-5.6.0".
+The commit retiring jena-iri is 5f01141144.
+
+### Apache Jena Fuseki WAR file
+
+The last release of jena-jdbc was with Jena 5.6.0 on 2025-10-15.
+The source code is available from git with tag "jena-5.6.0".
+The commit retiring jena-iri is modules jena-fuseki-webapp
+and jena-fuseki-war is b414be274d.
+
+### Apache Jena Permissions
+
+The last release of jena-jdbc was with Jena 5.6.0 on 2025-10-15.
+The source code is available from git with tag "jena-5.6.0".
+The commit retiring jena-permissions is 3d4d533248.
+
 ### Apache Jena JDBC
 
-The last release of apache-jena-osgi source was with Jena 4.10.0 on 2023-@@
-Source is available from git with tag "jena-4.10.0".
-The commit retiring jena-jdbc is @@
-@@ needs setting after merge - commit is 2023-10-12, "GH-2035: Retire jena-jdbc"
+The last release of jena-jdbc was with Jena 4.10.0.
+The source code is available from git with tag "jena-4.10.0".
+The commit retiring jena-jdbc is ec83436844.
 
 ### Apache Jena OSGi
 

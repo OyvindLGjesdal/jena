@@ -428,7 +428,7 @@ public class ExprFactoryTest {
     @Test
     public void condTest() {
         Expr e = factory.cond(factory.none(), factory.none(), factory.none());
-        assertTrue(e instanceof E_Conditional);
+        assertTrue(e instanceof E_If);
     }
 
     // exprN functions
@@ -463,12 +463,6 @@ public class ExprFactoryTest {
     public void exprListTest_MultipleArg() {
         ExprList e = factory.asList(factory.none(), factory.none());
         assertNotNull(e);
-    }
-
-    @Test
-    public void callTest_dynamic() {
-        Expr e = factory.call(factory.none(), factory.list());
-        assertTrue(e instanceof E_FunctionDynamic);
     }
 
     @Test
@@ -652,7 +646,7 @@ public class ExprFactoryTest {
 
     @Test
     public void asExprTest_Triplenode() {
-        Triple expected = Triple.create(NodeFactory.createURI("a"), 
+        Triple expected = Triple.create(NodeFactory.createURI("a"),
                 NodeFactory.createURI("b"), NodeFactory.createURI("c"));
         Node tripleNode = NodeFactory.createTripleTerm(expected);
         Expr e = factory.asExpr(tripleNode);
@@ -660,7 +654,7 @@ public class ExprFactoryTest {
         NodeValueNode n = (NodeValueNode) e;
         assertTrue(expected.matches(n.asNode().getTriple()));
     }
-    
+
     @Test
     public void asExprTest_URIstring() {
         Expr e = factory.asExpr("http://example.com/foo");

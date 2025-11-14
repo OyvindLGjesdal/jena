@@ -18,9 +18,9 @@
 
 package org.apache.jena.graph.compose.test;
 
-import junit.framework.TestSuite ;
-import org.apache.jena.graph.Graph ;
-import org.apache.jena.graph.compose.Difference ;
+import junit.framework.TestSuite;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.compose.Difference;
 
 public class TestDifference extends TestDyadic
 {
@@ -31,7 +31,7 @@ public class TestDifference extends TestDyadic
     { return new TestSuite( TestDifference.class ); }	
 
     @Override
-    public Graph getGraph()
+    public Graph getNewGraph()
     {
         Graph gBase = graphWith( "" ), g1 = graphWith( "" );
         return new Difference( gBase, g1 ); 

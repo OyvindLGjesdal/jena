@@ -36,16 +36,8 @@ public class WrappedGraph implements GraphWithPerform
     { this.base = base; }
 
     @Override
-    public boolean dependsOn( Graph other )
-    { return base.dependsOn( other ); }
-
-    @Override
     public TransactionHandler getTransactionHandler()
     { return base.getTransactionHandler(); }
-
-    @Override
-    public Capabilities getCapabilities()
-    { return base.getCapabilities(); }
 
     @Override
     public GraphEventManager getEventManager()

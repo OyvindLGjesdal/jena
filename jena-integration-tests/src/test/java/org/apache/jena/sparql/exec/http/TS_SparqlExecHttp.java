@@ -18,12 +18,12 @@
 
 package org.apache.jena.sparql.exec.http;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses(
-    { TestGSP.class
+@Suite
+@SelectClasses({
+    TestGSP.class
     , TestDSP.class
     , TestModelStore.class
     //, TestModelStore2.class

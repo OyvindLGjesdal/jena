@@ -59,6 +59,34 @@ public class StreamOps {
         return first(collection.stream());
     }
 
+    /**
+     * Join two streams. This is the function to accumulate stream from a loop.
+     * If either stream is null, then return the other which may also be null.
+     */
+    public static <X> Stream<X> concat(Stream<X> stream1, Stream<X> stream2) {
+        if ( stream1 == null )
+            return stream2;
+        if ( stream2 == null )
+            return stream1;
+        return Stream.concat(stream1, stream2);
+    }
+
+    /**
+     * Join streams. This is the function to accumulate stream from a loop.
+     * If either stream is null, then return the other which may also be null.
+     */
+    @SafeVarargs
+    public static <X> Stream<X> concatAll(Stream<X> ... streams) {
+        Stream<X> x = null;
+        for ( Stream<X> stream : streams ) {
+            if ( x == null )
+                x = stream;
+            else
+                x = Stream.concat(x, stream);
+        }
+        return x;
+    }
+
     /** Debug : print stream.
      * This operation prints the whole stream at the point it is used,
      * and then returns a new stream of the same elements.
@@ -77,7 +105,6 @@ public class StreamOps {
         stream = stream.map(item -> { out.print(prefix); out.println(item); return item; });
         return stream.toList().stream();
     }
-
 
     /** Print immediate, noting empty streams */
     public static <X> Stream<X> debug(Stream<X> stream) {

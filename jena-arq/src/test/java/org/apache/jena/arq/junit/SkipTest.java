@@ -18,17 +18,18 @@
 
 package org.apache.jena.arq.junit;
 
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 
 /** Ignore a test */
-public class SkipTest implements Runnable
-{
-    private ManifestEntry testEntry;
-
+public class SkipTest extends AbstractManifestTest implements Runnable {
     public SkipTest(ManifestEntry entry) {
-        this.testEntry = entry;
+        super(entry);
     }
 
     @Override
-    public void run() {}
+    public void runTest() {
+        startTest();
+        ignored();
+    }
 }

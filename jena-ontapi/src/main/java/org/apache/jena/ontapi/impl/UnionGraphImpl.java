@@ -28,7 +28,6 @@ import org.apache.jena.graph.Triple;
 import org.apache.jena.graph.compose.CompositionBase;
 import org.apache.jena.graph.impl.SimpleEventManager;
 import org.apache.jena.ontapi.UnionGraph;
-import org.apache.jena.ontapi.utils.Graphs;
 import org.apache.jena.ontapi.utils.Iterators;
 import org.apache.jena.shared.PrefixMapping;
 import org.apache.jena.util.iterator.ExtendedIterator;
@@ -119,7 +118,6 @@ public class UnionGraphImpl extends CompositionBase implements UnionGraph {
      * @param eventManager {@link UnionGraph.EventManager} or {@code null} to use default fresh event manager
      * @param distinct     if {@code true} a distinct graph is created
      */
-    @SuppressWarnings("javadoc")
     public UnionGraphImpl(Graph base, EventManager eventManager, boolean distinct) {
         this(base, new SubGraphs(), eventManager, distinct);
     }
@@ -411,18 +409,6 @@ public class UnionGraphImpl extends CompositionBase implements UnionGraph {
     public void close() {
         listSubGraphBases().forEachRemaining(Graph::close);
         getAllUnderlyingUnionGraphs().forEach(x -> x.closed = true);
-    }
-
-    /**
-     * Generic dependsOn, returns {@code true} iff this graph or any sub-graphs depend on the specified graph.
-     *
-     * @param other {@link Graph}
-     * @return boolean
-     */
-    @Override
-    public boolean dependsOn(Graph other) {
-        return (other instanceof UnionGraphImpl && getAllUnderlyingUnionGraphs().contains(other))
-                || Iterators.anyMatch(listSubGraphBases(), x -> Graphs.dependsOn(x, other));
     }
 
     /**

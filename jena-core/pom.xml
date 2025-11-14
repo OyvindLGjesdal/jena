@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.apache.jena</groupId>
     <artifactId>jena</artifactId>
-    <version>5.5.0-SNAPSHOT</version>
+    <version>6.0.0-SNAPSHOT</version>
   </parent>
 
   <description>Jena is a Java framework for building Semantic Web applications. It provides a programmatic environment for RDF, RDFS and OWL, SPARQL and includes a rule-based inference engine.</description>
@@ -40,33 +40,19 @@
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-base</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.jena</groupId>
-      <artifactId>jena-base</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
-      <classifier>tests</classifier>
-      <scope>test</scope>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-iri3986</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
-    
-    <dependency>
-      <groupId>org.apache.jena</groupId>
-      <artifactId>jena-iri</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
-    </dependency>
-    
+
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-langtag</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -80,23 +66,19 @@
       <scope>test</scope>
     </dependency>
 
+    <!--
     <dependency>
       <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-params</artifactId>
+      <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-suite-engine</artifactId>
+      <artifactId>junit-platform-suite</artifactId>
       <scope>test</scope>
     </dependency>
-
-    <dependency>
-      <groupId>org.xenei</groupId>
-      <artifactId>junit-contracts</artifactId>
-      <scope>test</scope>
-    </dependency>
+    -->
 
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -154,15 +136,24 @@
         <artifactId>maven-resources-plugin</artifactId>
       </plugin>
 
-      <!-- Contract tests use mockito -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+        <!-- 
+             Choose the provider if necessary. 
+             Necessary if surefire is not reporting during test runs.
+        -->
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit47</artifactId>
+            <version>${ver.plugin.surefire}</version>
+          </dependency>
+        </dependencies>
         <configuration>
           <argLine>-javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
           <includes>
-            <include>org/apache/jena/test/TestPackage_core.java</include>
-            <include>**/*_CS.java</include>
+            <include>org/apache/jena/test/JenaCoreTestAll.java</include>
           </includes>
         </configuration>
       </plugin>
@@ -235,48 +226,6 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>org.xenei</groupId>
-        <artifactId>contract-test-maven-plugin</artifactId>
-        <version>${ver.contract.tests}</version>
-        <configuration>
-          <failOnError>false</failOnError>
-          <packages>
-            <package>org.apache.jena.assembler</package>
-            <package>org.apache.jena.datatypes</package>
-            <package>org.apache.jena.enhanced</package>
-            <package>org.apache.jena.graph</package>
-            <package>org.apache.jena.mem</package>
-            <package>org.apache.jena.ontology</package>
-            <package>org.apache.jena.rdf</package>
-            <package>org.apache.jena.rdfxml</package>
-            <package>org.apache.jena.reasoner</package>
-            <package>org.apache.jena.shared</package>
-            <package>org.apache.jena.util</package>
-            <package>org.apache.jena.vocabulary</package>
-          </packages>
-          <skipFilter>Wildcard( *.test.* )</skipFilter>
-          <unimplemented>
-            <report>true</report>
-            <failOnError>false</failOnError>
-          </unimplemented>
-          <untested>
-            <report>true</report>
-            <failOnError>false</failOnError>
-          </untested>
-          <errors>
-            <report>true</report>
-            <failOnError>false</failOnError>
-          </errors>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>contract-test</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 

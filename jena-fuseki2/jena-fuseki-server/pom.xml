@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.apache.jena</groupId>
     <artifactId>jena-fuseki</artifactId>
-    <version>5.5.0-SNAPSHOT</version>
+    <version>6.0.0-SNAPSHOT</version>
   </parent> 
 
   <packaging>jar</packaging>
@@ -40,25 +40,25 @@
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-fuseki-main</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-fuseki-ui</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-text</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.jena</groupId>
       <artifactId>jena-fuseki-access</artifactId>
-      <version>5.5.0-SNAPSHOT</version>
+      <version>6.0.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -66,7 +66,13 @@
       <artifactId>jena-cmds</artifactId>
       <version>${project.version}</version>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-fuseki-mod-geosparql</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
@@ -95,7 +101,7 @@
         <configuration>
           <shadedArtifactAttached>false</shadedArtifactAttached>
 
-          <!-- 
+          <!--
             https://issues.apache.org/jira/browse/LOG4J2-954
             Multiple Log4j2Plugins.dat
             jena-fuseki-server only pick up one Log4j2Plugins.dat (from log4j-core)
@@ -122,7 +128,7 @@
             <filter>
               <artifact>*:*</artifact>
               <excludes>
-                <!-- Some jars are signed but shading breaks that. Don't 
+                <!-- Some jars are signed but shading breaks that. Don't
                   include signing files. -->
                 <exclude>META-INF/*.SF</exclude>
                 <exclude>META-INF/*.DSA</exclude>

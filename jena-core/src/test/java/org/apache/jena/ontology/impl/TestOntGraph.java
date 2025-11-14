@@ -19,9 +19,9 @@
 package org.apache.jena.ontology.impl;
 
 import junit.framework.*;
-import org.apache.jena.graph.* ;
-import org.apache.jena.graph.test.* ;
-import org.apache.jena.rdf.model.* ;
+import org.apache.jena.graph.*;
+import org.apache.jena.graph.test.*;
+import org.apache.jena.rdf.model.*;
 
 /**
     Ensure that an OntGraph passes the graph tests. Clunky because it has to go
@@ -32,11 +32,12 @@ public class TestOntGraph extends AbstractTestGraph
     {
     public TestOntGraph( String name )
         { super( name ); }
-        
+
     public static TestSuite suite()
         { return new TestSuite( TestOntGraph.class ); }
 
     @Override
-    public Graph getGraph()
+    @SuppressWarnings("removal")
+    public Graph getNewGraph()
         { return ModelFactory.createOntologyModel().getGraph(); }
     }

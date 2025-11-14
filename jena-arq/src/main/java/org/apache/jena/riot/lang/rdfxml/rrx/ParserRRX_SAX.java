@@ -33,7 +33,6 @@ import org.apache.jena.atlas.lib.Cache;
 import org.apache.jena.atlas.lib.CacheFactory;
 import org.apache.jena.atlas.lib.EscapeStr;
 import org.apache.jena.datatypes.RDFDatatype;
-import org.apache.jena.datatypes.xsd.impl.XMLLiteralType;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
@@ -95,7 +94,7 @@ class ParserRRX_SAX
     private static final String rdfAboutEachPrefix = "aboutEachPrefix";
     private static final String rdfBagID = "bagID";
 
-    private static final RDFDatatype rdfXmlLiteralDT = XMLLiteralType.rdfXMLLiteral;
+    private static final RDFDatatype rdfXmlLiteralDT = RDF.dtXMLLiteral;
 
     // LN = Local name.
     private static final String xmlBaseLN = "base";
@@ -953,8 +952,6 @@ class ParserRRX_SAX
         // If there is an attribute a with a.URI == rdf:about then e.subject :=
         // uri(identifier := resolve(e, a.string-value)).
         //
-        // Text quoted is implicitly "latter overrides former" but it seems ARP generate an error.
-
         // This will be resolved and checked for a valid IRI later.
         String iriStr = attributes.getValue(rdfNS, rdfAbout);
         // Checked when the blank node is created.
@@ -1764,7 +1761,6 @@ class ParserRRX_SAX
 
     /**
      * Escape text used in an XML content.
-     * Escapes aligned to ARP.
      */
     private String xmlLiteralEscapeText(CharSequence stringAcc) {
         StringBuilder sBuff = new StringBuilder();
@@ -1789,7 +1785,6 @@ class ParserRRX_SAX
 
     /**
      * Escape text used in an XML attribute value.
-     * Escapes aligned to ARP.
      */
     private String xmlLiteralEscapeAttr(CharSequence stringAcc) {
         StringBuilder sBuff = new StringBuilder();

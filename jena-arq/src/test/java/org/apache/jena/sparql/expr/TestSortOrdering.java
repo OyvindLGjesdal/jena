@@ -18,7 +18,9 @@
 
 package org.apache.jena.sparql.expr;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.riot.system.PrefixMap;
@@ -26,7 +28,6 @@ import org.apache.jena.riot.system.PrefixMapFactory;
 import org.apache.jena.shared.PrefixMapping;
 import org.apache.jena.sparql.serializer.SerializationContext;
 import org.apache.jena.sparql.sse.SSE;
-import org.junit.Test;
 
 /** Testing sort ordering.
  * See also {@link TestComparison} and {@link TestOrdering}.
@@ -180,9 +181,9 @@ public class TestSortOrdering {
         test(nv1, nv2, nv3);
 
         // And this should be <= order
-        int x12 = NodeValueCmp.compareWithOrdering(nv1, nv2);
-        int x23 = NodeValueCmp.compareWithOrdering(nv2, nv3);
-        int x13 = NodeValueCmp.compareWithOrdering(nv1, nv3);
+        int x12 = NVCompare.compareWithOrdering(nv1, nv2);
+        int x23 = NVCompare.compareWithOrdering(nv2, nv3);
+        int x13 = NVCompare.compareWithOrdering(nv1, nv3);
 
         boolean isTransitiveLE = isLE(x12) && isLE(x23) && isLE(x13);
 
@@ -233,9 +234,9 @@ public class TestSortOrdering {
      * Test, return true if a transitive order of arguments holds (either "less than or equals" or "greater than or equal").
      */
     static boolean testWorker(NodeValue nv1, NodeValue nv2, NodeValue nv3) {
-        int x12 = NodeValueCmp.compareWithOrdering(nv1, nv2);
-        int x23 = NodeValueCmp.compareWithOrdering(nv2, nv3);
-        int x13 = NodeValueCmp.compareWithOrdering(nv1, nv3);
+        int x12 = NVCompare.compareWithOrdering(nv1, nv2);
+        int x23 = NVCompare.compareWithOrdering(nv2, nv3);
+        int x13 = NVCompare.compareWithOrdering(nv1, nv3);
 
         if ( isLE(x12) ) {
             if ( isLE(x23) ) {
@@ -251,23 +252,23 @@ public class TestSortOrdering {
         }
 
         return ( isLE(x12) && isLE(x23) && isLE(x13) ) ||
-               ( isGE(x12) && isGE(x23) && isGE(x13) ) ;
+               ( isGE(x12) && isGE(x23) && isGE(x13) );
     }
 
     private static boolean isLE(NodeValue nv1, NodeValue nv2) {
-        return isLE(NodeValueCmp.compareWithOrdering(nv1, nv2));
+        return isLE(NVCompare.compareWithOrdering(nv1, nv2));
     }
 
     private static boolean isGE(NodeValue nv1, NodeValue nv2) {
-        return isGE(NodeValueCmp.compareWithOrdering(nv1, nv2));
+        return isGE(NVCompare.compareWithOrdering(nv1, nv2));
     }
 
     private static boolean isLE(int x) {
-        return ( Expr.CMP_EQUAL == x ) || ( Expr.CMP_LESS == x ) ;
+        return ( Expr.CMP_EQUAL == x ) || ( Expr.CMP_LESS == x );
     }
 
     private static boolean isGE(int x) {
-        return ( Expr.CMP_EQUAL == x )|| ( Expr.CMP_GREATER == x ) ;
+        return ( Expr.CMP_EQUAL == x )|| ( Expr.CMP_GREATER == x );
     }
 
     public static NodeValue nodeValue(String str) {

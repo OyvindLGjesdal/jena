@@ -18,9 +18,13 @@
 
 package org.apache.jena.arq.junit.riot;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.apache.jena.arq.junit.riot.RiotTestsConfig.fragment;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.function.Consumer;
+
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.riot.*;
@@ -32,30 +36,33 @@ import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.graph.GraphFactory;
 import org.apache.jena.sparql.util.IsoMatcher;
 
-public class RiotEvalTest implements Runnable {
-    final private boolean       expectLegalSyntax;
-    final private ManifestEntry testEntry;
+public class RiotEvalTest extends AbstractManifestTest {
+    final private boolean       positiveTest;
     final private Lang          lang;
     final private String        filename;
 
-    String baseIRI;
-    String input;
-    String output;
+    final private String baseIRI;
+    final private String input;
+    final private String output;
+    final private Consumer<StreamRDF> parser;
 
     public RiotEvalTest(ManifestEntry entry, String base, Lang lang, boolean positiveTest) {
-        this.testEntry = entry;
-        this.expectLegalSyntax = positiveTest;
+        super(entry);
+        this.positiveTest = positiveTest;
         this.filename = entry.getAction().getURI();
         this.lang = lang;
-        // -- Old world.
-        //new UnitTestEval(testName, item.getURI(), input.getURI(), result.getURI(), null, RDFLanguages.NTRIPLES, report)
         baseIRI = base;
         input = entry.getAction().getURI();
         output = positiveTest ? entry.getResult().getURI() : null;
+
+        boolean silentWarnings = RiotTestsConfig.allowWarnings(manifestEntry);
+        parser = ( baseIRI != null )
+            ? ParsingStepForTest.parse(input, baseIRI, lang, silentWarnings)
+            : ParsingStepForTest.parse(input, lang, silentWarnings);
     }
 
     @Override
-    public void run()
+    public void runTest()
     {
         // Could generalise run4() to cover both cases.
         // run3() predates dataset reading and is more tested.
@@ -70,14 +77,10 @@ public class RiotEvalTest implements Runnable {
         Graph graph = GraphFactory.createDefaultGraph();
         StreamRDF dest = StreamRDFLib.graph(graph);
         try {
-            boolean allowWarnings = RiotTests.allowWarnings(testEntry);
-            if ( baseIRI != null )
-                ParseForTest.parse(dest, input, baseIRI, lang, allowWarnings);
-            else
-                ParseForTest.parse(dest, input, lang, allowWarnings);
+            parser.accept(dest);
 
-            if ( ! expectLegalSyntax ) {
-                String fragment = RiotTests.fragment(testEntry.getURI());
+            if ( ! positiveTest ) {
+                String fragment = fragment(manifestEntry.getURI());
                 if ( fragment != null )
                     fail(fragment+": Passed bad syntax eval test");
                 else
@@ -108,9 +111,9 @@ public class RiotEvalTest implements Runnable {
                 RDFDataMgr.write(System.out, results, Lang.TURTLE);
                 System.out.println("--------");
             }
-            assertTrue("Graphs not isomorphic", b);
+            assertTrue(b, "Graphs not isomorphic");
         } catch (RiotException ex) {
-            if ( expectLegalSyntax )
+            if ( positiveTest )
                 throw ex;
         }
     }
@@ -119,12 +122,9 @@ public class RiotEvalTest implements Runnable {
         DatasetGraph dsg = DatasetGraphFactory.create();
         StreamRDF dest = StreamRDFLib.dataset(dsg);
         try {
+            parser.accept(dest);
 
-            if ( baseIRI != null )
-                ParseForTest.parse(dest, input, baseIRI, lang, RiotTests.allowWarnings(testEntry));
-            else
-                ParseForTest.parse(dest, input, lang, RiotTests.allowWarnings(testEntry));
-            if ( ! expectLegalSyntax )
+            if ( ! positiveTest )
                 fail("Passed bad syntax eval test");
 
             Lang outLang = RDFLanguages.filenameToLang(output, Lang.NQUADS);
@@ -144,7 +144,7 @@ public class RiotEvalTest implements Runnable {
 
             if ( !b )
             {
-                System.out.println("**** Test: "+testEntry.getName());
+                System.out.println("**** Test: "+manifestEntry.getName());
                 System.out.println("---- Parsed");
                 RDFDataMgr.write(System.out, dsg, Lang.TRIG);
                 System.out.println("---- Expected");
@@ -152,9 +152,9 @@ public class RiotEvalTest implements Runnable {
                 System.out.println("--------");
             }
 
-            assertTrue("Datasets not isomorphic", b);
+            assertTrue(b, "Datasets not isomorphic");
         } catch (RiotException ex) {
-            if ( expectLegalSyntax )
+            if ( positiveTest )
                 throw ex;
         }
     }

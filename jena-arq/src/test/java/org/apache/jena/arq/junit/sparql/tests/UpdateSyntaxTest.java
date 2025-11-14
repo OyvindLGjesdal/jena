@@ -18,30 +18,30 @@
 
 package org.apache.jena.arq.junit.sparql.tests;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.query.QueryException ;
 import org.apache.jena.query.Syntax;
 
-public class UpdateSyntaxTest implements Runnable
+public class UpdateSyntaxTest extends AbstractManifestTest
 {
     static int count = 0 ;
     final boolean expectLegalSyntax ;
     final Syntax testSyntax;
-    final ManifestEntry testEntry ;
 
     public UpdateSyntaxTest(ManifestEntry entry, Syntax defSyntax, boolean positiveTest) {
-        testEntry = entry;
+        super(entry);
         testSyntax = defSyntax;
         expectLegalSyntax = positiveTest ;
     }
 
     @Override
-    public void run()
+    public void runTest()
     {
         try {
-            SparqlTestLib.updateFromEntry(testEntry, testSyntax) ;
+            SparqlTestLib.updateFromEntry(manifestEntry, testSyntax) ;
             if ( ! expectLegalSyntax )
                 fail("Expected parse failure") ;
         }

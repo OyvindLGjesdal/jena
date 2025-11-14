@@ -56,6 +56,8 @@ import org.apache.jena.sparql.util.XSDNumUtils;
 /**
  * Implementation of XQuery/XPath functions and operators.
  * http://www.w3.org/TR/xpath-functions/
+ * <p>
+ * See also {@link XSDNumUtils}.
  */
 public class XSDFuncOp
 {
@@ -252,33 +254,6 @@ public class XSDFuncOp
         }
     }
 
-    /**
-     * Decimal format, cast-to-string.
-     * <p>
-     * Decimal canonical form where integer values has no ".0" (as in XSD 1.1).
-     * <p>
-     * In XSD 1.0, canonical integer-valued decimal has a trailing ".0".
-     * In XSD 1.1 and F&amp;O v 3.1, xs:string cast of a decimal which is integer valued, does
-     * not have the trailing ".0".
-     * @deprecated Use {@link XSDNumUtils#stringFormatXSD11} instead
-     */
-    @Deprecated(forRemoval = true)
-    public static String canonicalDecimalStrNoIntegerDot(BigDecimal bd) {
-        return XSDNumUtils.stringFormatXSD11(bd);
-    }
-
-    /**
-     * Canonical decimal according to XML Schema Datatype 2 v1.0.
-     * Integer-valued decimals have a trailing ".0".
-     * (In XML Schema Datatype 1.1 they did not have a ".0".)
-     * <p>
-     * @deprecated Use {@link XSDNumUtils#stringFormatXSD10(BigDecimal)} instead
-     */
-    @Deprecated(forRemoval = true)
-    public static String canonicalDecimalStr(BigDecimal decimal) {
-        return XSDNumUtils.stringFormatXSD10(decimal);
-    }
-
     public static NodeValue max(NodeValue nv1, NodeValue nv2) {
         int x = compareNumeric(nv1, nv2);
         if ( x == Expr.CMP_LESS )
@@ -295,34 +270,39 @@ public class XSDFuncOp
 
     /** {@literal F&O} fn:not */
     public static NodeValue not(NodeValue nv) {
-        boolean b = XSDFuncOp.booleanEffectiveValue(nv);
+        boolean b = XSDFuncOp.effectiveBooleanValue(nv);
         return NodeValue.booleanReturn(!b);
     }
 
     /** {@literal F&O} fn:boolean */
-    public static NodeValue booleanEffectiveValueAsNodeValue(NodeValue nv) {
+    public static NodeValue effectiveBooleanValueAsNodeValue(NodeValue nv) {
         if ( nv.isBoolean() ) // "Optimization" (saves on object churn)
             return nv;
-        return NodeValue.booleanReturn(booleanEffectiveValue(nv));
+        return NodeValue.booleanReturn(effectiveBooleanValue(nv));
     }
 
-    /** {@literal F&O} fn:boolean */
-    public static boolean booleanEffectiveValue(NodeValue nv) {
+    /** Effective Boolean Value */
+    public static boolean effectiveBooleanValue(NodeValue nv) {
+        Objects.requireNonNull(nv, "NodeValue is null in call to effectiveBooleanValue");
+
         // Apply the "boolean effective value" rules
         // boolean: value of the boolean (strictly, if derived from xsd:boolean)
-        // plain literal: lexical form length(string) > 0
-        // numeric: number != Nan && number != 0
+        // string literal: lexical form is not the empty string.
+        // numeric: number != NaN && number != 0
+        // http://www.w3.org/TR/sparql12-query#ebv
         // http://www.w3.org/TR/xquery/#dt-ebv
 
         if ( nv.isBoolean() )
             return nv.getBoolean();
         if ( nv.isString() || nv.isLangString() )
-            // Plain literals.
+            // String
             return ! nv.getString().isEmpty();
         if ( nv.isInteger() )
             return !nv.getInteger().equals(BigInteger.ZERO);
-        if ( nv.isDecimal() )
-            return !nv.getDecimal().equals(BigDecimal.ZERO);
+        if ( nv.isDecimal() ) {
+            // Not equals(BigDecimal.ZERO) which is only scale=0
+            return nv.getDecimal().signum() != 0;
+        }
         if ( nv.isDouble() ) {
             double v = nv.getDouble();
             return v != 0.0d && ! Double.isNaN(v);
@@ -962,25 +942,21 @@ public class XSDFuncOp
         throw new ARQInternalErrorException("Numeric op unrecognized (" + fName + "): " + nv);
     }
 
-    private static Set<XSDDatatype> integerSubTypes = new HashSet<>();
-    static {
-//        decimalSubTypes.add(XSDDatatype.XSDfloat);
-//        decimalSubTypes.add(XSDDatatype.XSDdouble);
-        integerSubTypes.add(XSDDatatype.XSDint);
-        integerSubTypes.add(XSDDatatype.XSDlong);
-        integerSubTypes.add(XSDDatatype.XSDshort);
-        integerSubTypes.add(XSDDatatype.XSDbyte);
-        integerSubTypes.add(XSDDatatype.XSDunsignedByte);
-        integerSubTypes.add(XSDDatatype.XSDunsignedShort);
-        integerSubTypes.add(XSDDatatype.XSDunsignedInt);
-        integerSubTypes.add(XSDDatatype.XSDunsignedLong);
-//        integerSubTypes.add(XSDDatatype.XSDdecimal);
-        integerSubTypes.add(XSDDatatype.XSDinteger);
-        integerSubTypes.add(XSDDatatype.XSDnonPositiveInteger);
-        integerSubTypes.add(XSDDatatype.XSDnonNegativeInteger);
-        integerSubTypes.add(XSDDatatype.XSDpositiveInteger);
-        integerSubTypes.add(XSDDatatype.XSDnegativeInteger);
-    }
+    private static Set<XSDDatatype> integerSubTypes = Set.of
+            (XSDDatatype.XSDint,
+             XSDDatatype.XSDlong,
+             XSDDatatype.XSDshort,
+             XSDDatatype.XSDbyte,
+             XSDDatatype.XSDunsignedByte,
+             XSDDatatype.XSDunsignedShort,
+             XSDDatatype.XSDunsignedInt,
+             XSDDatatype.XSDunsignedLong,
+             XSDDatatype.XSDinteger,
+             XSDDatatype.XSDnonPositiveInteger,
+             XSDDatatype.XSDnonNegativeInteger,
+             XSDDatatype.XSDpositiveInteger,
+             XSDDatatype.XSDnegativeInteger
+            );
 
     public static boolean isNumericDatatype(XSDDatatype xsdDatatype) {
         if ( XSDDatatype.XSDfloat.equals(xsdDatatype) )
@@ -1009,16 +985,19 @@ public class XSDFuncOp
         return integerSubTypes.contains(xsdDatatype);
     }
 
+    private static Set<XSDDatatype> temporalDatatypes = Set.of(
+             XSDDatatype.XSDdateTime,
+             XSDDatatype.XSDtime,
+             XSDDatatype.XSDdate,
+             XSDDatatype.XSDgYear,
+             XSDDatatype.XSDgYearMonth,
+             XSDDatatype.XSDgMonth,
+             XSDDatatype.XSDgMonthDay,
+             XSDDatatype.XSDgDay
+            );
+
     public static boolean isTemporalDatatype(XSDDatatype datatype) {
-        return
-            datatype.equals(XSDDatatype.XSDdateTime) ||
-            datatype.equals(XSDDatatype.XSDtime) ||
-            datatype.equals(XSDDatatype.XSDdate) ||
-            datatype.equals(XSDDatatype.XSDgYear) ||
-            datatype.equals(XSDDatatype.XSDgYearMonth) ||
-            datatype.equals(XSDDatatype.XSDgMonth) ||
-            datatype.equals(XSDDatatype.XSDgMonthDay) ||
-            datatype.equals(XSDDatatype.XSDgDay);
+        return temporalDatatypes.contains(datatype);
     }
 
     public static boolean isDurationDatatype(XSDDatatype datatype) {

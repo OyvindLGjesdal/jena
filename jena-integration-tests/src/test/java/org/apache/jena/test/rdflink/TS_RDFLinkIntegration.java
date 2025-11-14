@@ -18,17 +18,17 @@
 
 package org.apache.jena.test.rdflink;
 
-import org.junit.runner.RunWith ;
-import org.junit.runners.Suite ;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses( {
+@Suite
+@SelectClasses({
     // Done in the module
     //    TestRDFLinkLocalTxnMem
     //    TestRDFLinkLocalMRSW
 
     // Addition tests added here.
-    TestRDFLinkLocalTDB.class,
+    TestRDFLinkLocalTDB1.class,
     TestRDFLinkLocalTDB2.class,
     TestRDFLinkHTTP.class,
     TestRDFLinkFuseki.class,

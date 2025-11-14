@@ -19,12 +19,12 @@
 package org.apache.jena.tdb1;
 
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses( {
-    TestTDBFactory.class
+@Suite
+@SelectClasses({
+    TestTDB1Factory.class
 })
 
 public class TS_TDB1Factory

@@ -18,15 +18,21 @@
 
 package org.apache.jena.dboe.trans.recovery;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.Arrays;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import org.apache.jena.atlas.io.IO;
-import org.apache.jena.atlas.lib.FileOps;
 import org.apache.jena.atlas.logging.LogCtl;
 import org.apache.jena.dboe.base.file.BufferChannel;
 import org.apache.jena.dboe.base.file.BufferChannelFile;
@@ -38,45 +44,27 @@ import org.apache.jena.dboe.transaction.txn.TransactionCoordinator;
 import org.apache.jena.dboe.transaction.txn.journal.Journal;
 import org.apache.jena.dboe.transaction.txn.journal.JournalEntry;
 import org.apache.jena.dboe.transaction.txn.journal.JournalEntryType;
-import org.junit.*;
-import org.junit.rules.TemporaryFolder;
-
-// We need something to recover io order to test recovery.
 
 public class TestRecovery {
 
-    @Rule
-    public TemporaryFolder dir = new TemporaryFolder();
+    @TempDir
+    public Path dir;
 
-    private String journal;
-    private String data;
-    private String data1;
-    private String data2;
+    private Path journal;
+    private Path data;
     private static String loggerLevel;
 
-    @BeforeClass public static void beforeClass() {
+    @BeforeAll public static void beforeClass() {
         loggerLevel = LogCtl.getLevel(SysDB.syslog);
         LogCtl.setLevel(SysDB.syslog, "WARNING");
     }
-    @AfterClass public static void afterClass() {
+    @AfterAll public static void afterClass() {
         LogCtl.setLevel(SysDB.syslog, loggerLevel);
     }
 
-    @Before public void before() {
-        journal  = dir.getRoot().getAbsolutePath() + "/journal.jrnl";
-        data  = dir.getRoot().getAbsolutePath() + "/blob.data";
-        data1 = dir.getRoot().getAbsolutePath() + "/blob.data-1";
-        data2 = dir.getRoot().getAbsolutePath() + "/blob.data-2";
-        FileOps.ensureDir(dir.getRoot().getAbsolutePath());
-        FileOps.deleteSilent(journal);
-        FileOps.deleteSilent(data);
-        FileOps.deleteSilent(data1);
-        FileOps.deleteSilent(data2);
-    }
-
-    @After public void after() {
-        FileOps.deleteSilent(journal);
-        FileOps.deleteSilent(data);
+    @BeforeEach public void before() {
+        journal  = dir.resolve("journal.jrnl");
+        data  = dir.resolve("blob.data");
     }
 
     // Fake journal recovery.
@@ -86,26 +74,31 @@ public class TestRecovery {
 //        ComponentIdRegistry registry = new ComponentIdRegistry();
 //        registry.register(cid, "Blob", 1);
 
+        Location location = Location.create(journal);
+
         // Write out a journal.
         {
-            Journal journal = Journal.create(Location.create(dir.getRoot().getAbsolutePath()));
+            Journal journal = Journal.create(location);
             journal.write(JournalEntryType.REDO, cid, IO.stringToByteBuffer(str));
             journal.writeJournal(JournalEntry.COMMIT);
             journal.close();
         }
 
-        Location location = Location.create(dir.getRoot().getAbsolutePath());
         TransactionCoordinator coord = TransactionCoordinator.create(location);
         BufferChannel chan = BufferChannelFile.create(data);
-        TransBlob tBlob = new TransBlob(cid, chan);
-        coord.add(tBlob);
-        coord.start();
+        try {
+            TransBlob tBlob = new TransBlob(cid, chan);
+            coord.add(tBlob);
+            coord.start();
 
-        ByteBuffer blob = tBlob.getBlob();
-        assertNotNull(blob);
-        String s = IO.byteBufferToString(blob);
-        assertEquals(str,s);
-        coord.shutdown();
+            ByteBuffer blob = tBlob.getBlob();
+            assertNotNull(blob);
+            String s = IO.byteBufferToString(blob);
+            assertEquals(str,s);
+            coord.shutdown();
+        } finally {
+            chan.close();
+        }
     }
 
     @Test public void recoverBlobFile_2() throws Exception {
@@ -114,35 +107,41 @@ public class TestRecovery {
         ComponentId cid1 = ComponentId.allocLocal();
         ComponentId cid2 = ComponentId.allocLocal();
 
+        Location location = Location.create(journal);
+
         // Write out a journal for two components.
         {
-            Journal journal = Journal.create(Location.create(dir.getRoot().getAbsolutePath()));
+            Journal journal = Journal.create(location);
             journal.write(JournalEntryType.REDO, cid1, IO.stringToByteBuffer(str1));
             journal.write(JournalEntryType.REDO, cid2, IO.stringToByteBuffer(str2));
             journal.writeJournal(JournalEntry.COMMIT);
             journal.close();
         }
 
-        Journal journal = Journal.create(Location.create(dir.getRoot().getAbsolutePath()));
+        Journal journal = Journal.create(location);
         BufferChannel chan = BufferChannelFile.create(data);
-        TransBlob tBlob1 = new TransBlob(cid1, chan);
-        TransBlob tBlob2 = new TransBlob(cid2, chan);
+        try {
+            TransBlob tBlob1 = new TransBlob(cid1, chan);
+            TransBlob tBlob2 = new TransBlob(cid2, chan);
 
-        TransactionCoordinator coord = new TransactionCoordinator(journal, Arrays.asList(tBlob1, tBlob2));
-        coord.start();
+            TransactionCoordinator coord = new TransactionCoordinator(journal, Arrays.asList(tBlob1, tBlob2));
+            coord.start();
 
-        ByteBuffer blob1 = tBlob1.getBlob();
-        assertNotNull(blob1);
-        String s1 = IO.byteBufferToString(blob1);
-        assertEquals(str1,s1);
+            ByteBuffer blob1 = tBlob1.getBlob();
+            assertNotNull(blob1);
+            String s1 = IO.byteBufferToString(blob1);
+            assertEquals(str1,s1);
 
-        ByteBuffer blob2 = tBlob2.getBlob();
-        assertNotNull(blob2);
-        String s2 = IO.byteBufferToString(blob2);
-        assertEquals(str2,s2);
+            ByteBuffer blob2 = tBlob2.getBlob();
+            assertNotNull(blob2);
+            String s2 = IO.byteBufferToString(blob2);
+            assertEquals(str2,s2);
 
-        assertNotEquals(str1,str2);
-        coord.shutdown();
+            assertNotEquals(str1,str2);
+            coord.shutdown();
+        } finally {
+            chan.close();
+        }
     }
 }
 

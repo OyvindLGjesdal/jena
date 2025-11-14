@@ -17,7 +17,9 @@
  */
 
 package org.apache.jena.rdfpatch;
-import static org.junit.Assert.assertEquals;
+
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -25,11 +27,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.function.Consumer;
 
+import org.junit.jupiter.api.Test;
+
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.rdfpatch.changes.RDFChangesCollector;
 import org.apache.jena.sparql.sse.SSE;
-import org.junit.Test;
 
 public abstract class AbstractTestPatchIO {
     // Write-read.
@@ -39,8 +42,10 @@ public abstract class AbstractTestPatchIO {
     private static Node s1 = SSE.parseNode(":s1");
     private static Node s2 = SSE.parseNode("_:s2");
     private static Node s3 = SSE.parseNode("<<(_:b :y 123)>>");
+
     private static Node p1 = SSE.parseNode("<http://example/p1>");
     private static Node p2 = SSE.parseNode(":p2");
+
     private static Node o1 = SSE.parseNode("<http://example/o1>");
     private static Node o2 = SSE.parseNode("123");
     private static Node o3 = SSE.parseNode("<<(  _:b :prop <<( _:b :q _:b )>> )>>");
@@ -121,6 +126,15 @@ public abstract class AbstractTestPatchIO {
             changes.txnBegin();
             changes.add(g2, s3, p2, o1);
             //changes.add(g2, s3, p2, o3);
+            changes.txnCommit();
+        });
+    }
+
+    @Test public void write_read_04() {
+        write_read(changes->{
+            changes.txnBegin();
+            changes.add(g2, s3, p2, o1);
+            changes.add(g2, s3, p2, o3);
             changes.txnCommit();
         });
     }

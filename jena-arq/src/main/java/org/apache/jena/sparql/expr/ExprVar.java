@@ -18,6 +18,8 @@
 
 package org.apache.jena.sparql.expr;
 
+import java.util.Set;
+
 import org.apache.jena.atlas.io.IndentedWriter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.Query;
@@ -31,8 +33,7 @@ import org.apache.jena.sparql.graph.NodeTransform;
 
 public class ExprVar extends ExprNode
 {
-    // AKA ExprFunction0
-    protected Var varNode = null;
+    protected final Var varNode;
 
     public ExprVar(String name) { varNode = Var.alloc(name); }
 
@@ -44,6 +45,11 @@ public class ExprVar extends ExprNode
 
     public ExprVar(Var v) {
         varNode = v;
+    }
+
+    @Override
+    public Set<Var> getVarsMentioned() {
+        return Set.of(varNode);
     }
 
     @Override

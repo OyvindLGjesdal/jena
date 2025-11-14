@@ -33,13 +33,11 @@ public class ResultSetCloseable extends ResultSetOnClose implements AutoCloseabl
      */
     public static ResultSetCloseable closeableResultSet(QueryExecution queryExecution) {
         if ( queryExecution.getQuery() != null && ! queryExecution.getQuery().isSelectType() )
-            throw new IllegalArgumentException("Not an execution for a SELECT query");
+            throw new QueryException("Not an execution for a SELECT query");
         return new ResultSetCloseable(queryExecution.execSelect(), queryExecution) ;
     }
 
-    /** @deprecated The constructor will become private. Use {@link #closeableResultSet}. */
-    @Deprecated
-    public ResultSetCloseable(ResultSet rs, QueryExecution qexec) {
+    private ResultSetCloseable(ResultSet rs, QueryExecution qexec) {
         super(rs, ()->qexec.close()) ;
     }
 }

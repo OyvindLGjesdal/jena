@@ -19,7 +19,6 @@
 package org.apache.jena.riot ;
 
 import org.apache.jena.atlas.lib.Version;
-import org.apache.jena.riot.lang.rdfxml.RRX;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.writer.DirectiveStyle;
@@ -116,16 +115,6 @@ public class RIOT {
     private static String RDFXML_SYMBOL_BASE = "http://jena.apache.org/riot/rdfxml#";
 
     /**
-     * Legacy access to the original legacy RDF/XML parser.
-     * The original ARP parser will be removed.
-     * Use {@link Lang} constant {@link RRX#RDFXML_ARP1} or {@link RRX#RDFXML_ARP0}
-     * to access ARP v1 (RIOT integration) or ARP v0 (the original ARP parser).
-     * @deprecated Do not use this symbol! This will be removed.
-     */
-    @Deprecated(forRemoval = true)
-    public static Symbol symRDFXML0 = SystemARQ.allocSymbol(RDFXML_SYMBOL_BASE, "rdfxml0");
-
-    /**
      * Printing style - {@code PREFIX} or {@code @prefix}
      *  - {@link DirectiveStyle}, one of {@code AT} or {@code KEYWORD}.
      * <p>
@@ -160,11 +149,4 @@ public class RIOT {
      * Print literals with newlines in multiple line form, using triple quotes.
      */
     public static final Symbol symTurtleMultilineLiterals = SystemARQ.allocSymbol(TURTLE_SYMBOL_BASE, "multiline_literals") ;
-
-    /**
-     * Control of multiline literals.
-     * @deprecated Use {@link #symTurtleMultilineLiterals}.
-     */
-    @Deprecated(forRemoval = true)
-    public static final Symbol multilineLiterals = symTurtleMultilineLiterals;
 }

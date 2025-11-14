@@ -18,47 +18,47 @@
 
 package org.apache.jena.tdb1;
 
-import org.apache.jena.sparql.engine.optimizer.reorder.ReorderLib ;
-import org.apache.jena.sparql.engine.optimizer.reorder.ReorderTransformation ;
-import org.apache.jena.tdb1.assembler.TS_TDBAssembler;
-import org.apache.jena.tdb1.base.TC_Base;
-import org.apache.jena.tdb1.base.block.FileMode;
-import org.apache.jena.tdb1.base.objectfile.TS_ObjectFile;
-import org.apache.jena.tdb1.graph.TS_GraphTDB1;
-import org.apache.jena.tdb1.index.TS_Index;
-import org.apache.jena.tdb1.lib.TS_LibTDB;
-import org.apache.jena.tdb1.setup.TS_TDBSetup;
-import org.apache.jena.tdb1.solver.TS_SolverTDB;
-import org.apache.jena.tdb1.store.TS_Store;
-import org.apache.jena.tdb1.store.nodetable.TS_NodeTable;
-import org.apache.jena.tdb1.store.tupletable.TS_TupleTable;
-import org.apache.jena.tdb1.sys.SystemTDB;
-import org.apache.jena.tdb1.sys.TS_Sys;
-import org.apache.jena.tdb1.transaction.TS_TransactionTDB1;
-import org.junit.AfterClass ;
-import org.junit.BeforeClass ;
-import org.junit.runner.RunWith ;
-import org.junit.runners.Suite ;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 // Naming conventions.
 // TS_* - Test sets: collections of testing files (Often Test*)
 // TC_*  - Test collection: sets of TS's and TC's.
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses( {
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
+
+import org.apache.jena.sparql.engine.optimizer.reorder.ReorderLib ;
+import org.apache.jena.sparql.engine.optimizer.reorder.ReorderTransformation ;
+import org.apache.jena.tdb1.assembler.TS_TDB1Assembler;
+import org.apache.jena.tdb1.base.TC_Base;
+import org.apache.jena.tdb1.base.block.FileMode;
+import org.apache.jena.tdb1.base.objectfile.TS_ObjectFile;
+import org.apache.jena.tdb1.graph.TS_GraphTDB1;
+import org.apache.jena.tdb1.index.TS_Index;
+import org.apache.jena.tdb1.lib.TS_LibTDB1;
+import org.apache.jena.tdb1.setup.TS_TDB1Setup;
+import org.apache.jena.tdb1.solver.TS_SolverTDB1;
+import org.apache.jena.tdb1.store.TS_Store;
+import org.apache.jena.tdb1.store.nodetable.TS_NodeTable;
+import org.apache.jena.tdb1.store.tupletable.TS_TupleTable;
+import org.apache.jena.tdb1.sys.SystemTDB;
+import org.apache.jena.tdb1.transaction.TS_TransactionTDB1;
+
+@Suite
+@SelectClasses({
     // TDB
     TC_Base.class       // ==>  TS_Block, TS_File.class, TS_Record, TS_RecordFile
-    , TS_LibTDB.class
+    , TS_LibTDB1.class
     , TS_NodeTable.class
     , TS_Index.class
     , TS_TupleTable.class
-    , TS_TDBSetup.class
+    , TS_TDB1Setup.class
     , TS_Store.class        // The main storage implementation.  Some slow tests.
-    , TS_SolverTDB.class
-    , TS_Sys.class
+    , TS_SolverTDB1.class
     , TS_GraphTDB1.class
     , TS_TDB1Factory.class
-    , TS_TDBAssembler.class
+    , TS_TDB1Assembler.class
     , TS_TransactionTDB1.class
     , TS_ObjectFile.class
     , TestMiscTDB1.class
@@ -73,14 +73,14 @@ public class TC_TDB1
     }
     static ReorderTransformation dftReorder = null ;
 
-    @BeforeClass
+    @BeforeAll
     static public void beforeClass() {
         // Turn off general reordering (turned on for specific reorder tests)
         dftReorder = SystemTDB.defaultReorderTransform;
         SystemTDB.defaultReorderTransform = ReorderLib.identity();
     }
 
-    @AfterClass
+    @AfterAll
     static public void afterClass() {
         SystemTDB.defaultReorderTransform = dftReorder;
     }

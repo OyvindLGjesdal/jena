@@ -22,10 +22,11 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.junit.jupiter.api.Test;
+
 import org.apache.jena.atlas.lib.Bytes;
 import org.apache.jena.riot.system.ErrorHandler;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
-import org.junit.Test;
 
 public class TestPatchIO_Text extends AbstractTestPatchIO {
 
@@ -56,6 +57,11 @@ public class TestPatchIO_Text extends AbstractTestPatchIO {
         InputStream input = new ByteArrayInputStream(bytes);
         RDFPatch patch = RDFPatchOps.read(input, ehExceptions);
         return patch;
+    }
+
+    @Test public void read_tripleTerm_01() {
+        String str = "A <http://example/s1> <http://example/p1> <<( <http://example/s> <http://example/p> <http://example/o> )>> .";
+        parseSyntax(str);
     }
 
     @Test public void read_warning_01() {

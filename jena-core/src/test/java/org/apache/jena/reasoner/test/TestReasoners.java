@@ -45,11 +45,11 @@ import org.apache.jena.reasoner.InfGraph;
 import org.apache.jena.reasoner.Reasoner;
 import org.apache.jena.reasoner.ReasonerFactory;
 import org.apache.jena.reasoner.ReasonerRegistry;
-import org.apache.jena.reasoner.rulesys.RDFSRuleReasonerFactory ;
+import org.apache.jena.reasoner.rulesys.RDFSRuleReasonerFactory;
 import org.apache.jena.reasoner.transitiveReasoner.TransitiveReasoner;
 import org.apache.jena.reasoner.transitiveReasoner.TransitiveReasonerFactory;
-import org.apache.jena.util.FileManager ;
-import org.apache.jena.util.PrintUtil ;
+import org.apache.jena.util.FileManager;
+import org.apache.jena.util.PrintUtil;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 
@@ -59,8 +59,8 @@ import junit.framework.TestSuite;
 /**
  * Test cases for transitive reasoner (includes some early RDFS reasoner checks)
  */
+@SuppressWarnings("removal")
 public class TestReasoners extends TestCase {
-
     /**
      * Boilerplate for junit
      */
@@ -76,6 +76,10 @@ public class TestReasoners extends TestCase {
         return new TestSuite(TestReasoners.class);
     }
 
+    private static  Graph createGraphForTest() {
+        return GraphMemFactory.createDefaultGraph();
+    }
+
     /**
      * Test the basic functioning of a Transitive closure cache
      */
@@ -89,7 +93,7 @@ public class TestReasoners extends TestCase {
      * Test rebind operation for the transitive reasoner
      */
     public void testTransitiveRebind() {
-        Graph data = GraphMemFactory.createGraphMem();
+        Graph data = createGraphForTest();
         Node C1 = NodeFactory.createURI("C1");
         Node C2 = NodeFactory.createURI("C2");
         Node C3 = NodeFactory.createURI("C3");
@@ -107,7 +111,7 @@ public class TestReasoners extends TestCase {
                 Triple.create(C1, RDFS.subClassOf.asNode(), C2),
                 Triple.create(C1, RDFS.subClassOf.asNode(), C3)
             } );
-        Graph data2 = GraphMemFactory.createGraphMem();
+        Graph data2 = createGraphForTest();
         data2.add( Triple.create(C1, RDFS.subClassOf.asNode(), C2) );
         data2.add( Triple.create(C2, RDFS.subClassOf.asNode(), C4) );
         infgraph.rebind(data2);
@@ -155,7 +159,7 @@ public class TestReasoners extends TestCase {
      * Test delete operation for Transtive reasoner.
      */
     public void testTransitiveRemove() {
-        Graph data = GraphMemFactory.createGraphMem();
+        Graph data = createGraphForTest();
         Node a = NodeFactory.createURI("a");
         Node b = NodeFactory.createURI("b");
         Node c = NodeFactory.createURI("c");
@@ -234,7 +238,7 @@ public class TestReasoners extends TestCase {
      * Test metalevel add/remove subproperty operations for a reasoner.
      */
     public void doTestMetaLevel(ReasonerFactory rf) {
-        Graph data = GraphMemFactory.createGraphMem();
+        Graph data = createGraphForTest();
         Node c1 = NodeFactory.createURI("C1");
         Node c2 = NodeFactory.createURI("C2");
         Node c3 = NodeFactory.createURI("C3");
@@ -381,7 +385,7 @@ public class TestReasoners extends TestCase {
      * Test rebind operation for the RDFS reasoner
      */
     public void testRDFSRebind() {
-        Graph data = GraphMemFactory.createGraphMem();
+        Graph data = createGraphForTest();
         Node C1 = NodeFactory.createURI("C1");
         Node C2 = NodeFactory.createURI("C2");
         Node C3 = NodeFactory.createURI("C3");
@@ -397,7 +401,7 @@ public class TestReasoners extends TestCase {
                 Triple.create(C1, RDFS.subClassOf.asNode(), C2),
                 Triple.create(C1, RDFS.subClassOf.asNode(), C3)
             } );
-        Graph data2 = GraphMemFactory.createGraphMem();
+        Graph data2 = createGraphForTest();
         data2.add( Triple.create(C1, RDFS.subClassOf.asNode(), C2) );
         data2.add( Triple.create(C2, RDFS.subClassOf.asNode(), C4) );
         infgraph.rebind(data2);
@@ -492,9 +496,9 @@ public class TestReasoners extends TestCase {
         Node c2 = NodeFactory.createURI("C2");
         Node c3 = NodeFactory.createURI("C3");
         Node sC = RDFS.subClassOf.asNode();
-        Graph data = GraphMemFactory.createGraphMem();
+        Graph data = createGraphForTest();
         data.add( Triple.create(c2, sC, c3));
-        Graph premise = GraphMemFactory.createGraphMem();
+        Graph premise = createGraphForTest();
         premise.add( Triple.create(c1, sC, c2));
         Reasoner reasoner = rf.create(null);
         InfGraph infgraph = reasoner.bind(data);

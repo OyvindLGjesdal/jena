@@ -35,7 +35,6 @@ import org.apache.jena.atlas.lib.Cache;
 import org.apache.jena.atlas.lib.CacheFactory;
 import org.apache.jena.atlas.lib.EscapeStr;
 import org.apache.jena.datatypes.RDFDatatype;
-import org.apache.jena.datatypes.xsd.impl.XMLLiteralType;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
@@ -845,7 +844,7 @@ class ParserRRX_StAX_EV {
         //NamespaceContext nsCxt = startElt.getNamespaceContext();
 
         String text = xmlLiteralAccumulateText(startElt);
-        Node object = literalDatatype(text, XMLLiteralType.rdfXMLLiteral, startElt.getLocation());
+        Node object = literalDatatype(text, RDF.dtXMLLiteral, startElt.getLocation());
         emitter.emit(subject, property, object, startElt.getLocation());
         // Skip trailer then end property tag.
         XMLEvent event = peekEvent();
@@ -1018,7 +1017,6 @@ class ParserRRX_StAX_EV {
 
     /**
      * Escape text used in an XML content.
-     * Escapes aligned to ARP.
      */
     private String xmlLiteralEscapeText(CharSequence stringAcc) {
         StringBuilder sBuff = new StringBuilder();
@@ -1043,7 +1041,6 @@ class ParserRRX_StAX_EV {
 
     /**
      * Escape text used in an XML attribute value.
-     * Escapes aligned to ARP.
      */
     private String xmlLiteralEscapeAttr(CharSequence stringAcc) {
         StringBuilder sBuff = new StringBuilder();

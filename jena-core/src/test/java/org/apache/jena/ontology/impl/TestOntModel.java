@@ -69,6 +69,7 @@ import java.util.Map;
  * abstractions' unit tests.
  * </p>
  */
+@SuppressWarnings("removal")
 public class TestOntModel
     extends ModelTestBase
 {
@@ -146,7 +147,7 @@ public class TestOntModel
 
         // write to a stream
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        m.write( out );
+        m.write( out, "RDF/XML" );
 
         String s = out.toString();
         ByteArrayInputStream in = new ByteArrayInputStream( s.getBytes() );
@@ -191,7 +192,7 @@ public class TestOntModel
         om.add( statement( om, "ping http://spoo.spoo.com/spoo#pang pilly" ) );
         om.add( statement( om, "gg " + OWL.getURI() + "hh ii" ) );
         StringWriter sw = new StringWriter();
-        om.write( sw );
+        om.write( sw , "RDF/XML");
         String s = sw.getBuffer().toString();
         assertTrue( s.indexOf( "xmlns:spoo=\"http://spoo.spoo.com/spoo#\"" ) > 0 );
         assertTrue( s.indexOf( "xmlns:owl=\"" + OWL.getURI() + "\"" ) > 0 );
@@ -219,7 +220,7 @@ public class TestOntModel
 
         // write to a stream
         StringWriter out = new StringWriter();
-        m.write( out );
+        m.write( out, "RDF/XML");
 
         String s = out.toString();
 
@@ -850,7 +851,7 @@ public class TestOntModel
                 + "@prefix owl: <http://www.w3.org/2002/07/owl#>. "
                 + "@prefix : <" + NS + ">. "
                 + ":A a owl:Class. "
-                ;
+               ;
 
         OntModel m = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM, null);
         m.read( new StringReader(doc), NS, "N3" );
@@ -869,7 +870,7 @@ public class TestOntModel
                 + "@prefix owl: <http://www.w3.org/2002/07/owl#>. "
                 + "@prefix : <" + NS + ">. "
                 + ":A a owl:Class. "
-                ;
+               ;
 
         OntModel m = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_RULE_INF, null);
         m.read( new StringReader(doc), NS, "N3" );
@@ -888,8 +889,8 @@ public class TestOntModel
                 + "@prefix owl: <http://www.w3.org/2002/07/owl#>. "
                 + "@prefix : <" + NS + ">. "
                 + ":A a owl:Class. "
-                + ":B a owl:Class ; rdfs:subClassOf :A . "
-                ;
+                + ":B a owl:Class; rdfs:subClassOf :A . "
+               ;
 
         OntModel m = ModelFactory.createOntologyModel(OntModelSpec.OWL_MEM_MINI_RULE_INF, null);
         m.read( new StringReader(doc), NS, "N3" );
@@ -908,8 +909,8 @@ public class TestOntModel
                 + "@prefix : <" + NS + ">. "
                 + ":A a rdfs:Class. "
                 + ":C a rdfs:Class. "
-                + ":B a rdfs:Class ; rdfs:subClassOf :A . "
-                ;
+                + ":B a rdfs:Class; rdfs:subClassOf :A . "
+               ;
 
         OntModel m = ModelFactory.createOntologyModel(OntModelSpec.RDFS_MEM_RDFS_INF, null);
         m.read( new StringReader(doc), NS, "N3" );

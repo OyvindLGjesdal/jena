@@ -19,7 +19,8 @@
 package org.apache.jena.rdf.model.impl;
 
 import java.io.*;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -203,10 +204,12 @@ public class ModelCom extends EnhGraph implements Model, PrefixMapping, Lock
 
     @Override
     public Model read(String url, String base, String lang) {
-        try (InputStream is = new URL(url).openStream()) {
-            read(is, base, lang);
-        } catch (IOException e) {
+        try (InputStream in = new URI(url).toURL().openStream()) {
+            read(in, base, lang);
+        } catch (IOException  e) {
             throw new WrappedIOException(e);
+        } catch (URISyntaxException e) {
+            throw new JenaException(e);
         }
         return this;
     }
@@ -232,13 +235,6 @@ public class ModelCom extends EnhGraph implements Model, PrefixMapping, Lock
         return writerFactory.getWriter(lang);
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    public Model write(Writer writer) {
-        getWriter(null).write(this, writer, "");
-        return this;
-    }
-
     @Override
     public Model write(Writer writer, String lang) {
         getWriter(lang).write(this, writer, "");
@@ -248,12 +244,6 @@ public class ModelCom extends EnhGraph implements Model, PrefixMapping, Lock
     @Override
     public Model write(Writer writer, String lang, String base) {
         getWriter(lang).write(this, writer, base);
-        return this;
-    }
-
-    @Override
-    public Model write(OutputStream writer) {
-        getWriter(null).write(this, writer, "");
         return this;
     }
 
@@ -524,8 +514,8 @@ public class ModelCom extends EnhGraph implements Model, PrefixMapping, Lock
     { return getResource( uri ).addProperty( RDF.type, type ); }
 
     @Override
-    public Resource createResource( Statement statement )
-    { return new ResourceImpl( statement, this ); }
+    public StatementTerm createStatementTerm( Statement statement )
+    { return new StatementTermImpl( statement, this ); }
 
     /** create a type literal from a boolean value.
      *

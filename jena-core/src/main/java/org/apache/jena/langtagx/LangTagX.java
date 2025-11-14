@@ -24,10 +24,17 @@ import org.apache.jena.langtag.LangTags;
 import org.apache.jena.shared.JenaException;
 
 /**
- * This class defined the Jena side policies for language tags and maps operations to
+ * This class defines the Jena-side policies for language tags
+ * and maps operations to one implementation.
+ * <p>
+ * Language tags do not include text direction.
+ *
  * {@link org.apache.jena.langtag.LangTags}.
  */
 public class LangTagX {
+
+    // If needed, convert to singleton.
+    // public LangOps get() { ... }
 
     /**
      * Create a {@link LangTag} object, using the Jena system default
@@ -73,13 +80,6 @@ public class LangTagX {
         }
     }
 
-    /** @deprecated Use {@link #formatLanguageTag(String)} */
-    @Deprecated(forRemoval = true)
-    public static String canonical(String langTagStr) {
-        // Only for transition support.
-        return formatLanguageTag(langTagStr);
-    }
-
     /**
      * Check a string is valid as a language tag.
      * This function returns true or false and does not throw an exception.
@@ -94,8 +94,6 @@ public class LangTagX {
      * <p>
      * Passing this test does not guarantee the string is valid language tag. Use
      * {@link LangTagX#checkLanguageTag(String)} for validity checking.
-     *
-     * @returns true or false
      */
     public static boolean checkLanguageTagBasicSyntax(String langTagStr) {
         return org.apache.jena.langtag.LangTags.basicCheck(langTagStr);

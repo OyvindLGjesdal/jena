@@ -21,6 +21,7 @@ package org.apache.jena.sparql.exec.http;
 import static org.apache.jena.http.HttpLib.*;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -29,8 +30,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.ClosedInputStream;
+import org.apache.commons.io.input.ProxyInputStream;
 import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.iterator.Iter;
@@ -44,10 +49,12 @@ import org.apache.jena.atlas.web.HttpException;
 import org.apache.jena.atlas.web.MediaType;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Triple;
+import org.apache.jena.http.AsyncHttpRDF;
 import org.apache.jena.http.HttpEnv;
 import org.apache.jena.http.HttpLib;
 import org.apache.jena.query.*;
 import org.apache.jena.riot.*;
+import org.apache.jena.riot.lang.IteratorParsers;
 import org.apache.jena.riot.resultset.ResultSetLang;
 import org.apache.jena.riot.resultset.ResultSetReaderRegistry;
 import org.apache.jena.riot.web.HttpNames;
@@ -100,29 +107,77 @@ public class QueryExecHTTP implements QueryExec {
     private long readTimeout = -1;
     private TimeUnit readTimeoutUnit = TimeUnit.MILLISECONDS;
 
-    // Content Types: these list the standard formats and also include */*.
-    private final String selectAcceptheader    = WebContent.defaultSparqlResultsHeader;
-    private final String askAcceptHeader       = WebContent.defaultSparqlAskHeader;
-    private final String describeAcceptHeader  = WebContent.defaultGraphAcceptHeader;
-    private final String constructAcceptHeader = WebContent.defaultGraphAcceptHeader;
-    private final String datasetAcceptHeader   = WebContent.defaultDatasetAcceptHeader;
+    private final String selectAcceptHeader;
+    private final String askAcceptHeader;
+    private final String graphAcceptHeader;
+    private final String datasetAcceptHeader;
 
     // If this is non-null, it overrides the use of any Content-Type above.
-    private String appProvidedAcceptHeader         = null;
+    @Deprecated(forRemoval = true) // Deprecated in favor of setting the other header fields.
+    private String overrideAcceptHeader         = null;
 
     // Received content type
     private String httpResponseContentType = null;
-    // Releasing HTTP input streams is important. We remember this for SELECT result
-    // set streaming, and will close it when the execution is closed
-    private volatile InputStream retainedConnection = null;
 
     private HttpClient httpClient = HttpEnv.getDftHttpClient();
     private Map<String, String> httpHeaders;
 
+    // ----- Cancellation -----
+
+    private volatile boolean isAborted = false;
+    private final Object abortLock = new Object();
+    private volatile CompletableFuture<HttpResponse<InputStream>> future = null;
+
+    // Releasing HTTP input streams is important. We remember this for SELECT result
+    // set streaming, and will close it when the execution is closed
+    // This is the physical InputStream of the HTTP request which will only be closed by close().
+    private InputStream retainedConnection = null;
+
+    // This is a wrapped view of retainedConnection that will be closed by abort().
+    private volatile InputStream retainedConnectionView = null;
+
+    // Whether abort cancels an async HTTP request's future immediately.
+    private boolean cancelFutureOnAbort = true;
+
+    /**
+     * This constructor is superseded by the other one which has more parameters.
+     * The recommended way to create instances of this class is via {@link QueryExecHTTPBuilder}.
+     */
+    @Deprecated(forRemoval = true)
     public QueryExecHTTP(String serviceURL, Query query, String queryString, int urlLimit,
+            HttpClient httpClient, Map<String, String> httpHeaders, Params params, Context context,
+            List<String> defaultGraphURIs, List<String> namedGraphURIs,
+            QuerySendMode sendMode, String overrideAcceptHeader,
+            long timeout, TimeUnit timeoutUnit) {
+        // Content Types: these list the standard formats and also include */*
+        this(serviceURL, query, queryString, urlLimit,
+                httpClient, httpHeaders, params, context,
+                defaultGraphURIs, namedGraphURIs,
+                sendMode,
+                dft(overrideAcceptHeader, WebContent.defaultSparqlResultsHeader),
+                dft(overrideAcceptHeader, WebContent.defaultSparqlAskHeader),
+                dft(overrideAcceptHeader, WebContent.defaultGraphAcceptHeader),
+                dft(overrideAcceptHeader, WebContent.defaultDatasetAcceptHeader),
+                timeout, timeoutUnit);
+
+        // Handling of legacy overrideAcceptHeader.
+        this.overrideAcceptHeader = overrideAcceptHeader;
+        // Important - handled as special case because the defaults vary by query type.
+        if ( httpHeaders.containsKey(HttpNames.hAccept) ) {
+            if ( this.overrideAcceptHeader != null ) {
+                String acceptHeader = httpHeaders.get(HttpNames.hAccept);
+                this.overrideAcceptHeader = acceptHeader;
+            }
+            this.httpHeaders.remove(HttpNames.hAccept);
+        }
+    }
+
+    protected QueryExecHTTP(String serviceURL, Query query, String queryString, int urlLimit,
                          HttpClient httpClient, Map<String, String> httpHeaders, Params params, Context context,
                          List<String> defaultGraphURIs, List<String> namedGraphURIs,
-                         QuerySendMode sendMode, String explicitAcceptHeader,
+                         QuerySendMode sendMode,
+                         String selectAcceptHeader, String askAcceptHeader,
+                         String graphAcceptHeader, String datasetAcceptHeader,
                          long timeout, TimeUnit timeoutUnit) {
         this.context = ( context == null ) ? ARQ.getContext().copy() : context.copy();
         this.service = serviceURL;
@@ -133,13 +188,10 @@ public class QueryExecHTTP implements QueryExec {
         this.defaultGraphURIs = defaultGraphURIs;
         this.namedGraphURIs = namedGraphURIs;
         this.sendMode = Objects.requireNonNull(sendMode);
-        this.appProvidedAcceptHeader = explicitAcceptHeader;
-        // Important - handled as special case because the defaults vary by query type.
-        if ( httpHeaders.containsKey(HttpNames.hAccept) ) {
-            if ( this.appProvidedAcceptHeader != null )
-                this.appProvidedAcceptHeader = httpHeaders.get(HttpNames.hAccept);
-            this.httpHeaders.remove(HttpNames.hAccept);
-        }
+        this.selectAcceptHeader = selectAcceptHeader;
+        this.askAcceptHeader = askAcceptHeader;
+        this.graphAcceptHeader = graphAcceptHeader;
+        this.datasetAcceptHeader = datasetAcceptHeader;
         this.httpHeaders = httpHeaders;
         this.params = params;
         this.readTimeout = timeout;
@@ -147,9 +199,30 @@ public class QueryExecHTTP implements QueryExec {
         this.httpClient = HttpLib.dft(httpClient, HttpEnv.getDftHttpClient());
     }
 
-    /** Getter for the appProvidedAcceptHeader. Only used for testing. */
+    public String getAcceptHeaderSelect() {
+        return selectAcceptHeader;
+    }
+
+    public String getAcceptHeaderAsk() {
+        return askAcceptHeader;
+    }
+
+    public String getAcceptHeaderDescribe() {
+        return graphAcceptHeader;
+    }
+
+    public String getAcceptHeaderConstructGraph() {
+        return graphAcceptHeader;
+    }
+
+    public String getAcceptHeaderConstructDataset() {
+        return datasetAcceptHeader;
+    }
+
+    /** Getter for the override accept header. Only used for testing. */
+    @Deprecated(forRemoval = true)
     public String getAppProvidedAcceptHeader() {
-        return appProvidedAcceptHeader;
+        return overrideAcceptHeader;
     }
 
     /** The Content-Type response header received (null before the remote operation is attempted). */
@@ -166,12 +239,9 @@ public class QueryExecHTTP implements QueryExec {
     }
 
     private RowSet execRowSet() {
-        // Use the explicitly given header or the default selectAcceptheader
-        String thisAcceptHeader = dft(appProvidedAcceptHeader, selectAcceptheader);
-
-        HttpRequest request = effectiveHttpRequest(thisAcceptHeader);
+        HttpRequest request = effectiveHttpRequest(selectAcceptHeader);
         HttpResponse<InputStream> response = executeQuery(request);
-        InputStream in = HttpLib.getInputStream(response);
+        InputStream in = registerInputStream(response);
         // Don't assume the endpoint actually gives back the content type we asked for
         String actualContentType = responseHeader(response, HttpNames.hContentType);
 
@@ -187,8 +257,6 @@ public class QueryExecHTTP implements QueryExec {
             System.out.println(str);
             in = new ByteArrayInputStream(b);
         }
-
-        retainedConnection = in; // This will be closed on close()
 
         if (actualContentType == null || actualContentType.equals(""))
             actualContentType = WebContent.contentTypeResultsXML;
@@ -214,10 +282,9 @@ public class QueryExecHTTP implements QueryExec {
     public boolean ask() {
         checkNotClosed();
         check(QueryType.ASK);
-        String thisAcceptHeader = dft(appProvidedAcceptHeader, askAcceptHeader);
-        HttpRequest request = effectiveHttpRequest(thisAcceptHeader);
+        HttpRequest request = effectiveHttpRequest(askAcceptHeader);
         HttpResponse<InputStream> response = executeQuery(request);
-        InputStream in = HttpLib.getInputStream(response);
+        InputStream in = registerInputStream(response);
 
         String actualContentType = responseHeader(response, HttpNames.hContentType);
         httpResponseContentType = actualContentType;
@@ -241,10 +308,13 @@ public class QueryExecHTTP implements QueryExec {
         if (lang == null) {
             raiseException("Endpoint returned Content-Type: " + actualContentType + " which is not supported for ASK queries", request, response, in);
         }
-        boolean result = ResultSetMgr.readBoolean(in, lang);
-        finish(in);
-        return result;
-    }
+        try {
+            boolean result = ResultSetMgr.readBoolean(in, lang);
+            return result;
+        } finally {
+            finishInputStream(in);
+        }
+   }
 
     private String removeCharset(String contentType) {
         if ( contentType == null )
@@ -259,14 +329,14 @@ public class QueryExecHTTP implements QueryExec {
     public Graph construct(Graph graph) {
         checkNotClosed();
         check(QueryType.CONSTRUCT);
-        return execGraph(graph, constructAcceptHeader);
+        return execGraph(graph, graphAcceptHeader);
     }
 
     @Override
     public Iterator<Triple> constructTriples() {
         checkNotClosed();
         check(QueryType.CONSTRUCT);
-        return execTriples(constructAcceptHeader);
+        return execTriples(graphAcceptHeader);
     }
 
     @Override
@@ -292,13 +362,13 @@ public class QueryExecHTTP implements QueryExec {
     public Graph describe(Graph graph) {
         checkNotClosed();
         check(QueryType.DESCRIBE);
-        return execGraph(graph, describeAcceptHeader);
+        return execGraph(graph, graphAcceptHeader);
     }
 
     @Override
     public Iterator<Triple> describeTriples() {
         checkNotClosed();
-        return execTriples(describeAcceptHeader);
+        return execTriples(graphAcceptHeader);
     }
 
     private Graph execGraph(Graph graph, String acceptHeader) {
@@ -307,9 +377,8 @@ public class QueryExecHTTP implements QueryExec {
         Lang lang = p.getRight();
         try {
             RDFDataMgr.read(graph, in, lang);
-        } catch (RiotException ex) {
-            finish(in);
-            throw ex;
+        } finally {
+            finishInputStream(in);
         }
         return graph;
     }
@@ -320,32 +389,27 @@ public class QueryExecHTTP implements QueryExec {
         Lang lang = p.getRight();
         try {
             RDFDataMgr.read(dataset, in, lang);
-        } catch (RiotException ex) {
-            finish(in);
-            throw ex;
+        } finally {
+            finishInputStream(in);
         }
         return dataset;
     }
 
-    @SuppressWarnings("removal")
     private Iterator<Triple> execTriples(String acceptHeader) {
         Pair<InputStream, Lang> p = execRdfWorker(acceptHeader, WebContent.contentTypeRDFXML);
         InputStream input = p.getLeft();
         Lang lang = p.getRight();
         // Base URI?
-        // Unless N-Triples, this creates a thread.
-        Iterator<Triple> iter = RDFDataMgr.createIteratorTriples(input, lang, null);
+        Iterator<Triple> iter = IteratorParsers.createIteratorTriples(input, lang, null);
         return Iter.onCloseIO(iter, input);
     }
 
-    @SuppressWarnings("removal")
     private Iterator<Quad> execQuads() {
         checkNotClosed();
         Pair<InputStream, Lang> p = execRdfWorker(datasetAcceptHeader, WebContent.contentTypeNQuads);
         InputStream input = p.getLeft();
         Lang lang = p.getRight();
-        // Unless N-Quads, this creates a thread.
-        Iterator<Quad> iter = RDFDataMgr.createIteratorQuads(input, lang, null);
+        Iterator<Quad> iter = IteratorParsers.createIteratorQuads(input, lang, null);
         return Iter.onCloseIO(iter, input);
     }
 
@@ -353,10 +417,10 @@ public class QueryExecHTTP implements QueryExec {
     // ifNoContentType - some wild guess at the content type.
     private Pair<InputStream, Lang> execRdfWorker(String contentType, String ifNoContentType) {
         checkNotClosed();
-        String thisAcceptHeader = dft(appProvidedAcceptHeader, contentType);
+        String thisAcceptHeader = contentType;
         HttpRequest request = effectiveHttpRequest(thisAcceptHeader);
         HttpResponse<InputStream> response = executeQuery(request);
-        InputStream in = HttpLib.getInputStream(response);
+        InputStream in = registerInputStream(response);
 
         // Don't assume the endpoint actually gives back the content type we asked for
         String actualContentType = responseHeader(response, HttpNames.hContentType);
@@ -381,13 +445,13 @@ public class QueryExecHTTP implements QueryExec {
     public JsonArray execJson() {
         checkNotClosed();
         check(QueryType.CONSTRUCT_JSON);
-        String thisAcceptHeader = dft(appProvidedAcceptHeader, WebContent.contentTypeJSON);
+        String thisAcceptHeader = dft(overrideAcceptHeader, WebContent.contentTypeJSON);
         HttpRequest request = effectiveHttpRequest(thisAcceptHeader);
         HttpResponse<InputStream> response = executeQuery(request);
-        InputStream in = HttpLib.getInputStream(response);
+        InputStream in = registerInputStream(response);
         try {
             return JSON.parseAny(in).getAsArray();
-        } finally { finish(in); }
+        } finally { finishInputStream(in); }
     }
 
     @Override
@@ -400,11 +464,6 @@ public class QueryExecHTTP implements QueryExec {
             x.add(elt.getAsObject());
         });
         return x.iterator();
-    }
-
-    private void checkNotClosed() {
-        if ( closed )
-            throw new QueryExecException("HTTP QueryExecHTTP has been closed");
     }
 
     private void check(QueryType queryType) {
@@ -537,15 +596,27 @@ public class QueryExecHTTP implements QueryExec {
     }
 
     /**
-     * Execute an HttpRequest.
+     * Execute an HttpRequest and wait for the HttpResponse.
+     * A call to {@link #abort()} interrupts the wait.
      * The response is returned after status code processing so the caller can assume the
      * query execution was successful and return 200.
      * Use {@link HttpLib#getInputStream} to access the body.
      */
     private HttpResponse<InputStream> executeQuery(HttpRequest request) {
-        logQuery(queryString, request);
+        checkNotClosed();
+
+        if (future != null) {
+            throw new IllegalStateException("Execution was already started.");
+        }
+
         try {
-            HttpResponse<InputStream> response = execute(httpClient, request);
+            synchronized (abortLock) {
+                checkNotAborted();
+                logQuery(queryString, request);
+                future = HttpLib.executeAsync(httpClient, request);
+            }
+
+            HttpResponse<InputStream> response = AsyncHttpRDF.getOrElseThrow(future, request);
             HttpLib.handleHttpStatusCode(response);
             return response;
         } catch (HttpException httpEx) {
@@ -623,22 +694,69 @@ public class QueryExecHTTP implements QueryExec {
     /**
      * Cancel query evaluation
      */
-    public void cancel() {
-        closed = true;
-    }
-
     @Override
     public void abort() {
-        try {
-            close();
-        } catch (Exception ex) {
-            Log.warn(this, "Error during abort", ex);
+        // Setting abort to true causes the next read from
+        // retainedConnectionView (if already created) to
+        // fail with a QueryCancelledException.
+        isAborted = true;
+        if (cancelFutureOnAbort) {
+            cancelFuture(future);
         }
+    }
+
+    private InputStream registerInputStream(HttpResponse<InputStream> httpResponse) {
+        InputStream in = HttpLib.getInputStream(httpResponse);
+        registerInputStream(in);
+        return in;
+    }
+
+    /**
+     * Set the given input stream as the 'retainedConnection' and create a corresponding
+     * asynchronously abortable 'retainedConnectionView'. The latter is returned.
+     * If execution was already aborted then a {@link QueryCancelledException} is raised.
+     */
+    private InputStream registerInputStream(InputStream input) {
+        synchronized (abortLock) {
+            this.retainedConnection = input;
+            // Note: Used ProxyInputStream because the ctor of CloseShieldInputStream is deprecated.
+            this.retainedConnectionView = new ProxyInputStream(input) {
+                @Override
+                protected void beforeRead(int n) throws IOException {
+                    checkNotAborted();
+                    super.beforeRead(n);
+                }
+                @Override
+                public void close() {
+                    this.in = ClosedInputStream.INSTANCE;
+                }
+            };
+
+            // If already aborted then bail out before starting the parsers.
+            checkNotAborted();
+        }
+        return retainedConnectionView;
     }
 
     @Override
     public void close() {
         closed = true;
+        // No need to handle the future here, because the possible states are:
+        // - Null because no execution was started -> retainedConnection is null.
+        // - Cancelled by asynchronous abort       -> retainedConnection is null.
+        // - Completed successfully by the same thread that now closes the retainedConnection
+        //                                         -> retainedConnection is non-null.
+        IOUtils.closeQuietly(retainedConnectionView);
+        closeRetainedConnection();
+    }
+
+    private static void cancelFuture(CompletableFuture<?> future) {
+        if (future != null) {
+            future.cancel(true);
+        }
+    }
+
+    private void closeRetainedConnection() {
         if (retainedConnection != null) {
             try {
                 // This call may take a long time if the response has not been consumed
@@ -656,6 +774,16 @@ public class QueryExecHTTP implements QueryExec {
                 retainedConnection = null;
             }
         }
+    }
+
+    private void checkNotClosed() {
+        if ( closed )
+            throw new QueryExecException("HTTP QueryExecHTTP has been closed");
+    }
+
+    protected void checkNotAborted() {
+        if ( isAborted )
+            throw new QueryCancelledException();
     }
 
     @Override

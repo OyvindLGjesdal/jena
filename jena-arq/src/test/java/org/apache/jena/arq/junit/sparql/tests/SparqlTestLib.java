@@ -18,17 +18,19 @@
 
 package org.apache.jena.arq.junit.sparql.tests;
 
-import org.apache.jena.arq.junit.LibTestSetup;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.arq.junit.manifest.TestSetupException;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.query.Syntax;
-import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RDFParserBuilder;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
 import org.apache.jena.sparql.vocabulary.TestManifestX;
 import org.apache.jena.sparql.vocabulary.VocabTestQuery;
+import org.apache.jena.system.G;
 import org.apache.jena.update.UpdateFactory;
 import org.apache.jena.update.UpdateRequest;
 
@@ -48,17 +50,51 @@ class SparqlTestLib {
         throw new AssertionError(msg);
     }
 
-    static String queryFile(ManifestEntry entry) {
-        Resource r = entry.getAction();
+//    /**
+//     * Get the query file: either it is the action (data in query) or it is
+//     * specified within the bNode as a query/data pair.
+//     *
+//     * @return
+//     */
+//    private String _getQueryFile() {
+//        Node queryFile = G.getZeroOrOneSP(graph, testResource, VocabTestQuery.query.asNode());
+//        if ( queryFile != null )
+//            return getStringOrURI(queryFile, "query file");
+//
+//        // No query property - must be this action node
+//
+//        if ( actionResource.isBlank() )
+//            throw new TestSetupException("Can't determine the query from the action");
+//        return actionResource.getURI();
+//    }
 
-        if ( r.hasProperty(VocabTestQuery.query) )
-            return LibTestSetup.getLiteralOrURI(r, VocabTestQuery.query) ;
+    static String getStringOrURI(Node node, String context) {
+        if ( node.isLiteral() )
+            return node.getLiteralLexicalForm();
+        if ( node.isURI() )
+            return node.getURI();
+        if ( context == null )
+            throw new TestSetupException("Not a string or URI: "+node);
+        throw new TestSetupException("Not a string or URI for "+context+": "+node);
+    }
+
+    static String queryFile(ManifestEntry entry) {
+        Graph graph = entry.getGraph();
+        Node testResource = entry.getEntry();
+        Node queryFile = G.getZeroOrOneSP(graph, testResource, VocabTestQuery.query.asNode());
+        if ( queryFile != null )
+            return getStringOrURI(queryFile, "query file");
 
         // No query property - must be this action node
 
-        if ( r.isAnon() )
-            return "[]" ;
-        return r.getURI() ;
+        if ( entry.getAction().isBlank() ) {
+            // action -> :query
+            Node x = G.getZeroOrOneSP(graph, entry.getAction(), VocabTestQuery.query.asNode());
+            if ( x == null )
+                throw new TestSetupException("Can't determine the query from the action");
+            return x.getURI();
+        }
+        return entry.getAction().getURI();
     }
 
     static Query queryFromEntry(ManifestEntry entry) {
@@ -81,28 +117,31 @@ class SparqlTestLib {
     }
 
     private static Syntax querySyntax(ManifestEntry entry, Syntax def) {
-        Resource r = entry.getAction();
-        if ( r.hasProperty(TestManifestX.querySyntax) ) {
-            Syntax x = Syntax.make(r.getProperty(TestManifestX.querySyntax).getResource().getURI()) ;
-            return x ;
+        Graph graph = entry.getGraph();
+        Node r = entry.getAction();
+        if ( G.hasProperty(graph, r, TestManifestX.querySyntax.asNode()) ) {
+            Node n = G.getOneSP(graph, r, TestManifestX.querySyntax.asNode());
+            Syntax x = Syntax.make(n.getURI());
+            return x;
         }
-        Resource q = r.getPropertyResourceValue(VocabTestQuery.query);
+
+        Node q = G.getZeroOrOneSP(graph, r, VocabTestQuery.query.asNode());
         if ( q == null )
             q = entry.getAction();
 
         if ( q == null ) {
-            System.err.println("No query");
+            //throw new TestSetupException("No query");
             // Default on manifest?
             return Syntax.syntaxSPARQL_11;
         }
 
         String uri = q.getURI();
         if ( uri != null ) {
-            Syntax synFileName = guessFileSyntax(uri) ;
+            Syntax synFileName = guessFileSyntax(uri);
             if ( synFileName != null )
-                return synFileName ;
+                return synFileName;
         }
-        return def ;
+        return def;
     }
 
     // Allow *.rq is strictly SPARQL 1.1 tests.

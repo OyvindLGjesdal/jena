@@ -24,14 +24,18 @@ import java.util.List;
 import java.util.function.Function;
 
 import arq.cmdline.ModContext;
+import arq.cmdline.ModEngine;
 import org.apache.jena.Jena;
-import org.apache.jena.arq.junit.SurpressedTest;
-import org.apache.jena.arq.junit.TextTestRunner;
+import org.apache.jena.arq.junit.EarlReport;
+import org.apache.jena.arq.junit.Scripts;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.arq.junit.riot.ParsingStepForTest;
 import org.apache.jena.arq.junit.riot.RiotTests;
+import org.apache.jena.arq.junit.riot.SemanticsTests;
 import org.apache.jena.arq.junit.riot.VocabLangRDF;
 import org.apache.jena.arq.junit.sparql.SparqlTests;
 import org.apache.jena.arq.junit.sparql.tests.QueryEvalTest;
+import org.apache.jena.arq.junit.textrunner.TextTestRunner;
 import org.apache.jena.atlas.legacy.BaseTest2;
 import org.apache.jena.atlas.lib.Lib;
 import org.apache.jena.atlas.logging.LogCtl;
@@ -50,9 +54,9 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RIOT;
 import org.apache.jena.riot.SysRIOT;
+import org.apache.jena.riot.lang.extra.TurtleJCC;
 import org.apache.jena.sparql.expr.E_Function;
 import org.apache.jena.sparql.expr.NodeValue;
-import org.apache.jena.sparql.junit.EarlReport;
 import org.apache.jena.sparql.util.NodeFactoryExtra;
 import org.apache.jena.sparql.vocabulary.DOAP;
 import org.apache.jena.sparql.vocabulary.EARL;
@@ -90,19 +94,19 @@ public class rdftests extends CmdGeneral
         }
     }
 
+    protected ModEngine  modEngine         = new ModEngine();
     protected ModContext modContext        = new ModContext();
     protected ArgDecl    strictDecl        = new ArgDecl(ArgDecl.NoValue, "strict");
     protected boolean    cmdStrictMode     = false;
 
-    protected ArgDecl    arqDecl           = new ArgDecl(ArgDecl.NoValue, "arq");
+    // Use the alternative Turtle parser which is JavaCC based.
+    protected ArgDecl    useTTLjcc         = new ArgDecl(ArgDecl.NoValue, "ttljcc");
+    protected ArgDecl    useARQ            = new ArgDecl(ArgDecl.NoValue, "arq");
     // Run with ".rq" as ARQ extended syntax.
-    protected boolean    arqAsNormal       = false;
+    protected boolean    argAsNormal       = false;
 
     protected ArgDecl    earlDecl          = new ArgDecl(ArgDecl.NoValue, "earl");
     protected boolean    createEarlReport  = false;
-
-    protected ArgDecl    baseDecl          = new ArgDecl(ArgDecl.HasValue, "base");
-    protected String     baseURI           = null;
 
     private static final PrintStream earlOut = System.out;
 
@@ -110,14 +114,16 @@ public class rdftests extends CmdGeneral
 
     protected rdftests(String[] argv) {
         super(argv);
-//        super.add(baseDecl, "--base=URI", "Set the base URI");
         super.modVersion.addClass(Jena.class);
-        getUsage().startCategory("Tests (execute test manifest)");
-        getUsage().addUsage("<manifest>", "run the tests specified in the given manifest");
-        add(arqDecl, "--arq",       "Operate with ARQ syntax");
-        add(strictDecl, "--strict", "Operate in strict mode (no extensions of any kind)");
-        add(earlDecl, "--earl", "create EARL report");
+        addModule(modEngine);
         addModule(modContext);
+        
+        getUsage().startCategory("Tests (execute test manifest)");
+        add(useARQ,       "--arq",     "Operate with ARQ syntax");
+        add(useTTLjcc,    "--ttljcc",  "Use the alternative Turtle parser in tests");
+        add(strictDecl,   "--strict",  "Operate in strict mode (no extensions of any kind)");
+        add(earlDecl,     "--earl",    "Create EARL report");
+        getUsage().addUsage("<manifest> ...", "run the tests specified in the given manifest");
     }
 
     @Override
@@ -132,16 +138,17 @@ public class rdftests extends CmdGeneral
             throw new CmdException("No manifest file");
         createEarlReport = contains(earlDecl);
         cmdStrictMode = super.hasArg(strictDecl);
-        if ( contains(baseDecl) )
-            baseURI = super.getValue(baseDecl);
-        arqAsNormal = contains(arqDecl);
+        if ( contains(useTTLjcc) )
+            ParsingStepForTest.registerAlternative(Lang.TURTLE, TurtleJCC.factory);
+        argAsNormal = contains(useARQ);
     }
 
     @Override
     protected void exec() {
+
         NodeValue.VerboseWarnings = false;
         E_Function.WarnOnUnknownFunction = false;
-        EarlReport report = new EarlReport(systemURI);
+        EarlReport report = createEarlReport ? new EarlReport(systemURI) : null;
 
         BaseTest2.setTestLogging();
 
@@ -152,15 +159,14 @@ public class rdftests extends CmdGeneral
             QueryEvalTest.compareResultSetsByValue = false;
         }
 
-        if ( arqAsNormal )
+        if ( argAsNormal )
             SparqlTests.defaultForSyntaxTests = Syntax.syntaxARQ;
         else
             SparqlTests.defaultForSyntaxTests = Syntax.syntaxSPARQL_12;
 
-        for ( String fn : getPositional() ) {
-            System.out.println("Run: "+fn);
-            exec1(report, fn);
-        }
+        List<String> manifests = getPositional();
+        System.out.println("# Run: "+manifests);
+        exec(report, manifests);
 
         if ( createEarlReport ) {
             earlOut.println();
@@ -175,47 +181,34 @@ public class rdftests extends CmdGeneral
             // ---
             Model meta = metadata(report);
 
-            // Write meta separately so it is easy to find.
+            // Write meta separately so it is easy to find and can be extracted.
             RDFDataMgr.write(earlOut, model, Lang.TURTLE);
             earlOut.println();
             RDFDataMgr.write(earlOut, meta, Lang.TURTLE);
         }
     }
 
-    protected void exec1(EarlReport report, String manifest) {
+    protected void exec(EarlReport earlReport, List<String> manifests) {
+        if ( manifests.isEmpty() )
+            throw new CmdException("No manifest files");
         if ( createEarlReport )
-            oneManifestEarl(report, manifest);
+            TextTestRunner.run(earlReport, manifests, Scripts.testMaker());
         else
-            oneManifest(manifest);
-    }
+            TextTestRunner.run(manifests, Scripts.testMaker());
 
-    static void oneManifest(String testManifest) {
-        TextTestRunner.runOne(testManifest, testMaker());
-    }
-    static void oneManifestEarl(EarlReport report, String testManifest) {
-        TextTestRunner.runOne(report, testManifest, testMaker());
     }
 
     // Test subsystems.
     private static List<Function<ManifestEntry, Runnable>> installed = new ArrayList<>();
-    static {
-        installed.add(RiotTests::makeRIOTTest);
-        installed.add(SparqlTests::makeSPARQLTest);
-        // SHACL-WG manifests are structured different.
+
+    public static void installTestMaker(Function<ManifestEntry, Runnable> testMaker) {
+        installed.add(testMaker);
     }
 
-    private static Function<ManifestEntry, Runnable> testMaker() {
-        return (ManifestEntry entry) -> {
-            for ( Function<ManifestEntry, Runnable> engine : installed) {
-                Runnable r = engine.apply(entry);
-                if ( r != null )
-                    return r;
-            }
-            String testName = entry.getName();
-            Resource testType = entry.getTestType() ;
-            System.err.println("Unrecognized test : ("+testType+")" + testName) ;
-            return new SurpressedTest(entry) ;
-        };
+    static {
+        installTestMaker(RiotTests::makeRIOTTest);
+        installTestMaker(SparqlTests::makeSPARQLTest);
+        installTestMaker(SemanticsTests::makeSemanticsTest);
     }
 
     private static String name =  "Apache Jena";
@@ -246,7 +239,6 @@ public class rdftests extends CmdGeneral
         Resource who = model.createResource(FOAF.Agent)
                     .addProperty(FOAF.name, "Apache Jena Community")
                     .addProperty(FOAF.homepage, homepage);
-
 
         model.add(system, DC.creator, who);
         model.add(system, RDF.type, DOAP.Project);

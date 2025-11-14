@@ -43,6 +43,10 @@ public class TestRestartableLBRule extends TestCase {
         return new TestSuite(TestRestartableLBRule.class);
     }
 
+    private static  Graph createGraphForTest() {
+        return GraphMemFactory.createDefaultGraph();
+    }
+
     Resource Senator = ResourceFactory.createResource("http://example.com/ns/Senator");
     Resource Person = ResourceFactory.createResource("http://example.com/ns/Person");
     Resource Politician = ResourceFactory.createResource("http://example.com/ns/Politician");
@@ -107,7 +111,7 @@ public class TestRestartableLBRule extends TestCase {
 
     class DummyTxnGraph extends GraphBase implements Graph {
         TransactionHandler th = new DummyTxnHandler();
-        Graph base = GraphMemFactory.createGraphMem();
+        Graph base = createGraphForTest();
 
         @Override
         public void performAdd( Triple t ) { base.add(t); }

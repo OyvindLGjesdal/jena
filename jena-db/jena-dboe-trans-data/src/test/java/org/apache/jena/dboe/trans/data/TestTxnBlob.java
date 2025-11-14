@@ -19,14 +19,13 @@
 package org.apache.jena.dboe.trans.data;
 
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.dboe.base.file.BufferChannel;
 import org.apache.jena.dboe.base.file.BufferChannelMem;
@@ -45,7 +44,7 @@ public class TestTxnBlob {
     private TransBlob       transBlob;
     private Transactional   transactional;
 
-    @Before public void before() {
+    @BeforeEach public void before() {
         journal = Journal.create(Location.mem());
 
         BufferChannel chan = BufferChannelMem.create("TestTransBlob");
@@ -54,7 +53,7 @@ public class TestTxnBlob {
         transactional = TransactionalFactory.createTransactional(journal, transBlob);
     }
 
-    @After public void after() { }
+    @AfterEach public void after() { }
 
     public static void write(Transactional transactional, TransBlob transBlob, String data) {
         Txn.executeWrite(transactional, ()->{
@@ -74,7 +73,7 @@ public class TestTxnBlob {
             String s = transBlob.getString();
             result.set(s);
         }).run();
-        Assert.assertEquals(expected, result.get());
+        assertEquals(expected, result.get());
     }
 
     // testing with real files in TestTransBlobPersistent
@@ -97,7 +96,7 @@ public class TestTxnBlob {
         transactional.begin(ReadWrite.WRITE);
         transBlob.setString(str2);
 
-        // Difefrent therad and transaction.
+        // Different therad and transaction.
         threadRead(str1);
 
         transactional.commit();
@@ -118,7 +117,7 @@ public class TestTxnBlob {
         // Start now.
         ThreadAction tt = ThreadTxn.threadTxnRead(transactional, ()-> {
             String sr = transBlob.getString();
-            Assert.assertEquals(str1, sr);
+            assertEquals(str1, sr);
         });
 
         write(transactional, transBlob, str2);

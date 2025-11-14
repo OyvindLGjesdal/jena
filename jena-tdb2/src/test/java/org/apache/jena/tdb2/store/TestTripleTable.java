@@ -18,12 +18,16 @@
 
 package org.apache.jena.tdb2.store;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Iterator;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.atlas.logging.LogCtl;
 import org.apache.jena.dboe.base.file.Location;
@@ -31,9 +35,6 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.query.ReadWrite;
 import org.apache.jena.sparql.util.NodeFactoryExtra;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 /**
  * Basic test of triple table to see if the NodeTupletable is working.
@@ -41,18 +42,18 @@ import org.junit.Test;
  */
 public class TestTripleTable
 {
-    private static String levelInfo;  
-    private static String levelExec;  
-    
-    @BeforeClass public static void beforeClass() {
+    private static String levelInfo;
+    private static String levelExec;
+
+    @BeforeAll public static void beforeClass() {
         levelInfo = LogCtl.getLevel("org.apache.jena.tdb.info");
         levelExec = LogCtl.getLevel("org.apache.jena.tdb.exec");
-        
+
         LogCtl.setLevel("org.apache.jena.tdb.info", "WARN");
         LogCtl.setLevel("org.apache.jena.tdb.exec", "WARN");
-        
+
     }
-    @AfterClass public static void afterClass() {
+    @AfterAll public static void afterClass() {
         LogCtl.setLevel("org.apache.jena.tdb.info", levelInfo);
         LogCtl.setLevel("org.apache.jena.tdb.exec", levelExec);
     }

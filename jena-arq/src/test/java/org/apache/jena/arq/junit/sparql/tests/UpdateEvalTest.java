@@ -18,28 +18,32 @@
 
 package org.apache.jena.arq.junit.sparql.tests;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList ;
 import java.util.List ;
 
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.arq.junit.manifest.TestSetupException;
 import org.apache.jena.atlas.iterator.Iter ;
 import org.apache.jena.atlas.lib.Creator;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset ;
 import org.apache.jena.query.DatasetFactory ;
 import org.apache.jena.query.Syntax ;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.sparql.vocabulary.TestManifestUpdate_11 ;
+import org.apache.jena.system.G;
 import org.apache.jena.update.UpdateAction ;
 import org.apache.jena.update.UpdateFactory ;
 import org.apache.jena.update.UpdateRequest ;
 import org.apache.jena.util.iterator.ClosableIterator ;
 import org.apache.jena.vocabulary.RDFS ;
 
-public class UpdateEvalTest implements Runnable
+public class UpdateEvalTest extends AbstractManifestTest
 {
-    private final ManifestEntry testEntry;
     private final Creator<Dataset> creator;
 
     public UpdateEvalTest(ManifestEntry entry) {
@@ -47,27 +51,22 @@ public class UpdateEvalTest implements Runnable
     }
 
     public UpdateEvalTest(ManifestEntry entry, Creator<Dataset> maker) {
-        this.testEntry = entry;
+        super(entry);
         this.creator = maker;
     }
 
     @Override
-    public void run() {
-        Dataset input = getDataset(creator.create(), testEntry.getAction()) ;
-        Dataset output = getDataset(DatasetFactory.create(), testEntry.getResult()) ;
+    public void runTest() {
+        Dataset input = getDataset(creator.create(), manifestEntry.getGraph(), manifestEntry.getAction()) ;
+        Dataset output = getDataset(DatasetFactory.create(), manifestEntry.getGraph(), manifestEntry.getResult()) ;
 
-        String updateFile = testEntry
-                .getAction()
-                .getProperty(TestManifestUpdate_11.request)
-                .getResource()
-                .getURI() ;
-
+        String updateFile = G.getOneSP(manifestEntry.getGraph(), manifestEntry.getAction(), TestManifestUpdate_11.request.asNode()).getURI();
         UpdateRequest request = UpdateFactory.read(updateFile, Syntax.syntaxARQ) ;
         UpdateAction.execute(request, input) ;
         boolean b = datasetSame(input, output, false) ;
         if ( ! b )
         {
-            System.out.println("---- "+testEntry.getName()) ;
+            System.out.println("---- "+manifestEntry.getName()) ;
             System.out.println("---- Got: ") ;
             System.out.println(input.asDatasetGraph()) ;
             System.out.println("---- Expected") ;
@@ -76,7 +75,7 @@ public class UpdateEvalTest implements Runnable
             System.out.println("----------------------------------------") ;
         }
 
-        assertTrue("Datasets are different", b) ;
+        assertTrue(b, "Datasets are different") ;
     }
 
     private static boolean datasetSame(Dataset ds1, Dataset ds2, boolean verbose)
@@ -115,38 +114,36 @@ public class UpdateEvalTest implements Runnable
         return true ;
     }
 
-    static Dataset getDataset(Dataset ds, Resource r)
+    static Dataset getDataset(Dataset ds, Graph graph, Node r)
     {
-        List<String> dftData = getAll(r, TestManifestUpdate_11.data) ;
-        for ( String x : dftData )
-            SparqlTestLib.parser(x).parse(ds);
+        List <Node> dftData = G.listSP(graph, r, TestManifestUpdate_11.data.asNode());
+        for ( Node x : dftData ) {
+            if ( ! x.isURI() )
+                throw new TestSetupException("Not a URI for a default graph data file: "+x);
+            SparqlTestLib.parser(x.getURI()).parse(ds);
+        }
 
-        ClosableIterator<Statement> cIter =  r.listProperties(TestManifestUpdate_11.graphData) ;
-        for ( ; cIter.hasNext() ; )
-        {
-            // An graphData entry can be a URI or a [ ut ... ; rdfs:label "foo" ] ;
-            Statement stmt = cIter.next() ;
-            Resource gn = stmt.getResource() ;
-            if ( gn.isAnon() )
-            {
-                if ( ! gn.hasProperty(TestManifestUpdate_11.graph) )
-                    System.err.println("No data for graphData") ;
+        List <Node> namedGraphs = G.listSP(graph, r, TestManifestUpdate_11.graphData.asNode());
+        for ( Node x : namedGraphs ) {
+            // An graphData entry can be a URI or a [ ut:graph , rdfs:label "" ]
+            if ( x.isBlank() ) {
+                if ( ! G.hasProperty(graph, x, TestManifestUpdate_11.graph.asNode()) )
+                    throw new TestSetupException("No data for graphData") ;
 
-                String fn = gn.getProperty(TestManifestUpdate_11.graph).getResource().getURI() ;
-                String name = gn.getProperty(RDFS.label).getString() ;
+                String fn = G.getOneSP(graph, x, TestManifestUpdate_11.graph.asNode()).getURI();
+                String name = G.asString(G.getOneSP(graph, x, RDFS.Nodes.label));
                 Model m = ModelFactory.createDefaultModel();
                 SparqlTestLib.parser(fn).parse(m);
                 ds.addNamedModel(name, m) ;
             }
             else
             {
-                String x = gn.getURI() ;
+                String uri = x.getURI() ;
                 Model m = ModelFactory.createDefaultModel();
-                SparqlTestLib.parser(x).parse(m);
-                ds.addNamedModel(x, m) ;
+                SparqlTestLib.parser(uri).parse(m);
+                ds.addNamedModel(uri, m) ;
             }
         }
-        cIter.close() ;
         return ds ;
     }
 

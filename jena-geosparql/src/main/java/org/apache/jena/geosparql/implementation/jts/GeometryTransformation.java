@@ -17,10 +17,11 @@
  */
 package org.apache.jena.geosparql.implementation.jts;
 
-import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
-import org.apache.jena.datatypes.DatatypeFormatException;
 import static org.apache.jena.geosparql.configuration.GeoSPARQLOperations.cleanUpPrecision;
+
+import java.util.ArrayList;
+
+import org.apache.jena.datatypes.DatatypeFormatException;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
@@ -35,16 +36,12 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  *
  */
 public class GeometryTransformation {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     public static final Geometry transform(Geometry sourceGeometry, MathTransform transform) throws TransformException {
 
@@ -190,7 +187,7 @@ public class GeometryTransformation {
         boolean isZSource = sourceDims > 2;
         for (int i = 0; i < size; i++) {
             Coordinate coord = coordSeq.getCoordinate(i);
-            int j = i * targetDims;
+            int j = i * sourceDims;
             sourcePts[j] = coord.getX();
             sourcePts[j + 1] = coord.getY();
             if (isZSource) {

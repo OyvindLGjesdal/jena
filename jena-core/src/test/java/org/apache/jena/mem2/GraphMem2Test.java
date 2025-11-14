@@ -157,20 +157,6 @@ public class GraphMem2Test {
     }
 
     @Test
-    public void testGetCapabilities() {
-        TripleStore mockStore = mock();
-
-        var sut = new GraphMem2(mockStore);
-        var capapbilities = sut.getCapabilities();
-
-        assertTrue(capapbilities.sizeAccurate());
-        assertTrue(capapbilities.addAllowed());
-        assertTrue(capapbilities.deleteAllowed());
-        assertFalse(capapbilities.handlesLiteralTyping());
-
-    }
-
-    @Test
     public void testCopy() {
         TripleStore mockStore = mock();
         TripleStore mockStoreCopy = mock();

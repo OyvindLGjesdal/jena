@@ -18,13 +18,17 @@
 
 package org.apache.jena.tdb2.sys;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeFalse;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.jena.atlas.lib.FileOps;
@@ -43,9 +47,6 @@ import org.apache.jena.tdb2.DatabaseMgr;
 import org.apache.jena.tdb2.TDBException;
 import org.apache.jena.tdb2.store.DatasetGraphSwitchable;
 import org.apache.jena.tdb2.store.DatasetGraphTDB;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
 public class TestDatabaseCompact
 {
@@ -57,7 +58,7 @@ public class TestDatabaseCompact
     static Triple triple2 = quad2.asTriple();
     static Triple triple3 = SSE.parseTriple("(<s> <q> 3)");
 
-    @Before
+    @BeforeEach
     public void before() {
         String DIR = ConfigTest.getCleanDir();
         FileOps.ensureDir(DIR);
@@ -65,7 +66,7 @@ public class TestDatabaseCompact
         dir = Location.create(DIR);
     }
 
-    @After
+    @AfterEach
     public void after() {
         TDBInternal.reset();
         FileUtils.deleteQuietly(IO_DB.asFile(dir));
@@ -193,20 +194,20 @@ public class TestDatabaseCompact
         });
 
         DatasetGraphSwitchable dsgs = (DatasetGraphSwitchable)dsg;
-        assertNotNull("DatasetGraphSwitchable created", dsgs.getLocation());
+        assertNotNull(dsgs.getLocation(), ()->"DatasetGraphSwitchable created");
         DatasetGraph dsg1 = dsgs.get();
         Location loc1 = ((DatasetGraphTDB)dsg1).getLocation();
 
         // Before
         int x1 = Txn.calculateRead(dsg, ()->dsg.prefixes().size());
-        assertTrue("Prefxies count", x1 > 0);
+        assertTrue(x1 > 0, ()->"Prefxies count");
 
         DatabaseMgr.compact(dsgs, false); // HERE
 
         // After
         int x2 = Txn.calculateRead(dsg, ()->dsg.prefixes().size());
 
-        assertEquals("Before and after prefix count", x1, x2);
+        assertEquals(x1, x2, ()->"Before and after prefix count");
 
         Graph g2 = dsgs.getDefaultGraph();
 

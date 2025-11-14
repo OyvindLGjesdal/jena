@@ -18,12 +18,13 @@
 
 package org.apache.jena.riot.lang;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Triple;
@@ -62,10 +63,13 @@ public class TestLangJsonLD {
         //        "@type": "RelType",
         //        "http://example/p": { "@id" : "#frag" }
         //     }
-        String jsonld = "{ '@id': './relative', '@type': 'RelType', 'http://example/p': { '@id' : '#frag' } }";
-        jsonld = jsonld.replaceAll("'",  "\"");
+
+        String jsonld = """
+                { "@id": "./relative", "@type": "RelType", "http://example/p": { "@id" : "#frag" } }
+                """;
         Graph g = RDFParser.fromString(jsonld, Lang.JSONLD).base("http://base/abc").toGraph();
         assertNotNull(g);
+        assertFalse(g.isEmpty());
         Triple t = SSE.parseTriple("( <http://base/relative> <http://example/p> <http://base/abc#frag> )");
         assertTrue(g.contains(t));
     }

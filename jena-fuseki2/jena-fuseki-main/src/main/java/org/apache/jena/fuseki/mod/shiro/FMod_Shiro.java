@@ -37,8 +37,8 @@ import org.apache.jena.fuseki.mgt.FusekiServerCtl;
 import org.apache.jena.rdf.model.Model;
 import org.apache.shiro.lang.io.ResourceUtils;
 import org.apache.shiro.web.servlet.ShiroFilter;
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.servlet.SessionHandler;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.servlet.SessionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,12 +70,8 @@ public class FMod_Shiro implements FusekiModule {
         return new FMod_Shiro();
     }
 
-    // Assumes the whole system is "Shiro".
-    // No setup?
-
     public static final Logger shiroConfigLog = LoggerFactory.getLogger(Fuseki.PATH + ".Shiro");
 
-    private static List<String> defaultIniFileLocations = List.of("file:shiro.ini", "file:/etc/fuseki/shiro.ini");
     private static List<String> iniFileLocations = null;
 
     private static ArgDecl argShiroIni = new ArgDecl(true, "shiro", "shiro-ini");

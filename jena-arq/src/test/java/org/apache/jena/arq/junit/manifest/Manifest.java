@@ -19,16 +19,18 @@
 package org.apache.jena.arq.junit.manifest;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Consumer;
 
-import org.apache.jena.rdf.model.* ;
-import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
+import org.apache.jena.riot.RDFParser;
+import org.apache.jena.riot.RiotException;
+import org.apache.jena.riot.RiotNotFoundException;
 import org.apache.jena.sparql.vocabulary.TestManifestX;
-import org.apache.jena.vocabulary.RDF ;
-import org.apache.jena.vocabulary.RDFS ;
+import org.apache.jena.system.G;
+import org.apache.jena.vocabulary.RDF;
+import org.apache.jena.vocabulary.RDFS;
 import org.apache.jena.vocabulary.TestManifest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,237 +40,162 @@ import org.slf4j.LoggerFactory;
  */
 public class Manifest
 {
-    private static Logger log = LoggerFactory.getLogger(Manifest.class) ;
-    private Model manifest ;
-    private String manifestName ;
-    // Assumed base URI for the tests - this makes downloded manifest that assume theiroriginal location work.
-    private String manifestTestBase ;
-    private String filename ;
-    private List<String> includedFiles = new ArrayList<>() ;
-    private List<ManifestEntry> entries = new ArrayList<>() ;
-    private Resource manifestRes = null ;
+    private static Logger log = LoggerFactory.getLogger(Manifest.class);
+    private final Graph manifestGraph;
+    private final Node manifest;
+    private String manifestName;
+    // Assumed base URI for the tests - this makes downloaded manifest tests assume their original location work.
+    private String manifestTestBase;
+    private String filenameOrURI;
+    private List<String> includedFiles = new ArrayList<>();
+    private List<ManifestEntry> entries = new ArrayList<>();
 
-    public static Manifest parse(String manifestFile) {
-        Manifest manifest = new Manifest(manifestFile);
+    public static Manifest parse(String filenameOrURI) {
+        Graph manifestRDF;
+        // Exceptions from @TestFactories are swallowed by JUnit5.
+        try {
+            manifestRDF = RDFParser.source(filenameOrURI).toGraph();
+        } catch (RiotNotFoundException ex) {
+            log.error("Not found: "+filenameOrURI);
+            // Exit on error.
+            System.exit(1);
+            throw new RiotNotFoundException("Manifest "+filenameOrURI);
+        } catch (RiotException ex) {
+            // Exit on error.
+            log.error("Error reading manifest: "+filenameOrURI);
+            System.exit(1);
+            throw ex;
+        } catch (RuntimeException ex) {
+            // Exit on error.
+            log.error("Error reading manifest: "+filenameOrURI);
+            System.exit(1);
+            throw ex;
+        }
+        Manifest manifest = new Manifest(manifestRDF);
         return manifest;
     }
 
-    public static void walk(Manifest manifest, Consumer<Manifest> actionManifest, Consumer<ManifestEntry> actionEntry) {
-        actionManifest.accept(manifest);
-        Iterator<String> sub = manifest.includedManifests();
-        while(sub.hasNext() ) {
-            String mf = sub.next();
-            Manifest manifestSub = Manifest.parse(mf);
-            walk(manifestSub, actionManifest, actionEntry);
-        }
-        for ( ManifestEntry entry : manifest.entries() ) {
-            actionEntry.accept(entry);
-        }
+    private Manifest(Graph manifestRDF) {
+        manifestGraph = manifestRDF;
+        manifest = getManifestNode(manifestGraph, filenameOrURI);
+        parseManifest();
+        parseIncludes();
+        parseEntries();
     }
 
-    private Manifest(String fn) {
-        filename = fn;
-        manifest = RDFDataMgr.loadModel(filename) ;
-        parseManifest() ;
-        parseIncludes() ;
-        parseEntries() ;
+    private static Node getManifestNode(Graph manifestGraph, String filename) {
+        List<Node> manifests = G.nodesOfTypeAsList(manifestGraph, TestManifest.Manifest.asNode());
+        if ( manifests.size() > 1 ) {
+            log.warn("Multiple manifests in the manifest file: " + filename);
+            return null;
+        }
+        return manifests.get(0);
     }
 
-    public String getName()     { return manifestName ; }
-    public String getFileName() { return filename ; }
+    public String getName()     { return manifestName; }
+    public String getFileName() { return filenameOrURI; }
     public String getTestBase() { return manifestTestBase; }
+    public Graph  getGraph()    { return manifestGraph; }
 
-    public Iterator<String> includedManifests() { return includedFiles.iterator() ; }
+    public Iterator<String> includedManifests() { return includedFiles.iterator(); }
 
-    public List<ManifestEntry> entries() { return entries ; }
+    public List<ManifestEntry> entries() { return entries; }
 
     private void parseManifest() {
-        StmtIterator manifestStmts = manifest.listStatements(null, RDF.type, TestManifest.Manifest);
-        try {
-            if ( !manifestStmts.hasNext() ) {
-                log.warn("No manifest in manifest file: " + filename);
-                return;
-            }
-
-            Statement manifestItemStmt = manifestStmts.nextStatement();
-            if ( manifestStmts.hasNext() ) {
-                log.warn("Multiple manifests in manifest file: " + filename);
-                return;
-            }
-
-            manifestRes = manifestItemStmt.getSubject();
-            manifestName = getLiteral(manifestRes, RDFS.label);
-            if ( manifestName == null )
-                manifestName = getLiteral(manifestRes, RDFS.comment);
-            if ( manifestName == null )
-                manifestName = getLiteral(manifestRes, TestManifest.name);
-            manifestTestBase = getLiteralOrURI(manifestRes, TestManifest.assumedTestBase);
-        }
-        finally {
-            manifestStmts.close();
-        }
+        manifestName = getLiteral(manifest, RDFS.Nodes.label);
+        if ( manifestName == null )
+            manifestName = getLiteral(manifest, RDFS.Nodes.comment);
+        if ( manifestName == null )
+            manifestName = getLiteral(manifest, TestManifest.name.asNode());
+        manifestTestBase = getLiteralOrURI(manifest, TestManifest.assumedTestBase.asNode());
     }
 
     private void parseEntries() {
-        StmtIterator manifestStmts = manifest.listStatements(null, RDF.type, TestManifest.Manifest);
-
-        for (; manifestStmts.hasNext();)
-        {
-            Statement manifestItemStmt = manifestStmts.nextStatement();
-            Resource manifestRes = manifestItemStmt.getSubject();
-
-            // For each item in this manifest
-            StmtIterator listIter = manifestRes.listProperties(TestManifest.entries);
-            for (; listIter.hasNext();)
-            {
-                //List head
-                Resource listItem = listIter.nextStatement().getResource();
-                for (; !listItem.equals(RDF.nil);)
-                {
-                    Resource entry = listItem.getRequiredProperty(RDF.first).getResource();
-                    String testName = getLiteral(entry, TestManifest.name) ;
-                    Resource action = getResource(entry, TestManifest.action) ;
-                    Resource result = getResource(entry, TestManifest.result) ;
-                    Resource testType = getResource(entry, RDF.type);
-                    ManifestEntry manifestEntry = new ManifestEntry(this, entry, testName, testType, action, result);
-                    entries.add(manifestEntry);
-                    // Move to next list item
-                    listItem = listItem.getRequiredProperty(RDF.rest).getResource();
-                }
-            }
-            listIter.close();
-        }
-        manifestStmts.close();
+        Node entriesNode = G.getZeroOrOneSP(manifestGraph, manifest, TestManifest.entries.asNode());
+        if ( entriesNode == null )
+            return;
+        List<Node> items = G.rdfList(manifestGraph, entriesNode);
+        items.forEach(entry->{
+            String testName = getLiteral(entry, TestManifest.name.asNode());
+            Node testType = G.getZeroOrOneSP(manifestGraph, entry, RDF.Nodes.type);
+            Node action = G.getZeroOrOneSP(manifestGraph, entry,  TestManifest.action.asNode());
+            Node result = G.getZeroOrOneSP(manifestGraph, entry,  TestManifest.result.asNode());
+            ManifestEntry manifestEntry = new ManifestEntry(this, entry, testName, testType, action, result);
+            entries.add(manifestEntry);
+        });
     }
 
-    // -------- included manifests
-    private void parseIncludes()
-    {
-        parseIncludes(TestManifest.include) ;
-        parseIncludes(TestManifestX.include) ;
+    private void parseIncludes() {
+        parseIncludes(TestManifest.include.asNode());
+        parseIncludes(TestManifestX.include.asNode());
     }
 
-    private void parseIncludes(Property property)
-    {
-        StmtIterator includeStmts = manifest.listStatements(null, property, (RDFNode)null) ;
-
-        for (; includeStmts.hasNext(); )
-        {
-            Statement s = includeStmts.nextStatement() ;
-            if ( ! ( s.getObject() instanceof Resource ) )
-            {
-                log.warn("Include: not a Resource"+s) ;
-                continue ;
-            }
-            Resource r = s.getResource() ;
-            parseOneIncludesList(r) ;
-        }
-        includeStmts.close() ;
+    private void parseIncludes(Node property) {
+        List<Node> includes = G.listSP(manifestGraph, null, property);
+        includes.forEach(include->{
+            if ( include.isBlank() || include.isURI() ) {
+                parseOneIncludesList(include);
+            } else
+                log.warn("Include: not a URI or blank node: "+include);
+        });
     }
 
-    private void parseOneIncludesList(Resource r)
+    private void parseOneIncludesList(Node r)
     {
         if ( r == null )
-            return ;
+            return;
+        if ( r.equals(RDF.Nodes.nil) )
+            return;
 
-        if ( r.equals(RDF.nil) )
-            return ;
-
-
-        if ( ! r.isAnon() )
-        {
-            String uri = r.getURI() ;
+        if ( r.isURI() ) {
+            String uri = r.getURI();
             if ( includedFiles.contains(uri) )
-                return ;
-            includedFiles.add(r.getURI()) ;
-            return ;
+                return;
+            includedFiles.add(r.getURI());
+            return;
         }
-
-        // BNnode => list
-        Resource listItem = r ;
-        while(!listItem.equals(RDF.nil))
-        {
-            r = listItem.getRequiredProperty(RDF.first).getResource();
-            parseOneIncludesList(r) ;
-            // Move on
-            listItem = listItem.getRequiredProperty(RDF.rest).getResource();
+        if ( ! r.isBlank() )
+            return;
+        // Blank node - assumed to be a list.
+        List<Node> includes = G.rdfList(manifestGraph, r);
+        for ( Node inc : includes ) {
+            if ( inc.isBlank() || inc.isURI() ) {
+                parseOneIncludesList(inc);
+                continue;
+            }
+            log.warn("Include: not a URI or blank node: "+inc);
         }
     }
 
-    public static Resource getResource(Resource r, Property p) {
+    private String getLiteral(Node r, Node p) {
         if ( r == null )
-            return null ;
-        if ( ! r.hasProperty(p) )
-            return null ;
+            return null;
+        Node n = G.getZeroOrOneSP(manifestGraph, r, p);
+        if ( n == null )
+            return null;
 
-        RDFNode n = r.getProperty(p).getObject() ;
-        if ( n instanceof Resource )
-            return (Resource)n ;
-        // Ignore. Tests need to check for correct required properties.
-        return null;
+        if ( n.isLiteral() )
+            return n.getLiteralLexicalForm();
+
+        throw new TestSetupException("Manifest problem (not a Literal): " + r + " => " + p);
     }
 
-    private static Collection<Resource> listResources(Resource r, Property p)
+    private String getLiteralOrURI(Node r, Node p)
     {
         if ( r == null )
-            return null ;
-        List<Resource> x = new ArrayList<>() ;
-        StmtIterator sIter = r.listProperties(p) ;
-        for ( ; sIter.hasNext() ; ) {
-            RDFNode n = sIter.next().getObject() ;
-            if ( ! ( n instanceof Resource ) )
-                throw new ExTestSetup("Manifest problem (not a Resource): "+n+" => "+p) ;
-            x.add((Resource)n) ;
-        }
-        return x ;
-    }
-
-    private static String getLiteral(Resource r, Property p)
-    {
-        if ( r == null )
-            return null ;
-        if ( ! r.hasProperty(p) )
-            return null ;
-
-        RDFNode n = r.getProperty(p).getObject() ;
-        if ( n instanceof Literal )
-            return ((Literal)n).getLexicalForm() ;
-
-        throw new ExTestSetup("Manifest problem (not a Literal): "+n+" => "+p) ;
-    }
-
-    private static String getLiteralOrURI(Resource r, Property p)
-    {
-        if ( r == null )
-            return null ;
-
-        if ( ! r.hasProperty(p) )
-            return null ;
-
-        RDFNode n = r.getProperty(p).getObject() ;
-        if ( n instanceof Literal )
-            return ((Literal)n).getLexicalForm() ;
-
-        if ( n instanceof Resource )
-        {
-            Resource r2 = (Resource)n ;
-            if ( ! r2.isAnon() )
-                return r2.getURI() ;
-        }
-
-        throw new ExTestSetup("Manifest problem: "+n+" => "+p) ;
-    }
-
-    private static String safeName(String s)
-    {
-        // Safe from Eclipse
-        s = s.replace('(','[') ;
-        s = s.replace(')',']') ;
-        return s ;
+            return null;
+        Node n = G.getZeroOrOneSP(manifestGraph, r, p);
+        if ( n == null )
+            return null;
+        if ( n.isLiteral() )
+            return n.getLiteralLexicalForm();
+        if ( n.isURI() )
+            return n.getURI();
+        throw new TestSetupException("Manifest problem: "+r+" => "+p);
     }
 
     @Override
     public String toString() {
-        return "manifest["+filename+"]";
+        return "manifest["+filenameOrURI+"]";
     }
 }

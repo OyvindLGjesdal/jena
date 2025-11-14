@@ -55,7 +55,7 @@ public class ExprLib
         // which overrides fillInStackTrace to be cheap but they loose the
         // general information for development.
         //
-        // Instead, pick out specal cases, the expression being a single variable
+        // Instead, pick out special cases, the expression being a single variable
         // being the important one.
         //
         // BOUND(?x) is a important case where the expression is often an exception
@@ -219,9 +219,23 @@ public class ExprLib
     public static Expr nodeToExpr(Node n) {
         if ( n.isVariable() )
             return new ExprVar(n);
-        if ( n.isTripleTerm() )
+        if ( n.isTripleTerm() && ! n.getTriple().isConcrete() )
             return new ExprTripleTerm(n);
         return NodeValue.makeNode(n);
+    }
+
+    /**
+     * Go from an expression to a node.
+     * If the argument cannot be converted to a node then an {@link IllegalArgumentException} is raised.
+     */
+    public static Node exprToNode(Expr e) {
+        if (e.isConstant()) {
+            return e.getConstant().asNode();
+        } else if (e.isVariable()) {
+            return e.getExprVar().asVar();
+        } else {
+            throw new IllegalArgumentException("Cannot convert Expression to Node: " + e);
+        }
     }
 
     public static Expr rewriteTriple(Triple t) {

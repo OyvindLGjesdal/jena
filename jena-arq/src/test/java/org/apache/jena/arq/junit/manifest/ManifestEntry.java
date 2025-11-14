@@ -18,17 +18,18 @@
 
 package org.apache.jena.arq.junit.manifest;
 
-import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
 
 public class ManifestEntry {
     private final Manifest manifest;
-    private final Resource entry;
+    private final Node entry;
     private final String name;
-    private final Resource testType;
-    private final Resource action;
-    private final Resource result;
+    private final Node testType;
+    private final Node action;
+    private final Node result;
 
-    public ManifestEntry(Manifest manifest, Resource entry, String name, Resource testType, Resource action, Resource result) {
+    public ManifestEntry(Manifest manifest, Node entry, String name, Node testType, Node action, Node result) {
         super();
         this.manifest = manifest;
         this.entry = entry;
@@ -38,32 +39,60 @@ public class ManifestEntry {
         this.result = result;
     }
 
+    /**
+     * Return a ManifestEntry with different type/action/result.
+     * This is used to replace rdf-tests-cg where test behaviour is expected to be different.
+     */
+    public static ManifestEntry alter(ManifestEntry entry, Node testType,  Node action, Node result) {
+        return new ManifestEntry(entry.getManifest(),
+                                 entry.getEntry(),
+                                 entry.getName(),
+                                 testType, action, result);
+    }
+
     public Manifest getManifest() {
         return manifest;
     }
 
-    public Resource getEntry() {
+    public Graph getGraph() {
+        if ( manifest == null )
+            return null;
+        return manifest.getGraph();
+    }
+
+    public Node getEntry() {
         return entry;
     }
 
     public String getURI() {
-        return entry.getURI();
+        if ( entry.isURI() )
+            return entry.getURI();
+        return null;
     }
 
     public String getName() {
         return name;
     }
 
-    public Resource getTestType() {
+    public Node getTestType() {
         return testType;
     }
 
-    public Resource getAction() {
+    public Node getAction() {
         return action;
     }
 
-    public Resource getResult() {
+    public Node getResult() {
         return result;
+    }
+
+    @Override
+    public String toString() {
+        if ( false )
+            // Multi-line
+            return String.format("ManifestEntry: <%s>\n    \"%s\"\n    action=%s result=%s", getURI(), getName(), getAction(), getResult());
+        // Shorter, single line
+        return String.format("ManifestEntry: <%s>", getURI(), getName(), getAction(), getResult());
     }
 }
 

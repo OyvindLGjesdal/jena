@@ -18,8 +18,8 @@
 
 package org.apache.jena.cmd;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 import org.apache.jena.sys.JenaSystem;
@@ -30,17 +30,13 @@ import org.apache.jena.sys.JenaSystem;
  */
 public class Cmds {
 
+    private static Map<String, Consumer<String[]>> cmds = new ConcurrentHashMap<>();
+    private static Object lock = new Object();
+
     static { JenaSystem.init(); }
 
-    private static Map<String, Consumer<String[]>> cmds;
-
     // Initialize via JenaSubsystemLifecycle and not rely on class initialization.
-    static void init() {
-        // Initialization should be minimal, just enough to allow modules to register commands.
-        // We may be inside some other place where JenaSystem.init() was called.
-        if ( cmds == null )
-            cmds = new HashMap<>();
-    }
+    static void init() {}
 
     public static void injectCmd(String name, Consumer<String[]> main) {
         cmds.put(name, main);

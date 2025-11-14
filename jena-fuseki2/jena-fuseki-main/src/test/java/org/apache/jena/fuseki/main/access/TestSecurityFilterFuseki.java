@@ -55,7 +55,7 @@ import org.apache.jena.sparql.engine.http.QueryExceptionHTTP;
 import org.apache.jena.system.G;
 import org.apache.jena.tdb1.TDB1Factory;
 import org.apache.jena.tdb2.DatabaseMgr;
-import org.eclipse.jetty.ee10.servlet.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.ee11.servlet.security.ConstraintSecurityHandler;
 import org.eclipse.jetty.security.UserStore;
 import org.eclipse.jetty.util.security.Credential;
 import org.eclipse.jetty.util.security.Password;
@@ -74,6 +74,7 @@ public class TestSecurityFilterFuseki {
         return fusekiServer.datasetURL(dsName);
     }
 
+    @SuppressWarnings("removal")
     private static DatasetGraph testdsg1 =  TDB1Factory.createDatasetGraph();
     private static DatasetGraph testdsg2 =  DatabaseMgr.createDatasetGraph();
     private static DatasetGraph testdsg3 =  DatasetGraphFactory.createTxnMem();
@@ -139,11 +140,11 @@ public class TestSecurityFilterFuseki {
     public TestSecurityFilterFuseki() {}
 
     private static String queryAll        = "SELECT * { { ?s ?p ?o } UNION { GRAPH ?g { ?s ?p ?o } } }";
-    private static String queryDft        = "SELECT * { ?s ?p ?o }";
-    private static String queryNamed      = "SELECT * { GRAPH ?g { ?s ?p ?o } }";
-
-    private static String queryG2         = "SELECT * { GRAPH <http://test/graph2> { ?s ?p ?o } }";
-    private static String queryGraphNames = "SELECT * { GRAPH ?g { } }";
+//    private static String queryDft        = "SELECT * { ?s ?p ?o }";
+//    private static String queryNamed      = "SELECT * { GRAPH ?g { ?s ?p ?o } }";
+//
+//    private static String queryG2         = "SELECT * { GRAPH <http://test/graph2> { ?s ?p ?o } }";
+//    private static String queryGraphNames = "SELECT * { GRAPH ?g { } }";
 
     private Set<Node> query(String user, String password, String dsName, String queryString) {
         Set<Node> results = new HashSet<>();

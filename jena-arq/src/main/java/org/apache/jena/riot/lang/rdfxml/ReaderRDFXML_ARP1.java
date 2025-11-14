@@ -28,7 +28,6 @@ import org.apache.jena.atlas.logging.Log;
 import org.apache.jena.atlas.web.ContentType;
 import org.apache.jena.datatypes.RDFDatatype ;
 import org.apache.jena.datatypes.TypeMapper ;
-import org.apache.jena.datatypes.xsd.impl.XMLLiteralType;
 import org.apache.jena.graph.Node ;
 import org.apache.jena.graph.Triple ;
 import org.apache.jena.irix.IRIs;
@@ -41,6 +40,7 @@ import org.apache.jena.riot.system.FactoryRDF;
 import org.apache.jena.riot.system.ParserProfile;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.sparql.util.Context;
+import org.apache.jena.vocabulary.RDF;
 import org.xml.sax.SAXException ;
 import org.xml.sax.SAXParseException ;
 
@@ -133,19 +133,8 @@ public class ReaderRDFXML_ARP1 implements ReaderRIOT
         options.setErrorMode(cond, val);
     }
 
-    @SuppressWarnings({"deprecation", "removal"})
+    @SuppressWarnings({"deprecation"})
     private void parse(InputStream input, Reader reader, String xmlBase, ContentType ct, StreamRDF sink, Context context) {
-        // One of input and reader is null.
-        boolean legacySwitch = context.isTrue(RIOT.symRDFXML0);
-        if ( legacySwitch ) {
-            Log.warnOnce(SysRIOT.getLogger(),
-                         "Do not use rdfxml:rdfxml0 - use Lang RRX#RDFXML_ARP0 or \"--syntax arp0\"",
-                         ReaderRDFXML_ARP0.class);
-            ReaderRDFXML_ARP0 other = new ReaderRDFXML_ARP0(parserProfile.getErrorHandler());
-            other.parse(input, reader, xmlBase, ct, sink, context);
-            return;
-        }
-
         // Hacked out of ARP because of all the "private" methods
         // JenaReader has reset the options since new ARP() was called.
         sink.start() ;
@@ -235,7 +224,7 @@ public class ReaderRDFXML_ARP1 implements ReaderRIOT
                 return parserProfile.createLangLiteral(lit.toString(), lit.getLang(), -1, -1);
 
             if (lit.isWellFormedXML()) {
-                return parserProfile.createTypedLiteral(lit.toString(), XMLLiteralType.rdfXMLLiteral, -1, -1);
+                return parserProfile.createTypedLiteral(lit.toString(), RDF.dtXMLLiteral, -1, -1);
             }
 
             RDFDatatype dt = TypeMapper.getInstance().getSafeTypeByName(dtURI);

@@ -67,7 +67,7 @@ public class CacheFactory {
      * Create a null cache.
      * <p>
      * This cache never retains a value and always
-     * evaluates in {@link Cache#getOrFill}.
+     * evaluates in {@link Cache#get}.
      * <p>
      * This cache is thread-safe.
      */
@@ -86,6 +86,14 @@ public class CacheFactory {
     /** One slot cache */
     public static <Key, Value> Cache<Key, Value> createOneSlotCache() {
         return new Cache1<>() ;
+    }
+
+    /*
+     * Create a lightweight LRU cache.
+     * This cache is not thread-safe.
+     */
+    public static <Key, Value> Cache<Key, Value> createPlainCache(int size) {
+        return new CachePlainLRU<>(size) ;
     }
 
     /**

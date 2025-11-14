@@ -188,8 +188,8 @@ String VersionSpecifier() : { Token t ; String version ; }
     | t = <STRING_LITERAL2> { version = stripQuotes(t.image) ; }
     )
     {
-      checkString(version, t.beginLine, t.beginColumn) ;
       version = unescapeStr(version,  t.beginLine, t.beginColumn) ;
+      checkRDFString(version,  t.beginLine, t.beginColumn) ;
       return version;
     }
 }
@@ -1341,11 +1341,11 @@ void PropertyListNotEmpty(Node s, TripleCollector acc) :
     { Node p = null ; }
 {
     p = Verb()
-    ObjectList(s, p, null, acc)
+    ObjectList(s, p, acc)
   ( <SEMICOLON> 
     ( /* TriG template: LOOKAHEAD(2) */
        p = Verb()
-      ObjectList(s, p, null, acc)
+      ObjectList(s, p, acc)
     )? 
   )*
 }
@@ -1358,18 +1358,18 @@ Node Verb() : { Node p ;}
   { return p ; }
 }
 
-void ObjectList(Node s,  Node p, Path path, TripleCollector acc): { Node o ; } 
+void ObjectList(Node s, Node p, TripleCollector acc): { Node o ; } 
 {
-  Object(s, p, path, acc)
-  ( <COMMA> Object(s, p, path, acc) )*
+  Object(s, p, acc)
+  ( <COMMA> Object(s, p, acc) )*
 }
 
-void Object(Node s, Node p, Path path, TripleCollector acc): { Node o ; }
+void Object(Node s, Node p, TripleCollector acc): { Node o ; }
 {
   { ElementPathBlock tempAcc = new ElementPathBlock() ; int mark = tempAcc.mark() ; }
   o = GraphNode(tempAcc) 
-  { insert(tempAcc, mark, s, p, path, o) ; insert(acc, tempAcc) ; }
-  Annotation(acc, s, p, path, o)
+  { insert(tempAcc, mark, s, p, o) ; insert(acc, tempAcc) ; }
+  Annotation(acc, s, p, o)
 }
 
 // -------- BGPs with paths.
@@ -1610,7 +1610,7 @@ P_Path0 PathOneInPropertySet() : { String str ; Node n ; }
 // Anything that can stand in a node slot and which is
 // a number of triples
 
-Node TriplesNode(TripleCollectorMark acc) : { Node n ; }
+Node TriplesNode(TripleCollector acc) : { Node n ; }
 {
    n = Collection(acc) { return n ; }
  |
@@ -1626,7 +1626,7 @@ Node BlankNodePropertyList(TripleCollector acc) : { Token t ; }
     { return n ; }
 }
 
-Node TriplesNodePath(TripleCollectorMark acc) : { Node n ; }
+Node TriplesNodePath(TripleCollector acc) : { Node n ; }
 {
    n = CollectionPath(acc) { return n ; }
  |
@@ -1644,7 +1644,7 @@ Node BlankNodePropertyListPath(TripleCollector acc) : { Token t ; }
 
 // ------- RDF collections
 
-Node Collection(TripleCollectorMark acc) : 
+Node Collection(TripleCollector acc) : 
     { Node listHead = nRDFnil ; Node lastCell = null ; int mark ; Node n ; Token t ; }
 {
   t = <LPAREN>
@@ -1670,7 +1670,7 @@ Node Collection(TripleCollectorMark acc) :
      return listHead ; }
 }
 
-Node CollectionPath(TripleCollectorMark acc) : 
+Node CollectionPath(TripleCollector acc) : 
     { Node listHead = nRDFnil ; Node lastCell = null ; int mark ; Node n ; Token t ; }
 {
   t = <LPAREN>
@@ -1725,17 +1725,17 @@ void AnnotationBlockPath(TripleCollector acc, Node reifId) : { }
 
 // ---- RDF-star Annotation Syntax
 // No paths. Construct templates.
-void Annotation(TripleCollector acc, Node s, Node p, Path path, Node o) : { Node reifId = null ; }
+void Annotation(TripleCollector acc, Node s, Node p, Node o) : { Node reifId = null ; }
 {
   (
-    { p = preConditionReifier(s, p, path, o, token.beginLine, token.beginColumn); }
+    { p = preConditionReifier(s, p,null, o, token.beginLine, token.beginColumn); }
     reifId = Reifier()
     // @@ Rewrite java?
     { reifId = insertTripleReifier(acc, reifId, s, p, o, token.beginLine, token.beginColumn) ; }    
     { setReifierId(reifId); }
   |
     {
-      p = preConditionReifier(s, p, path, o, token.beginLine, token.beginColumn);
+      p = preConditionReifier(s, p, null, o, token.beginLine, token.beginColumn);
       reifId = getOrAllocReifierId(acc, s, p, o, token.beginLine, token.beginColumn);
     }
     { clearReifierId(); }
@@ -1755,7 +1755,7 @@ void AnnotationBlock(TripleCollector acc, Node reifId) : { }
 
 // Object position RDF term, element of a list
 // No paths in TriplesNode
-Node GraphNode(TripleCollectorMark acc) : { Node n ; }
+Node GraphNode(TripleCollector acc) : { Node n ; }
 {
    n = VarOrTerm() { return n ; }
  |
@@ -1765,7 +1765,7 @@ Node GraphNode(TripleCollectorMark acc) : { Node n ; }
 }
 
 // Object position RDF term. NEW-SYNTAX Rename?
-Node GraphNodePath(TripleCollectorMark acc) : { Node n ; }
+Node GraphNodePath(TripleCollector acc) : { Node n ; }
 {
   n = VarOrTerm() { return n ; }
 |
@@ -1812,6 +1812,7 @@ Node ReifiedTripleSubject(TripleCollector acc) : { Node s; String iri; }
   | s = ReifiedTriple(acc)
   //  <LPAREN> <RPAREN>     { s = RDFnil ; }
   //| <NIL>  { s = nRDFnil ; }
+  | s = TripleTerm()
   )
   { return s; }
 }
@@ -1854,7 +1855,7 @@ Node TripleTermSubject() : { Node n; String iri; }
   | n = BlankNode()
   //  <LPAREN> <RPAREN>     { return nRDFnil ; }
   //| <NIL>  { return nRDFnil ; }
-  //| n = TripleTerm()      { return n; }
+  | n = TripleTerm()      { return n; }
   )
   { return n; }
 }
@@ -1892,7 +1893,7 @@ Node TripleTermDataSubject() : { Node n = null; String iri; }
  | n = RDFLiteral()
  | n = NumericLiteral()
  | n = BooleanLiteral()
- //| n = TripleTermData()
+ | n = TripleTermData()
  )
  { return n; }
 }
@@ -2062,7 +2063,7 @@ Expr MultiplicativeExpression() : { Expr expr1, expr2 ; }
 
 Expr UnaryExpression() : { Expr expr ; }
 {
-  <BANG> expr = PrimaryExpression()
+  <BANG> expr = UnaryExpression()
     { return new E_LogicalNot(expr) ; }
   | <PLUS>  expr = PrimaryExpression() { return new E_UnaryPlus(expr) ; }
   | <MINUS> expr = PrimaryExpression() { return new E_UnaryMinus(expr) ; }
@@ -2119,7 +2120,7 @@ Node ExprTripleTermSubject() : { Node n; String iri; }
   | n = NumericLiteral()
   | n = BooleanLiteral()
   | n = Var()
-  //| n = ExprTripleTerm()
+  | n = ExprTripleTerm()
   )
   { return n; }
 }
@@ -2186,7 +2187,6 @@ Expr BuiltInCall() : { Expr expr ;
   | <URI> <LPAREN> expr = Expression() <RPAREN>
     { return makeFunction_URI(expr) ; }
 #endif
-
 
   | <BNODE> 
     ( <LPAREN> expr1 = Expression() <RPAREN>
@@ -2277,7 +2277,11 @@ Expr BuiltInCall() : { Expr expr ;
   | <SHA512>      <LPAREN> expr1 = Expression() <RPAREN> { return new E_SHA512(expr1) ; }
 
 #ifdef ARQ
+  // VERSION()
   | <VERSION> <NIL>     { return new E_Version(); }
+
+  // Effective boolean value
+  | <EBV>     <LPAREN> expr = Expression() <RPAREN> { return new E_EBV(expr); }
 #endif    
 
   | <COALESCE> a = ExpressionList()
@@ -2301,7 +2305,7 @@ Expr BuiltInCall() : { Expr expr ;
   | <IF> <LPAREN> expr = Expression() <COMMA> 
                   expr1 = Expression() <COMMA> 
                   expr2 = Expression() <RPAREN>
-    { return new E_Conditional(expr, expr1, expr2) ; }
+    { return new E_If(expr, expr1, expr2) ; }
 
   | <STRLANG> <LPAREN> expr1 = Expression() <COMMA> expr2 = Expression() <RPAREN>
     { return new E_StrLang(expr1, expr2) ; }
@@ -2567,21 +2571,6 @@ Expr iriOrFunction() : { String iri ; Args a = null ; }
   }
 }
 
-#ifdef ARQ_CALL
-// Needs checking.
-// The case of "?var()" or just "?var"
-Expr VarOrFunction() : { Var v ; ExprList a = null ; }
-{
-  v = Var()
-  { Expr ev = new ExprVar(v) ; }
-  ( a = ExpressionList() )?
-  { if ( a == null ) return ev ;
-    return new E_FunctionDynamic(ev, a) ;
-  }
-}
-#endif
-
-
 Node RDFLiteral() : { Token t ; String lex = null ; String uri = null ; }
 {
   lex = String()
@@ -2645,7 +2634,7 @@ String String() : { Token t ; String lex ; }
   | t = <STRING_LITERAL_LONG2> { lex = stripQuotes3(t.image) ; }
   )
     { lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
-      checkString(lex, t.beginLine, t.beginColumn) ;
+      checkRDFString(lex,  t.beginLine, t.beginColumn) ;
       return lex ;
     }
 }
@@ -2807,6 +2796,7 @@ TOKEN [IGNORE_CASE] :
 |  < GROUP:       "group" >
 |  < HAVING:      "having" >
 |  < SEPARATOR:   "separator" >
+
 |  < AGG:         "agg" >
 |  < COUNT:       "count" >
 |  < MIN:         "min" >
@@ -2816,13 +2806,13 @@ TOKEN [IGNORE_CASE] :
 #ifdef ARQ
 |  < MEDIAN:      "median" >
 |  < MODE:        "mode" >
-#endif
 |  < STDEV:       "stdev" >
 |  < STDEV_SAMP:  "stdev_samp" >
 |  < STDEV_POP:   "stdev_pop" >
 |  < VARIANCE:    "variance" >
 |  < VAR_SAMP:    "var_samp" >
 |  < VAR_POP:     "var_pop" >
+#endif
 #ifdef ARQ
 |  < FOLD:        "fold" >
 #endif
@@ -2842,6 +2832,7 @@ TOKEN [IGNORE_CASE] :
 |  < URI:         "uri" >
 
 #ifdef ARQ
+|  < EBV:         "EBV" >
 |  < CAST:        "cast" >
 |  < CALL:        "call" >
 |  < MULTI:       "multi" >
@@ -2960,11 +2951,11 @@ TOKEN :
 | < DECIMAL: (<DIGITS>)? "." <DIGITS> >
 | < DOUBLE:   // Required exponent.
       (
-        (["0"-"9"])+ "." (["0"-"9"])* <EXPONENT>
-        | "." (["0"-"9"])+ (<EXPONENT>)
-        | (["0"-"9"])+ <EXPONENT>
-      )
+        ( (["0"-"9"])+ ("." (["0"-"9"])* )? )
+        | ( "." (["0"-"9"])+ )
+      ) <EXPONENT>
       >
+| < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
 
 | < INTEGER_POSITIVE: <PLUS> <INTEGER> >
 | < DECIMAL_POSITIVE: <PLUS> <DECIMAL> >
@@ -2974,7 +2965,6 @@ TOKEN :
 | < DECIMAL_NEGATIVE: <MINUS> <DECIMAL> >
 | < DOUBLE_NEGATIVE:  <MINUS> <DOUBLE> >
 
-| < #EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
 | < #QUOTE_3D: "\"\"\"">
 | < #QUOTE_3S: "'''">
 | <ECHAR: "\\" ( "t"|"b"|"n"|"r"|"f"|"\\"|"\""|"'") >
@@ -3064,8 +3054,6 @@ TOKEN :
 // Path related
 | < VBAR:     "|" >
 | < CARAT:    "^" >
-| < FPATH:    "->" >
-| < RPATH:    "<-" >
 | < QMARK:    "?" >
 }
 

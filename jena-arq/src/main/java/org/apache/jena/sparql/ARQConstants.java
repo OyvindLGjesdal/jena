@@ -54,7 +54,7 @@ public class ARQConstants
     public static final String rdfsPrefix = "http://www.w3.org/2000/01/rdf-schema#"; //RDFS.getURI() ;
 
     /** SPARQL namespace prefix */
-    public static final String sparqlPrefix = "https://www.w3.org/ns/sparql#";
+    public static final String sparqlPrefix = "http://www.w3.org/ns/sparql#";
 
     /** OWL namespace prefix */
     public static final String owlPrefix = "http://www.w3.org/2002/07/owl#"; //OWL.getURI() ;
@@ -211,6 +211,10 @@ public class ARQConstants
     public static final String allocSSEUnamedVars       = "_" ;                         // ParseHandlerPlain - SSE token "?" - legal SPARQL
     public static final String allocSSEAnonVars         = allocVarAnonMarker ;          // ParseHandlerPlain - SSE token "??"
     public static final String allocSSENamedVars        = allocVarMarker ;              // ParseHandlerPlain - SSE token "?."
+
+    // Regular expression engines.
+    public static final String strJavaRegex             =  "javaRegex";
+    public static final String strXercesRegex           =  "xercesRegex";
 
     /** Marker for system symbols */
     public static final String systemVarNS = "http://jena.apache.org/ARQ/system#" ;

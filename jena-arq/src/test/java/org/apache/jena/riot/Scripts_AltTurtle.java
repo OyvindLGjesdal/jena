@@ -18,45 +18,30 @@
 
 package org.apache.jena.riot;
 
-import org.apache.jena.arq.junit.manifest.Manifests;
-import org.apache.jena.arq.junit.riot.ParseForTest;
-import org.apache.jena.arq.junit.runners.Label;
-import org.apache.jena.arq.junit.runners.RunnerRIOT;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DynamicNode;
+import org.junit.jupiter.api.TestFactory;
+
+import org.apache.jena.arq.TestConsts;
+import org.apache.jena.arq.junit.Scripts;
 import org.apache.jena.riot.lang.extra.TurtleJCC;
 import org.apache.jena.sys.JenaSystem;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.runner.RunWith ;
 
 /** Execute turtle test with alt parser. */
+public class Scripts_AltTurtle {
 
-@RunWith(RunnerRIOT.class)
-@Label("RIOT-TurtleJCC Scripts")
-@Manifests({
-    "testing/RIOT/Lang/TurtleStd/manifest.ttl",
-    "testing/RIOT/Lang/Turtle2/manifest.ttl",
-
-    // rdf-tests CG
-    "testing/rdf-tests-cg/turtle/manifest.ttl"
-    
-    // [rdf-star CG] RDF star CG tests. No longer valid
-//    "testing/rdf-star-cg/turtle/syntax/manifest.ttl",
-//    "testing/rdf-star-cg/turtle/eval/manifest.ttl"
-})
-
-public class Scripts_AltTurtle
-{
-    // Switch parsers!
-    // ParseForTest is the wrapper code to parse test input.
-    @BeforeClass public static void beforeClass() {
-        JenaSystem.init();
-        // Register language and parser factory.
-        TurtleJCC.register();
-        ParseForTest.alternativeReaderFactories.put(Lang.TURTLE, TurtleJCC.factory);
+    @TestFactory
+    @DisplayName("Scripts AltTurtle rdf-tests")
+    public Stream<DynamicNode> testFactory() {
+        return Scripts.manifestTestFactoryRIOT(TestConsts.RDF12_TESTS_DIR+"rdf-turtle/manifest.ttl");
     }
 
-    @AfterClass public static void afterClass() {
-        ParseForTest.alternativeReaderFactories.remove(Lang.TURTLE);
+    // If run on its own.
+    @BeforeAll public static void beforeAll() {
+        JenaSystem.init();
+        TurtleJCC.register();
     }
 }
-

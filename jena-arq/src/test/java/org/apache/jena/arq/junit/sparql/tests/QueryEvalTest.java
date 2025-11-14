@@ -18,10 +18,11 @@
 
 package org.apache.jena.arq.junit.sparql.tests;
 
+import static org.apache.jena.arq.junit.Scripts.entryContainsSubstring;
 import static org.apache.jena.arq.junit.sparql.tests.SparqlTestLib.setupFailure;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -30,7 +31,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.arq.junit.manifest.TestSetupException;
 import org.apache.jena.atlas.lib.Creator;
 import org.apache.jena.atlas.logging.Log;
 import org.apache.jena.graph.Node;
@@ -48,7 +51,6 @@ import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.engine.binding.BindingBuilder;
 import org.apache.jena.sparql.engine.iterator.QueryIterPlainWrapper;
 import org.apache.jena.sparql.expr.nodevalue.NodeFunctions;
-import org.apache.jena.sparql.junit.QueryTestException;
 import org.apache.jena.sparql.resultset.ResultsCompare;
 import org.apache.jena.sparql.resultset.SPARQLResult;
 import org.apache.jena.sparql.util.IsoMatcher;
@@ -58,9 +60,8 @@ import org.apache.jena.util.FileUtils;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.TestManifest;
 
-public class QueryEvalTest implements Runnable {
+public class QueryEvalTest extends AbstractManifestTest {
 
-    private final ManifestEntry testEntry;
     private final SPARQLResult results;
     private final QueryTestItem testItem;
     private final Creator<Dataset> creator;
@@ -76,8 +77,8 @@ public class QueryEvalTest implements Runnable {
     public static boolean compareResultSetsByValue = true;
 
     public QueryEvalTest(ManifestEntry entry, Creator<Dataset> maker) {
-        testEntry = entry;
-        testItem = QueryTestItem.create(testEntry.getEntry(), TestManifest.QueryEvaluationTest);
+        super(entry);
+        testItem = QueryTestItem.create(entry, TestManifest.QueryEvaluationTest.asNode());
         results = testItem.getResults();
         creator = maker;
     }
@@ -87,27 +88,32 @@ public class QueryEvalTest implements Runnable {
     }
 
     @Override
-    public void run() {
+    public void runTest() {
         Query query;
         try {
             try {
-                query = SparqlTestLib.queryFromEntry(testEntry);
-            } catch (QueryException qEx) {
-                qEx.printStackTrace(System.err);
-                setupFailure("Parse failure: " + qEx.getMessage());
+                query = SparqlTestLib.queryFromEntry(manifestEntry);
+            } catch (QueryParseException qEx) {
+                System.err.println("Parse failure in eval test: " + qEx.getMessage());
+                //setupFailure("Parse failure: " + qEx.getMessage());
+                fail("Parse failure: " + qEx.getMessage());
+                // Keep Java quiet!
                 throw qEx;
             }
 
             Dataset dataset = setUpDataset(query, testItem);
             if ( dataset == null && !doesQueryHaveDataset(query) )
                 setupFailure("No dataset for query");
-
             if ( dataset != null )
                 Txn.executeRead(dataset, ()->execute(dataset,query));
             else
                 execute(null,query);
         } catch (NullPointerException ex) {
             throw ex;
+//        } catch (AssertionError ex) {
+//              // Development
+//            System.out.println("AssertionError: "+super.manifestEntry.getURI());
+//            throw ex;
         } catch (Exception ex) {
             ex.printStackTrace(System.err);
             setupFailure("Exception: " + ex.getClass().getName() + ": " + ex.getMessage());
@@ -117,7 +123,7 @@ public class QueryEvalTest implements Runnable {
     private void execute(Dataset dataset, Query query) {
         try (QueryExecution qe = (dataset == null)
                         ? QueryExecutionFactory.create(query)
-                        : QueryExecutionFactory.create(query, dataset)) {
+                            : QueryExecutionFactory.create(query, dataset)) {
             if ( query.isSelectType() )
                 runTestSelect(query, qe);
             else if ( query.isConstructType() )
@@ -133,15 +139,16 @@ public class QueryEvalTest implements Runnable {
 
     protected Dataset setUpDataset(Query query, QueryTestItem testItem) {
         try {
-            // testItem.requiresTextIndex()
-
             if ( doesQueryHaveDataset(query) && doesTestItemHaveDataset(testItem) ) {
-                // Only warn if there are results to test
-                // Syntax tests may have FROM etc and a manifest data file.
-                if ( testItem.getResultFile() != null )
-                    Log.warn(this, testItem.getName() + " : query data source and also in test file");
+                // known case - constructwhere04
+                // otherwise maybe a test error.
+                if ( ! entryContainsSubstring(testItem.getManifestEntry(), "manifest#constructwhere04") ) {
+                    // Only warn if there are results to test
+                    // Syntax tests may have FROM etc and a manifest data file.
+                    if ( testItem.getResultFile() != null )
+                        Log.warn(this, testItem.getName() + " : query data source and also in test file");
+                }
             }
-
             // In test file?
             if ( doesTestItemHaveDataset(testItem) )
                 // Not specified in the query - get from test item and load
@@ -152,9 +159,10 @@ public class QueryEvalTest implements Runnable {
 
             // Left to query
             return null;
-
         } catch (JenaException jEx) {
-            setupFailure("JenaException creating data source: " + jEx.getMessage());
+            // Parser logger will have printed an error
+            //setupFailure("JenaException creating data source: " + jEx.getMessage());
+            fail("Parse failure on data: " + jEx.getMessage());
             return null;
         }
     }
@@ -194,7 +202,7 @@ public class QueryEvalTest implements Runnable {
     }
 
     private void runTestSelect(Query query, QueryExecution qe) {
-        QueryTestItem testItem = QueryTestItem.create(testEntry.getEntry(), TestManifest.QueryEvaluationTest);
+        QueryTestItem testItem = QueryTestItem.create(manifestEntry, TestManifest.QueryEvaluationTest.asNode());
         // Do the query!
         ResultSetRewindable resultsActual = ResultSetFactory.makeRewindable(qe.execSelect());
 
@@ -229,7 +237,7 @@ public class QueryEvalTest implements Runnable {
             int nExpected = ResultSetFormatter.consume(resultsExpected);
             resultsActual.reset();
             resultsExpected.reset();
-            assertEquals("CSV: Different number of rows", nExpected, nActual);
+            assertEquals(nExpected, nActual, ()->"CSV: Different number of rows");
             boolean b = resultSetEquivalent(query, resultsExpected, resultsActual);
             if ( !b )
                 System.out.println("Manual check of CSV results required: " + testItem.getName());
@@ -244,7 +252,7 @@ public class QueryEvalTest implements Runnable {
             boolean b2 = resultSetEquivalent(query, resultsExpected, resultsActual);
             printFailedResultSetTest(query, qe, resultsExpected, resultsActual);
         }
-        assertTrue("Results do not match", b);
+        assertTrue(b, ()->"Results do not match");
 
         return;
     }
@@ -366,21 +374,21 @@ public class QueryEvalTest implements Runnable {
         if ( results != null ) {
             if ( results.isBoolean() ) {
                 boolean b = results.getBooleanResult();
-                assertEquals("ASK test results do not match", b, result);
+                assertEquals(b, result, ()->"ASK test results do not match");
             } else {
                 Model resultsAsModel = results.getModel();
                 StmtIterator sIter = results.getModel().listStatements(null, RDF.type, ResultSetGraphVocab.ResultSet);
                 if ( !sIter.hasNext() )
-                    throw new QueryTestException("Can't find the ASK result");
+                    throw new TestSetupException("Can't find the ASK result");
                 Statement s = sIter.nextStatement();
                 if ( sIter.hasNext() )
-                    throw new QueryTestException("Too many result sets in ASK result");
+                    throw new TestSetupException("Too many result sets in ASK result");
                 Resource r = s.getSubject();
                 Property p = resultsAsModel.createProperty(ResultSetGraphVocab.getURI() + "boolean");
 
                 boolean x = r.getRequiredProperty(p).getBoolean();
                 if ( x != result )
-                    assertEquals("ASK test results do not match", x, result);
+                    assertEquals(x, result, ()->"ASK test results do not match");
             }
         }
         return;
@@ -434,7 +442,7 @@ public class QueryEvalTest implements Runnable {
     public String toString() {
         if ( testItem.getName() != null )
             return testItem.getName();
-        return testEntry.getName();
+        return manifestEntry.getName();
     }
 
     // Cache

@@ -18,9 +18,10 @@
 
 package org.apache.jena.arq.junit.sparql.tests;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.jena.arq.junit.LibTest;
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.query.Query;
 
@@ -29,31 +30,40 @@ import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryException;
 import org.apache.jena.query.Syntax;
 
-public class QuerySyntaxTest implements Runnable {
+public class QuerySyntaxTest extends AbstractManifestTest {
     final boolean       expectLegalSyntax;
     // Required syntax, null for "by file extension".
     final Syntax        testSyntax ;
-    final ManifestEntry testEntry;
 
     public QuerySyntaxTest(ManifestEntry entry, Syntax defSyntax, boolean positiveTest) {
-        testEntry = entry;
+        super(entry);
         testSyntax = defSyntax;
         expectLegalSyntax = positiveTest;
     }
 
     @Override
-    public void run() {
+    public void runTest() {
         try {
-            Query query = SparqlTestLib.queryFromEntry(testEntry, testSyntax);
-            if ( !expectLegalSyntax )
+            Query query = SparqlTestLib.queryFromEntry(manifestEntry, testSyntax);
+            if ( !expectLegalSyntax ) {
+                String filename = SparqlTestLib.queryFile(manifestEntry);
+                System.out.printf("==== %s\n", "Negative Syntax test");
+                LibTest.printFile(filename);
                 fail("Expected parse failure");
+            }
         } catch (QueryException qEx) {
             if ( expectLegalSyntax ) {
-                String filename = SparqlTestLib.queryFile(testEntry);
+                // Development
+                // System.err.println("AssertionError: "+super.manifestEntry.getURI()+" type="+manifestEntry.getTestType());
+                String filename = SparqlTestLib.queryFile(manifestEntry);
+                System.out.printf("==== %s\n", "Positive Syntax test");
                 LibTest.printFile(filename);
                 throw qEx;
             }
-            // Expected a failure.
+        } catch (AssertionError ex) {
+            // Development
+            // System.err.println("AssertionError: "+super.manifestEntry.getURI()+" type="+manifestEntry.getTestType());
+            throw ex;
         } catch (Exception ex) {
             ex.printStackTrace();
             fail("Exception: " + ex.getClass().getName() + ": " + ex.getMessage());

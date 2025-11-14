@@ -18,35 +18,33 @@
 
 package org.apache.jena.sparql;
 
-import org.apache.jena.arq.junit.manifest.Manifests;
-import org.apache.jena.arq.junit.runners.Label;
-import org.apache.jena.arq.junit.runners.RunnerSPARQL;
-import org.apache.jena.sparql.engine.ref.QueryEngineRef ;
-import org.apache.jena.sparql.expr.E_Function ;
-import org.apache.jena.sparql.expr.NodeValue ;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
+import java.util.stream.Stream;
 
+import org.junit.jupiter.api.*;
 
-@RunWith(RunnerSPARQL.class)
-@Label("ARQTestRefEngine")
-@Manifests({
-    "testing/ARQ/manifest-ref-arq.ttl"
-})
-public class Scripts_RefEngine
-{
-    @BeforeClass
+import org.apache.jena.arq.junit.Scripts;
+import org.apache.jena.sparql.engine.ref.QueryEngineRef;
+import org.apache.jena.sparql.expr.E_Function;
+import org.apache.jena.sparql.expr.NodeValue;
+
+public class Scripts_RefEngine {
+    @BeforeAll
     public static void beforeClass() {
-        NodeValue.VerboseWarnings = false ;
-        E_Function.WarnOnUnknownFunction = false ;
-        QueryEngineRef.register() ;
+        NodeValue.VerboseWarnings = false;
+        E_Function.WarnOnUnknownFunction = false;
+        QueryEngineRef.register();
     }
 
-    @AfterClass
+    @AfterAll
     public static void afterClass() {
         NodeValue.VerboseWarnings = true;
         E_Function.WarnOnUnknownFunction = true;
-        QueryEngineRef.unregister() ;
+        QueryEngineRef.unregister();
+    }
+
+    @TestFactory
+    @DisplayName("ARQ-RefEngine")
+    public Stream<DynamicNode> testFactorySPARQL_ARQ() {
+        return Scripts.manifestTestFactorySPARQL("testing/ARQ/manifest-ref-arq.ttl");
     }
 }

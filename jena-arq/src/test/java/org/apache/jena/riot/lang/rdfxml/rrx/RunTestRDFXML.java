@@ -19,9 +19,9 @@
 package org.apache.jena.riot.lang.rdfxml.rrx;
 
 import static java.lang.String.format;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,23 +49,29 @@ public class RunTestRDFXML {
 
     /**
      * The RDF/XML tests from rdf-tests CG
-     * These are also run from {@link org.apache.jena.riot.lang.rdfxml.manifest_rdf11.Scripts_RRX_RDFXML}.
+     * These are also run from {@link org.apache.jena.riot.lang.rdfxml.Scripts_RRX_RDFXML}.
      * Here, the exact warnings and errors are checked.
      */
     static List<String> w3cTestFiles() {
-        Path DIR = Path.of("testing/RIOT/rdf11-xml");
-        return allTestFiles(DIR);
+        Path DIR = Path.of("testing/rdf-tests-cg/rdf/rdf11/rdf-xml");
+        List<String> files = allTestFiles(DIR);
+        return files;
     }
 
-    static List<String> allTestFiles(Path DIR) {
-        if ( !Files.exists(DIR) )
+    static List<String> allTestFiles(Path directory) {
+        if ( !Files.exists(directory) ) {
+            System.err.println("No such directory: "+directory);
             return List.of();
+        }
         try {
-            return Files.walk(DIR)
+            List<String> files = Files.walk(directory)
                 .filter(Files::isRegularFile)
                 .map(Path::toString)
                 .filter(fn->fn.endsWith(".rdf"))
                 .toList();
+            if ( files.isEmpty() )
+                System.err.println("No files found in "+directory);
+            return files;
         } catch (IOException ex) {
             throw IOX.exception(ex);
         }
@@ -212,13 +218,11 @@ public class RunTestRDFXML {
         return testfilesAbs;
     }
 
-    static List<Object[]> makeTestSetup(List<String> testfiles, String label) {
-        List<Object[]> x = new ArrayList<>();
-        for ( String fn : testfiles ) {
-            //System.out.println(fn);
-            x.add(new Object[] {label, fn});
-        }
-        return x;
+
+    static List<RRX_TestFileArgs> makeTestSetup(String label, ReaderRIOTFactory rdfxmlFactory,  List<String> testfiles) {
+        return testfiles.stream()
+                .map(fn->new RRX_TestFileArgs(label, fn, rdfxmlFactory))
+                .toList();
     }
 
     static class ErrorHandlerCollector implements ErrorHandler {
@@ -450,11 +454,11 @@ public class RunTestRDFXML {
     /** Counts check of an error handler */
     private static void checkErrorHandler(String testLabel, ErrorHandlerCollector errorHandler, int countWarnings, int countErrors, int countFatals) {
         if ( countFatals >= 0 )
-            assertEquals("Fatal message counts different", countFatals, errorHandler.fatals.size());
+            assertEquals(countFatals, errorHandler.fatals.size(), "Fatal message counts different");
         if ( countErrors >= 0 )
-            assertEquals("Error message counts different", countErrors, errorHandler.errors.size());
+            assertEquals(countErrors, errorHandler.errors.size(), "Error message counts different");
         if ( countWarnings >= 0 )
-            assertEquals("Warning message counts different", countWarnings, errorHandler.warnings.size());
+            assertEquals(countWarnings, errorHandler.warnings.size(), "Warning message counts different");
     }
 
     /** Parse one file using a reader of the give factory */

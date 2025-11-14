@@ -42,12 +42,9 @@ import org.apache.jena.sparql.sse.SSE;
 public class TestFusekiStdSetup {
 
     private static FusekiServer server = null;
-    private static int port;
 
     private static Graph data;
     private static DatasetGraph dataset;
-
-    private static String URL;
 
     @BeforeAll public static void buildData() {
         data = SSE.parseGraph(StrUtils.strjoinNL
@@ -59,7 +56,7 @@ public class TestFusekiStdSetup {
         dataset.add(SSE.parseQuad("(:g :s :p 2 )"));
     }
 
-    // ==== Common code: TestFusekiStdSetup, TestFusekiStdReadOnlySetup, TestFusekiShaclValidation
+    // ==== Common code: TestFusekiStdSetup, TestFusekiStdReadOnlySetup, TestFusekiShaclValidation, TestRDFConnectionRemote
 
     private static Object lock = new Object();
 

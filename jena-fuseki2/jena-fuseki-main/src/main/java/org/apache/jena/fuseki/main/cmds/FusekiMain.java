@@ -28,6 +28,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import arq.cmdline.CmdARQ;
+import arq.cmdline.ModDatasetAssembler;
 import org.apache.jena.assembler.exceptions.AssemblerException;
 import org.apache.jena.atlas.io.IOX;
 import org.apache.jena.atlas.lib.FileOps;
@@ -52,15 +54,32 @@ import org.apache.jena.sparql.core.assembler.AssemblerUtils;
 import org.apache.jena.sys.JenaSystem;
 import org.slf4j.Logger;
 
-import arq.cmdline.CmdARQ;
-import arq.cmdline.ModDatasetAssembler;
-
 public class FusekiMain extends CmdARQ {
 
     /** Default HTTP port when running from the command line. */
     public static int defaultPort          = 3030;
     /** Default HTTPS port when running from the command line. */
     public static int defaultHttpsPort     = 3043;
+
+    /**
+     * Build, but do not start, a server based on command line syntax.
+     */
+    public static FusekiServer build(String... args) {
+        FusekiServer.Builder builder = builder(args);
+        return builder.build();
+    }
+
+    /**
+     * Create a server and run, within the same JVM.
+     * This is the command line entry point.
+     * This function does not return.
+     * See also {@link #build} to create and return a server.
+     */
+    public static void run(String... argv) {
+        JenaSystem.init();
+        InitFusekiMain.init();
+        new FusekiMain(argv).mainRun();
+    }
 
     private static ArgDecl  argMem          = new ArgDecl(ArgDecl.NoValue,  "mem");
     private static ArgDecl  argUpdate       = new ArgDecl(ArgDecl.NoValue,  "update", "allowUpdate");
@@ -138,26 +157,6 @@ public class FusekiMain extends CmdARQ {
         FusekiServer.Builder builder = FusekiServer.create();
         fusekiMain.applyServerArgs(builder, fusekiMain.serverArgs);
         return builder;
-    }
-
-    /**
-     * Build, but do not start, a server based on command line syntax.
-     */
-    public static FusekiServer build(String... args) {
-        FusekiServer.Builder builder = builder(args);
-        return builder.build();
-    }
-
-    /**
-     * Create a server and run, within the same JVM.
-     * This is the command line entry point.
-     * This function does not return.
-     * See also {@link #build} to create and return a server.
-     */
-    public static void run(String... argv) {
-        JenaSystem.init();
-        InitFusekiMain.init();
-        new FusekiMain(argv).mainRun();
     }
 
     /**

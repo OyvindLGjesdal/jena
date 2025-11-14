@@ -36,11 +36,16 @@ import org.apache.jena.sparql.sse.writers.WriterExpr;
 
 public abstract class ExprNode implements Expr
 {
+    private Set<Var> varsMentioned = null;
+
+    protected ExprNode() {}
+
+    // FILTER rules for expression evaluation.
     @Override
-    public boolean isSatisfied(Binding binding, FunctionEnv funcEnv) {
+    public final boolean isSatisfied(Binding binding, FunctionEnv funcEnv) {
         try {
             NodeValue v = eval(binding, funcEnv);
-            boolean b = XSDFuncOp.booleanEffectiveValue(v);
+            boolean b = XSDFuncOp.effectiveBooleanValue(v);
             return b;
         }
         catch (ExprEvalException ex) {
@@ -48,17 +53,22 @@ public abstract class ExprNode implements Expr
         }
     }
 
-    public boolean isExpr()     { return true; }
-    public final Expr getExpr() { return this; }
-
-    // --- interface Constraint
-
     @Override
     public abstract NodeValue eval(Binding binding, FunctionEnv env);
 
+    // There are some overrides of this method for simple cases including
+    //   NodeValue ( = "ExprConstant")
+    //   ExprVar
     @Override
-    public final Set<Var> getVarsMentioned() {
-        return ExprVars.getVarsMentioned(this);
+    public Set<Var> getVarsMentioned() {
+        // Calculate once, delayed until first use.
+        if ( varsMentioned == null ) {
+            synchronized(this) {
+                if ( varsMentioned == null )
+                    varsMentioned = ExprVars.getVarsMentioned(this);
+            }
+        }
+        return varsMentioned;
     }
 
     @Override

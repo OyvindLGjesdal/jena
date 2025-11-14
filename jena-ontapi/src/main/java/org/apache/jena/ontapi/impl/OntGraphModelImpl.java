@@ -1535,13 +1535,6 @@ public class OntGraphModelImpl extends ModelCom implements OntModel, OntEnhGraph
         return this;
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    public OntGraphModelImpl write(Writer writer) {
-        getBaseModel().write(writer);
-        return this;
-    }
-
     @Override
     public OntGraphModelImpl write(Writer writer, String lang) {
         getBaseModel().write(writer, lang);
@@ -1551,12 +1544,6 @@ public class OntGraphModelImpl extends ModelCom implements OntModel, OntEnhGraph
     @Override
     public OntGraphModelImpl write(Writer writer, String lang, String base) {
         getBaseModel().write(writer, lang, base);
-        return this;
-    }
-
-    @Override
-    public OntGraphModelImpl write(OutputStream out) {
-        getBaseModel().write(out);
         return this;
     }
 
@@ -1763,7 +1750,7 @@ public class OntGraphModelImpl extends ModelCom implements OntModel, OntEnhGraph
     public StmtIterator listStatements(Resource subject, Property predicate, RDFNode object, Model posit) {
         InfGraph graph = getInfGraph();
         if (graph != null) {
-            Graph gp = posit == null ? GraphMemFactory.createGraphMem() : posit.getGraph();
+            Graph gp = posit == null ? GraphMemFactory.createDefaultGraph() : posit.getGraph();
             Iterator<Triple> iter = graph.find(asNode(subject), asNode(predicate), asNode(object), gp);
             return IteratorFactory.asStmtIterator(iter, this);
         } else {

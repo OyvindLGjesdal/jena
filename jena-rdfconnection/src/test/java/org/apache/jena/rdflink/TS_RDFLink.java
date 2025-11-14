@@ -18,16 +18,17 @@
 
 package org.apache.jena.rdflink;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses( {
+@Suite
+@SelectClasses({
     // Other tests, for RDFLinkRemote and RDFLinkFuseki, are in jena-integration-tests
     TestLocalIsolation.class
     , TestRDFLinkLocalTxnMem.class
     , TestRDFLinkLocalMRSW.class
     , TestLibRDFLink.class
+    , TestRDFLinkHTTPHeaders.class
 })
 
 public class TS_RDFLink {}

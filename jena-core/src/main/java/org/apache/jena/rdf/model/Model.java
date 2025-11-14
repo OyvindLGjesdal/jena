@@ -24,6 +24,7 @@ import java.util.function.Supplier ;
 
 import org.apache.jena.datatypes.* ;
 import org.apache.jena.shared.* ;
+import org.apache.jena.vocabulary.RDF;
 
 /**
     An RDF Model.
@@ -209,12 +210,41 @@ public interface Model
 	*/
 	public Resource createResource( String uri ) ;
 
-	/**
-	 * Create a resource that represents a statement. This is in support of RDF-star.
-	 * @param statement
-	 * @return a new resource linked to this model.
-	 */
-	public Resource createResource( Statement statement ) ;
+    /**
+     * Create an RDFNode for a statement.
+     * This is in support of RDF 1.2 triple terms.
+     * Triple terms can only appear in the object position.
+     * Use with predicate {@code rdf:reifies}
+     *
+     * @param statement
+     * @return a new resource linked to this model.
+     */
+    public StatementTerm createStatementTerm( Statement statement );
+
+    /**
+     * Create an anonymous resource that reifies a statement (RDF 1.2)
+     *
+     * @param statement
+     * @return the reifier resource.
+     */
+    public default Resource createReifier( Statement statement ) {
+        Resource reifier = this.createResource();
+        return createReifier(reifier, statement);
+    }
+
+    /**
+     * Create a reification statement in the model.
+     * {@code reifier rdf:reifies statement}
+     *
+     * @param reifier
+     * @param statement
+     * @return the reifier
+     */
+    public default Resource createReifier( Resource reifier, Statement statement ) {
+        StatementTerm n = createStatementTerm(statement);
+        this.add(reifier, RDF.reifies, n);
+        return reifier;
+    }
 
 	/**
         Create a property with a given URI composed from a namespace part and a
@@ -517,18 +547,12 @@ public interface Model
     // output operations
 
     /**
-     * <p>Write the model as an XML document.
-     * It is often better to use an OutputStream rather than a Writer, since this
-     * will avoid character encoding errors.
-     * </p>
-     *
-     * @param writer A writer to which the XML will be written
-     * @return this model
-     * @deprecated Prefer {@link #write(OutputStream, String)} and specify the language.
+     * <p>Write a serialization of this model as an XML document.s</p>
+     * @deprecated Use {@code write(Writer, "RDF/XML")}
      */
-    @Deprecated
-	public Model write( Writer writer ) ;
-
+    @Deprecated(forRemoval = true)
+    public default Model write(Writer writer) { return write(writer, "RDF/XML"); }
+    
     /**
      * <p>Write a serialized representation of a model in a specified language.
      * It is often better to use an OutputStream rather than a Writer, since this
@@ -563,16 +587,12 @@ public interface Model
 
 
     /**
-     * <p>Write a serialization of this model as an XML document.
-     * </p>
-     * <p>The language in which to write the model is specified by the
-     * <code>lang</code> argument.  Predefined values are "RDF/XML",
-     * "RDF/XML-ABBREV", "N-TRIPLE" and "N3".  The default value is
-     * represented by <code>null</code> is "RDF/XML".</p>
-     * @param out The output stream to which the XML will be written
-     * @return This model
+     * <p>Write a serialization of this model as an XML document.s</p>
+     * @deprecated Use {@code write(OutputStream, "RDF/XML")}
      */
-	public Model write(OutputStream out) ;
+    @Deprecated(forRemoval = true)
+
+	public default Model write(OutputStream out) { return write(out, "RDF/XML"); }
 
     /**
      * <p>Write a serialized representation of this model in a specified language.

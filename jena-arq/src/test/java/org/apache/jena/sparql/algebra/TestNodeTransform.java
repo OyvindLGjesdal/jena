@@ -18,15 +18,20 @@
 
 package org.apache.jena.sparql.algebra;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.Test;
+
+import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.expr.Expr;
 import org.apache.jena.sparql.graph.NodeTransform;
 import org.apache.jena.sparql.graph.NodeTransformLib;
 import org.apache.jena.sparql.sse.SSE;
-import org.junit.Test;
+import org.apache.jena.sparql.syntax.syntaxtransform.QueryTransformOps;
+import org.apache.jena.sparql.util.ExprUtils;
 
 /** Tests of node transformation : {@link NodeTransformLib}. */
 public class TestNodeTransform {
@@ -78,6 +83,18 @@ public class TestNodeTransform {
         testQuery(queryExpectedStr, queryInputStr, nodeTransform);
     }
 
+    @Test public void transformNodeValueToVar01() {
+        testExpr("?v", "1", x -> Var.alloc("v"));
+    }
+
+    @Test public void transformNodeValueToVar02() {
+        String queryInputStr    = "SELECT * { } ORDER BY ('foo')";
+        String queryExpectedStr = "SELECT * { } ORDER BY (?x)";
+        NodeTransform nt = n -> n.isLiteral() && n.getLiteralLexicalForm().equals("foo") ? Var.alloc("x") : n;
+        testQuery(queryExpectedStr, queryInputStr, nt);
+        testQueryElt(queryExpectedStr, queryInputStr, nt);
+    }
+
     /** Test query in, transform, query out */
     private static void testQuery(String expectedStr, String inputStr, NodeTransform nt) {
         Query qExpected = QueryFactory.create(expectedStr);
@@ -97,10 +114,26 @@ public class TestNodeTransform {
         assertEquals(qExpected, qActual1);
     }
 
+    /** Test query in, transform, query out - Element level. */
+    private static void testQueryElt(String expectedStr, String inputStr, NodeTransform nt) {
+        Query qExpected = QueryFactory.create(expectedStr);
+        Query inputQuery = QueryFactory.create(inputStr);
+        Query qActual = QueryTransformOps.transform(inputQuery, nt);
+        assertEquals(qExpected, qActual);
+    }
+
     /** Test Op in, transform, Op out */
     private static void testOp(Op opExpected, Op opInput, NodeTransform nt) {
         Op opActual = NodeTransformLib.transform(nt, opInput);
         assertEquals(opExpected, opActual);
+    }
+
+    /** Test Expr in, transform, Expr out */
+    private static void testExpr(String exprExpectedStr, String exprInputStr, NodeTransform nt) {
+        Expr exprExpected = ExprUtils.parse(exprExpectedStr);
+        Expr exprInput = ExprUtils.parse(exprInputStr);
+        Expr exprActual = NodeTransformLib.transform(nt, exprInput);
+        assertEquals(exprExpected, exprActual);
     }
 
     // Add a string to a variable name
@@ -109,4 +142,28 @@ public class TestNodeTransform {
                 ? Var.alloc(n.getName() + "ZZZ")
                 : n;
     };
+
+    @Test
+    public void transformPropFunc() {
+        Op inOp = SSE.parseOp("""
+            (propfunc <urn:p>
+              <urn:x> ("y" ?z)
+              (table unit))
+            """);
+
+        // Property function name is not affected by node transform.
+        Op expectedOp = SSE.parseOp("""
+            (propfunc <urn:p>
+              <URN:X> ("Y" ?Z)
+              (table unit))
+            """);
+
+        Op actualOp = NodeTransformLib.transform(x ->
+            x.isURI() ? NodeFactory.createURI(x.getURI().toUpperCase()) :
+            x.isVariable() ? Var.alloc(x.getName().toUpperCase()) :
+            x.isLiteral() ? NodeFactory.createLiteralString(x.getLiteralLexicalForm().toUpperCase()) :
+            x, inOp);
+
+        assertEquals(expectedOp, actualOp);
+    }
 }

@@ -18,29 +18,31 @@
 
 package org.apache.jena.reasoner.test;
 
-import java.io.BufferedInputStream ;
-import java.io.FileInputStream ;
-import java.io.IOException ;
-import java.io.InputStream ;
-import java.net.URL ;
-import java.util.ArrayList ;
-import java.util.List ;
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
-import junit.framework.TestCase ;
-import org.apache.jena.graph.GraphMemFactory ;
-import org.apache.jena.graph.Graph ;
-import org.apache.jena.rdf.model.* ;
-import org.apache.jena.rdf.model.impl.PropertyImpl ;
-import org.apache.jena.rdf.model.impl.ResourceImpl ;
+import org.junit.Assert;
+
+import junit.framework.TestCase;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.GraphMemFactory;
+import org.apache.jena.rdf.model.*;
+import org.apache.jena.rdf.model.impl.PropertyImpl;
+import org.apache.jena.rdf.model.impl.ResourceImpl;
 import org.apache.jena.rdfxml.xmlinput1.ARPTests;
-import org.apache.jena.reasoner.InfGraph ;
-import org.apache.jena.reasoner.Reasoner ;
-import org.apache.jena.reasoner.ReasonerFactory ;
-import org.apache.jena.shared.JenaException ;
-import org.apache.jena.vocabulary.RDF ;
-import org.junit.Assert ;
-import org.slf4j.Logger ;
-import org.slf4j.LoggerFactory ;
+import org.apache.jena.reasoner.InfGraph;
+import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.reasoner.ReasonerFactory;
+import org.apache.jena.shared.JenaException;
+import org.apache.jena.vocabulary.RDF;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A utility to support execution of the RDFCode working group entailment
@@ -51,7 +53,7 @@ import org.slf4j.LoggerFactory ;
  * entailment tests are handled by this utility. Each test defines a set
  * of data files to load. For normal positive entailment tests we check each
  * triple in the conclusions file to ensure it is included in the inferred
- * graph. For postive entailment tests which are supposed to entail the
+ * graph. For positive entailment tests which are supposed to entail the
  * false document we run an additional validation check. For
  * negative entailment tests which tests all triples in the non-conclusions file
  * and check that at least one trile is missing. </p>
@@ -152,7 +154,7 @@ public class WGReasonerTester {
      * @param file the file name, relative to baseDir
      * @return the loaded Model
      */
-    public Model loadFile(String file) throws IOException {
+    public Model loadFile(String file) {
         String langType = "RDF/XML";
         if (file.endsWith(".nt")) {
             langType = "N-TRIPLE";
@@ -169,17 +171,19 @@ public class WGReasonerTester {
          * Now use InputStream instead of Reader (general hygine).
          * Also treat http:.... as URL not local file.
          */
-        InputStream in;
-        if ( baseDir.startsWith("http:")) {
-        	in = new URL(baseDir+fname).openStream();
-        } else {
-        	in = new FileInputStream(baseDir + fname);
+        try {
+            InputStream in;
+            if ( baseDir.startsWith("http:") ) {
+                in = new URI(baseDir + fname).toURL().openStream();
+            } else {
+                in = new FileInputStream(baseDir + fname);
+            }
+            in = new BufferedInputStream(in);
+            result.read(in, BASE_URI + fname, langType);
+            return result;
+        } catch (IOException | URISyntaxException e) {
+            throw new JenaException(e);
         }
-        in = new BufferedInputStream(in);
-
-
-        result.read(in, BASE_URI + fname, langType);
-        return result;
     }
 
     /**
@@ -195,7 +199,7 @@ public class WGReasonerTester {
             String fileName = test.getRequiredProperty(predicate).getObject().toString();
             return loadFile(fileName).getGraph();
         } else {
-            return GraphMemFactory.createGraphMem();
+            return GraphMemFactory.createDefaultGraph();
         }
     }
 
@@ -376,10 +380,10 @@ public class WGReasonerTester {
 //            if ( !correct )
 //            {
 //                boolean b = testConclusions(conclusions.getGraph(), result.getGraph());
-//                System.out.println("**** actual") ;
-//                result.write(System.out, "TTL") ;
-//                System.out.println("**** expected") ;
-//                conclusions.write(System.out, "TTL") ;
+//                System.out.println("**** actual");
+//                result.write(System.out, "TTL");
+//                System.out.println("**** expected");
+//                conclusions.write(System.out, "TTL");
 //            }
             Assert.assertTrue("Test: " + test + "\n" +  description, correct);
         }
@@ -393,7 +397,7 @@ public class WGReasonerTester {
      * variable for each distinct bNode in the conclusions graph.
      */
     public static boolean testConclusions(Graph conclusions, Graph result) {
-        return Matcher.subgraphInferred(conclusions, result) ;
+        return Matcher.subgraphInferred(conclusions, result);
     }
 
 }

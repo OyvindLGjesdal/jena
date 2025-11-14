@@ -41,19 +41,14 @@ public class GraphWrapper implements Graph
     }
 
     @Override
-    public boolean dependsOn(Graph other) {
-        return get().dependsOn(other);
-    }
-
-    @Override
     public TransactionHandler getTransactionHandler() {
         return get().getTransactionHandler();
     }
 
-    @Override
-    public Capabilities getCapabilities() {
-        return get().getCapabilities();
-    }
+//    @Override
+//    public Capabilities getCapabilities() {
+//        return get().getCapabilities();
+//    }
 
     @Override
     public GraphEventManager getEventManager() {

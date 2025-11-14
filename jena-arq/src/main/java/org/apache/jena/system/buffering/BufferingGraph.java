@@ -27,14 +27,11 @@ import java.util.Set;
 
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.atlas.logging.Log;
-import org.apache.jena.graph.GraphMemFactory;
 import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.GraphMemFactory;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
-import org.apache.jena.query.TxnType;
 import org.apache.jena.shared.PrefixMapping;
-import org.apache.jena.sparql.core.Transactional;
-import org.apache.jena.sparql.core.TransactionalLock;
 import org.apache.jena.sparql.graph.GraphWrapper;
 import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.util.iterator.WrappedIterator;
@@ -53,8 +50,6 @@ public class BufferingGraph extends GraphWrapper implements BufferingCtl {
     private final Set<Triple> deletedTriples = new HashSet<>();
 
     private final BufferingPrefixMapping prefixMapping;
-
-    private Transactional transactional = TransactionalLock.createMRSW();
 
     public static BufferingGraph create(Graph graph) {
         if ( graph instanceof BufferingGraph )
@@ -77,29 +72,39 @@ public class BufferingGraph extends GraphWrapper implements BufferingCtl {
         execTxn(base, ()-> flushDirect(base));
     }
 
-    /** Flush the changes directly to the base graph. */
+    /**
+     * Flush the changes directly to the base graph.
+     * No transaction on the base graph.
+     */
     public void flushDirect() {
-        transactional.begin(TxnType.WRITE);
-        // So that get() is called exactly once per call.
         Graph base = get();
         flushDirect(base);
-        transactional.commit();
-        transactional.end();
     }
 
     private void flushDirect(Graph base) {
         deletedTriples.forEach(base::delete);
         addedGraph.find().forEachRemaining(base::add);
+        prefixMapping.flush();  // Does a reset().
+        resetBufferedTriples();
+    }
+
+    /**
+     *  Remove all recorded added and deleted triples and also reset the buffering prefixes.
+     */
+    @Override
+    public void reset() {
+        resetBufferedTriples();
+        prefixMapping.reset();
+    }
+
+    private void resetBufferedTriples() {
         deletedTriples.clear();
         addedGraph.clear();
-        prefixMapping.flush();
     }
 
-    private void updateOperation() {
-    }
+    protected void updateOperation() {}
 
-    private void readOperation() {
-    }
+    protected void readOperation() {}
 
 
     @Override

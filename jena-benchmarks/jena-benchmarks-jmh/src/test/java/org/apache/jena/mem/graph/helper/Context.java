@@ -30,7 +30,7 @@ public class Context {
     public Context(String graphImplementation) {
         switch (graphImplementation) {
             case "GraphMem (current)":
-                this.graphClass = GraphClass.GraphMem;
+                this.graphClass = GraphClass.GraphMemValue;
                 this.jenaVersion = JenaVersion.CURRENT;
                 break;
             case "GraphMem2Fast (current)":
@@ -42,11 +42,31 @@ public class Context {
                 this.jenaVersion = JenaVersion.CURRENT;
                 break;
             case "GraphMem2Roaring (current)":
-                this.graphClass = GraphClass.GraphMem2Roaring;
+                this.graphClass = GraphClass.GraphMem2RoaringEager;
+                this.jenaVersion = JenaVersion.CURRENT;
+                break;
+            case "GraphMem2Roaring EAGER (current)":
+                this.graphClass = GraphClass.GraphMem2RoaringEager;
+                this.jenaVersion = JenaVersion.CURRENT;
+                break;
+            case "GraphMem2Roaring LAZY (current)":
+                this.graphClass = GraphClass.GraphMem2RoaringLazy;
+                this.jenaVersion = JenaVersion.CURRENT;
+                break;
+            case "GraphMem2Roaring LAZY_PARALLEL (current)":
+                this.graphClass = GraphClass.GraphMem2RoaringLazyParallel;
+                this.jenaVersion = JenaVersion.CURRENT;
+                break;
+            case "GraphMem2Roaring MINIMAL (current)":
+                this.graphClass = GraphClass.GraphMem2RoaringMinimal;
+                this.jenaVersion = JenaVersion.CURRENT;
+                break;
+            case "GraphMem2Roaring MANUAL (current)":
+                this.graphClass = GraphClass.GraphMem2RoaringManual;
                 this.jenaVersion = JenaVersion.CURRENT;
                 break;
             case "GraphMem (Jena 4.8.0)":
-                this.graphClass = GraphClass.GraphMem;
+                this.graphClass = GraphClass.GraphMemValue;
                 this.jenaVersion = JenaVersion.JENA_4_8_0;
                 break;
             default:
@@ -64,10 +84,14 @@ public class Context {
 
 
     public enum GraphClass {
-        GraphMem,
+        GraphMemValue,
         GraphMem2Fast,
         GraphMem2Legacy,
-        GraphMem2Roaring,
+        GraphMem2RoaringEager,
+        GraphMem2RoaringLazy,
+        GraphMem2RoaringLazyParallel,
+        GraphMem2RoaringMinimal,
+        GraphMem2RoaringManual,
     }
 
 

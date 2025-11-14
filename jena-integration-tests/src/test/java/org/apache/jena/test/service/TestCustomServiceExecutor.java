@@ -18,13 +18,14 @@
 
 package org.apache.jena.test.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.function.Consumer;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.atlas.logging.LogCtl;
 import org.apache.jena.graph.Node;
@@ -40,7 +41,6 @@ import org.apache.jena.sparql.algebra.op.OpService;
 import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.core.Var;
 import org.apache.jena.sparql.engine.ExecutionContext;
-import org.apache.jena.sparql.engine.QueryIterator;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.engine.iterator.QueryIter;
 import org.apache.jena.sparql.exec.QueryExec;
@@ -78,7 +78,7 @@ public class TestCustomServiceExecutor {
             int sizeAfter = ServiceExecutorRegistry.get().getSingleChain().size();
 
             // Perform a sanity check
-            Assert.assertEquals("Removal of a registration failed", sizeBefore, sizeAfter);
+            assertEquals(sizeBefore, sizeAfter, ()->"Removal of a registration failed");
         }
     }
 
@@ -103,11 +103,14 @@ public class TestCustomServiceExecutor {
     }
 
     /** Check: Use of a service IRI which has no custom processor nor HTTP endpoint. */
-    @Test(expected = QueryException.class)
+    @Test
     public void testIllegalServiceIri1() {
-        assertResult("urn:illegalServiceIri",
-                     qe -> ServiceExecutorRegistry.set(qe.getContext(), customRegistry),
-                     false);
+        assertThrows(QueryException.class
+                     , ()->{
+                         assertResult("urn:illegalServiceIri",
+                                      qe -> ServiceExecutorRegistry.set(qe.getContext(), customRegistry),
+                                      false);
+                     });
     }
 
     /**
@@ -130,7 +133,7 @@ public class TestCustomServiceExecutor {
 
     /**
      * A test case where custom executors both forward requests down the chain as well
-     * as start the chain over using {@link ServiceExec#exec(QueryIterator, OpService, ExecutionContext)}.
+     * as start the chain over using {@link ServiceExec#exec}.
      *
      * This test case tests the chain for bulk execution.
      */
@@ -174,7 +177,7 @@ public class TestCustomServiceExecutor {
             .query("SELECT ?s ?p ?o { SERVICE <urn:a> { } }")
             .set(ARQConstants.registryServiceExecutors, reg)
             .table();
-        Assert.assertEquals(table, actualTable);
+        assertEquals(table, actualTable);
     }
 
     /**
@@ -223,7 +226,7 @@ public class TestCustomServiceExecutor {
             .query("SELECT ?s ?p ?o { SERVICE <urn:a> { } }")
             .set(ARQConstants.registryServiceExecutors, reg)
             .table();
-        Assert.assertEquals(table, actualTable);
+        assertEquals(table, actualTable);
     }
 
     // Check to rule out interference with conventional access to remote endpoints.
@@ -259,6 +262,6 @@ public class TestCustomServiceExecutor {
             actual.reset();
             ResultSetMgr.write(System.err, actual, ResultSetLang.RS_Text);
         }
-        Assert.assertTrue(isEqual);
+        assertTrue(isEqual);
     }
 }

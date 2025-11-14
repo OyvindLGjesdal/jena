@@ -67,7 +67,9 @@ import org.apache.jena.util.iterator.ExtendedIterator ;
  * may result in a runtime exception, though the typical behaviour is that such
  * calls will be silently ignored.
  * </p>
+ * @deprecated Use org.apache.jena.ontapi.
  */
+@Deprecated(forRemoval = true)
 public interface OntModel
     extends InfModel
 {
@@ -121,7 +123,6 @@ public interface OntModel
      * @return An iterator over property resources.
      */
     public ExtendedIterator<OntProperty> listOntProperties();
-
 
     /**
      * <p>Answer an iterator over all of the ontology properties in this model, including
@@ -1502,23 +1503,6 @@ public interface OntModel
     // output operations
 
     /**
-     * <p>Write the model as an XML document.
-     * It is often better to use an OutputStream rather than a Writer, since this
-     * will avoid character encoding errors.
-     * <strong>Note:</strong> This method is adapted for the ontology
-     * model to write out only the base model (which contains the asserted data).  To write
-     * all triples, including imported data and inferred triples, use
-     * {@link #writeAll( Writer, String, String ) writeAll }.
-     * </p>
-     *
-     * @param writer A writer to which the XML will be written
-     * @return this model
-     */
-    @SuppressWarnings("deprecation")
-    @Override
-    public Model write( Writer writer ) ;
-
-    /**
      * <p>Write a serialized representation of a model in a specified language.
      * It is often better to use an OutputStream rather than a Writer, since this
      * will avoid character encoding errors.
@@ -1559,23 +1543,6 @@ public interface OntModel
      */
     @Override
     public Model write( Writer writer, String lang, String base );
-
-    /**
-     * <p>Write a serialization of this model as an XML document.
-     * <strong>Note:</strong> This method is adapted for the ontology
-     * model to write out only the base model (which contains the asserted data).  To write
-     * all triples, including imported data and inferred triples, use
-     * {@link #writeAll( OutputStream, String, String ) writeAll }.
-     * </p>
-     * <p>The language in which to write the model is specified by the
-     * <code>lang</code> argument.  Predefined values are "RDF/XML",
-     * "RDF/XML-ABBREV", "N-TRIPLE" and "TURTLE".  The default value is
-     * represented by <code>null</code> is "RDF/XML".</p>
-     * @param out The output stream to which the XML will be written
-     * @return This model
-     */
-    @Override
-    public Model write( OutputStream out );
 
     /**
      * <p>Write a serialized representation of this model in a specified language.

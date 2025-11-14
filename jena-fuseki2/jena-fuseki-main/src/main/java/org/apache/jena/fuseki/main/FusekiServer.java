@@ -25,7 +25,6 @@ import static org.apache.jena.fuseki.Fuseki.serverLog;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import jakarta.servlet.Filter;
@@ -61,7 +60,6 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
-import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.assembler.AssemblerUtils;
 import org.apache.jena.sparql.util.Context;
@@ -70,11 +68,11 @@ import org.apache.jena.sys.JenaSystem;
 import org.apache.jena.system.G;
 import org.apache.jena.system.RDFDataException;
 import org.apache.jena.web.HttpSC;
-import org.eclipse.jetty.ee10.servlet.DefaultServlet;
-import org.eclipse.jetty.ee10.servlet.FilterHolder;
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.servlet.ServletHolder;
-import org.eclipse.jetty.ee10.servlet.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.ee11.servlet.DefaultServlet;
+import org.eclipse.jetty.ee11.servlet.FilterHolder;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHolder;
+import org.eclipse.jetty.ee11.servlet.security.ConstraintSecurityHandler;
 import org.eclipse.jetty.security.SecurityHandler;
 import org.eclipse.jetty.security.UserStore;
 import org.eclipse.jetty.server.*;
@@ -120,9 +118,11 @@ public class FusekiServer {
     /**
      * Construct a Fuseki server from command line arguments.
      * The return server has not been started.
+     * @deprecated Use {@link FusekiMainRunner#construct} or {@link FusekiServerRunner#construct} 
      */
+    @Deprecated
     static public FusekiServer construct(String... args) {
-        return FusekiMain.build(args);
+        return FusekiMainRunner.construct(args);
     }
 
     /** Construct a Fuseki server for one dataset.
@@ -422,9 +422,17 @@ public class FusekiServer {
         } catch (Exception e) { throw new FusekiException(e); }
     }
 
-    /** Wait for the server to exit. This call is blocking. */
+    /**
+     * Wait for the server to exit.
+     * This call starts the server if it has not already been started.
+     * This call is blocking and does not return unless there is an error.
+     */
     public void join() {
-        try { server.join(); }
+        try {
+            if ( ! server.isStarted() && ! server.isStarting() )
+                server.start();
+            server.join(); }
+        catch (FusekiException e) { throw e; }
         catch (Exception e) { throw new FusekiException(e); }
     }
 
@@ -473,9 +481,6 @@ public class FusekiServer {
         // HTTPS
         private String                   httpsKeystore          = null;
         private String                   httpsKeystorePasswd    = null;
-
-        // Bearer authentication : verify and extract the user for a request.
-        private Function<String, String> bearerVerifiedUser = null;
 
         // Other servlets to add. The pathspec for servlets must be unique.
         // Order does not matter, the rules of pathspec dispatch are "exact match"
@@ -933,16 +938,6 @@ public class FusekiServer {
             return this;
         }
 
-        /**
-         * Server level setting specific to Fuseki main.
-         * General settings done by {@link FusekiConfig#processServerConfiguration}.
-         */
-        private void processConfigServerLevel(Resource server) {
-            if ( server == null )
-                return;
-            processConfigServerLevel(server.getModel().getGraph(), server.asNode());
-        }
-
         private void processConfigServerLevel(Graph config, Node server) {
             if ( server == null )
                 return;
@@ -955,11 +950,6 @@ public class FusekiServer {
             enableCompact(argBoolean(config, server, FusekiVocabG.pServerCompact, false));
             processConfAuthentication(config, server);
             serverAuth = FusekiConfig.allowedUsers(config, server);
-        }
-
-        /** Process password file, auth and realm settings on the server description. **/
-        private void processConfAuthentication(Resource server) {
-
         }
 
         private void processConfAuthentication(Graph config, Node server) {

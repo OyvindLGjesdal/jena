@@ -122,14 +122,11 @@ public class ParserProfileStd implements ParserProfile {
             Checker.iriViolationMessage(irix.str(), true, "Relative IRI: " + irix.str(), line, col, errorHandler);
             // And other warnings.
         }
-
         if ( ! irix.hasViolations() )
             return;
-
         irix.handleViolations((isError, message)->{
             Checker.iriViolationMessage(uriStr, isError, message, line, col, errorHandler);
         });
-
     }
 
     /**
@@ -226,8 +223,10 @@ public class ParserProfileStd implements ParserProfile {
 
     @Override
     public Node createLangDirLiteral(String lexical, String langTag, String direction, long line, long col) {
-        if ( ! TextDirection.isValid(direction) )
-            throw new RiotException("Invalid base direction: '"+direction+"'. Must be 'ltr' or 'rtl'");
+        if ( ! TextDirection.isValid(direction) ) {
+            errorHandler.error("Invalid base direction: '"+direction+"'. Must be 'ltr' or 'rtl'", line, col);
+            throw new RiotException("Bad base direction: "+direction);
+        }
         if ( checking )
             Checker.checkLiteral(lexical, langTag, direction, null, errorHandler, line, col);
         return factory.createLangDirLiteral(lexical, langTag, direction);

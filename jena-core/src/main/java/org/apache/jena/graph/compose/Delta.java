@@ -18,7 +18,6 @@
 
 package org.apache.jena.graph.compose;
 
-import org.apache.jena.graph.Capabilities;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.graph.impl.GraphPlain;
@@ -33,9 +32,9 @@ import org.apache.jena.util.iterator.ExtendedIterator;
  */
 
 public class Delta extends CompositionBase implements Graph {
-    private Graph base;
-    private Graph additions;
-    private Graph deletions;
+    private final Graph base;
+    private final Graph additions;
+    private final Graph deletions;
 
     @SuppressWarnings("deprecation")
     public Delta(Graph base) {
@@ -43,12 +42,6 @@ public class Delta extends CompositionBase implements Graph {
         this.base = GraphPlain.plain(base);
         this.additions = GraphPlain.plain();
         this.deletions = GraphPlain.plain();
-    }
-
-    @Override
-    public Capabilities getCapabilities() {
-        // Not strictly accurate.
-        return base.getCapabilities();
     }
 
     /**

@@ -20,23 +20,24 @@ package org.apache.jena.arq.junit.sparql.tests ;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
-import org.apache.jena.arq.junit.LibTestSetup;
+import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.arq.junit.manifest.TestSetupException;
 import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.ResultSetFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
-import org.apache.jena.rdf.model.Resource;
-import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.sparql.graph.GraphFactory;
-import org.apache.jena.sparql.junit.QueryTestException;
 import org.apache.jena.sparql.resultset.ResultsFormat;
 import org.apache.jena.sparql.resultset.SPARQLResult;
 import org.apache.jena.sparql.vocabulary.TestManifestX;
 import org.apache.jena.sparql.vocabulary.VocabTestQuery;
-import org.apache.jena.util.iterator.ClosableIterator;
+import org.apache.jena.system.G;
+import org.apache.jena.util.SplitIRI;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.RDFS;
 import org.apache.jena.vocabulary.TestManifest;
@@ -54,41 +55,45 @@ public class QueryTestItem
         return "test:" + (++counter) ;
     }
 
-    private Resource     testResource     = null ;
-    private Resource     actionResource   = null ;
+    private final ManifestEntry manifestEntry;
+    private final Graph       graph;
+    private final Node        testResource;
+    private final Node        actionResource;
 
-    private String       name ;
+    private final String       name ;
 
     private boolean      buildLuceneIndex = false ;
-    private String       resultFile ;
-    private String       comment ;
+    private final String       resultFile ;
+    private final String       comment ;
     private List<String> defaultGraphURIs ;
     private List<String> namedGraphURIs ;
-    private Resource     testType         = null ;
-    private String       queryFile ;
+    private final Node         testType;
+    private final String       queryFile;
 
-    public static QueryTestItem create(Resource entry, Resource defaultTestType) {
+    public static QueryTestItem create(ManifestEntry entry, Node defaultTestType) {
         return new QueryTestItem(entry, defaultTestType) ;
     }
 
-    public static QueryTestItem create(String _name, String _queryFile, String _dataFile, String _resultFile) {
-        return new QueryTestItem(_name, _queryFile, _dataFile, _resultFile) ;
-    }
+    private QueryTestItem(ManifestEntry entry, Node defaultTestType) {
+        manifestEntry = entry;
+        graph = entry.getGraph();
+        Objects.requireNonNull(graph, "Manifest graph");
 
-    private QueryTestItem(Resource entry, Resource defaultTestType) {
-        testResource = entry ;
+        testResource = entry.getEntry();
+        actionResource = G.getOneSP(graph, testResource, TestManifest.action.asNode());
 
-        if ( !entry.hasProperty(TestManifest.name) )
-            throw new QueryTestException("TestItem with no name (" + entry + ")") ;
+        if ( ! G.hasProperty(graph, testResource, TestManifest.name.asNode()) )
+            throw new TestSetupException("TestItem with no name (" + entry + ")") ;
         name = _getName() ;
 
-        if ( !entry.hasProperty(TestManifest.action) )
-            throw new QueryTestException("TestItem '" + name + "' with no action") ;
+        if ( ! G.hasProperty(graph, testResource, TestManifest.action.asNode()) )
+            throw new TestSetupException("TestItem '" + name + "' with no action") ;
 
         // Assumes one type per test only.
-        testType = LibTestSetup.getResource(entry, RDF.type) ;
-        if ( testType == null )
-            testType = defaultTestType ;
+        Node _testType = G.getZeroOrOneSP(graph, testResource, RDF.Nodes.type) ;
+        if ( _testType == null )
+            _testType = defaultTestType ;
+        testType = _testType;
 
         resultFile = _getResultFile() ;
         comment = _getComment() ;
@@ -96,30 +101,20 @@ public class QueryTestItem
         defaultGraphURIs = _getDefaultGraphURIs() ;
         namedGraphURIs = _getNamedGraphsURIs() ;
 
-        queryFile = _getQueryFile() ;
+        queryFile = SparqlTestLib.queryFile(entry);
         buildLuceneIndex = _getTextIndex() ;
     }
 
-    private QueryTestItem(String _name, String _queryFile, String _dataFile, String _resultFile) {
-        name = _name ;
-        queryFile = _queryFile ;
-        defaultGraphURIs = new ArrayList<>() ;
-        defaultGraphURIs.add(_dataFile) ;
-        namedGraphURIs = new ArrayList<>() ;
-        resultFile = _resultFile ;
-        comment = "" ;
-    }
-
-    public Resource getResource() {
+    public Node getResource() {
         return testResource ;
     }
 
-    public Resource getAction() {
-        return _getAction() ;
+    public Node getAction() {
+        return actionResource;
     }
 
     /** @return Returns the testType. */
-    public Resource getTestType() {
+    public Node getTestType() {
         return testType ;
     }
 
@@ -163,13 +158,17 @@ public class QueryTestItem
     }
 
     public String getURI() {
-        if ( testResource != null && testResource.isURIResource() )
+        if ( testResource != null && testResource.isURI() )
             return testResource.getURI() ;
         return fakeURI() ;
     }
 
     public String getComment() {
         return comment ;
+    }
+
+    public ManifestEntry getManifestEntry() {
+        return manifestEntry;
     }
 
     public List<String> getDefaultGraphURIs() {
@@ -185,33 +184,31 @@ public class QueryTestItem
     }
 
     private String _getName() {
-
-        Statement s = testResource.getProperty(TestManifest.name) ;
-        String ln = s.getSubject().getLocalName();
-        if ( s == null )
-            return ln+" <<unset>>" ;
-        return "("+ln+") "+s.getString() ;
+        Node x = G.getOneSP(graph, testResource, TestManifest.name.asNode()) ;
+        if ( ! testResource.isURI() )
+            return G.asString(x);
+        String ln = SplitIRI.localname(testResource.getURI());
+        return "("+ln+") "+G.asString(x);
     }
 
-    private Resource _getAction() {
-        if ( actionResource == null )
-            actionResource = testResource.getProperty(TestManifest.action).getResource() ;
-        return actionResource ;
-    }
-
+//    private Resource _getAction() {
+//        if ( actionResource == null )
+//            actionResource = testResource.getProperty(TestManifest.action).getResource() ;
+//        return actionResource ;
+//    }
+//
     private String _getResultFile() {
-        try {
-            // It's bnode in some update tests.
-            // The Update test code managed building the result.
-            return LibTestSetup.getLiteralOrURI(testResource, TestManifest.result) ;
-        } catch (RuntimeException ex) { return null ; }
+        Node x = G.getZeroOrOneSP(graph, testResource, TestManifest.result.asNode());
+        if ( x == null )
+            return null;
+        return SparqlTestLib.getStringOrURI(x, "result file");
     }
 
     private String _getComment() {
-        Statement s = testResource.getProperty(RDFS.comment) ;
-        if ( s == null )
+        Node c = G.getZeroOrOneSP(graph, testResource, RDFS.Nodes.comment) ;
+        if ( c == null )
             return null ;
-        return s.getString() ;
+        return c.getLiteralLexicalForm();
     }
 
     // ----------------------------------------------------
@@ -225,19 +222,16 @@ public class QueryTestItem
      */
 
     private List<String> _getDefaultGraphURIs() {
-        if ( !_getAction().isAnon() )
-            // Action is a URI - data had better be in the query itself.
+        if ( ! actionResource.isBlank() )
+            // Action is not a blank node - the data had better be in the query itself.
             return null ;
 
         List<String> l = new ArrayList<>() ;
-        ClosableIterator<Statement> cIter = _getAction().listProperties(VocabTestQuery.data) ;
-        for (; cIter.hasNext();) {
-            Statement stmt = cIter.next() ;
-            String df = stmt.getResource().getURI() ;
-            l.add(df) ;
-        }
-        cIter.close() ;
-
+        G.listSP(graph, actionResource, VocabTestQuery.data.asNode()).forEach(x->{
+            if ( ! x.isURI() )
+                throw new TestSetupException("Deafult Graph URI is not a URI: "+x);
+            l.add(x.getURI()) ;
+        });
         return l ;
     }
 
@@ -248,47 +242,24 @@ public class QueryTestItem
      */
 
     private List<String> _getNamedGraphsURIs() {
-        if ( !_getAction().isAnon() )
-            // Action is a URI - data had better be in the query itself.
+        if ( ! actionResource.isBlank() )
+            // Action is not a blank node - the data had better be in the query itself.
             return null ;
 
         List<String> l = new ArrayList<>() ;
-        ClosableIterator<Statement> cIter = _getAction().listProperties(VocabTestQuery.graphData) ;
-        for (; cIter.hasNext();) {
-            Statement obj = cIter.next() ;
-            String df = obj.getResource().getURI() ;
-            l.add(df) ;
-        }
-        cIter.close() ;
-
+        G.listSP(graph, actionResource, VocabTestQuery.graphData.asNode()).forEach(x->{
+            if ( ! x.isURI() )
+                throw new TestSetupException("Deafult Graph URI is not a URI: "+x);
+            l.add(x.getURI()) ;
+        });
         return l ;
     }
 
-    /**
-     * Get the query file: either it is the action (data in query) or it is
-     * specified within the bNode as a query/data pair.
-     *
-     * @return
-     */
-
-    private String _getQueryFile() {
-        Resource r = _getAction() ;
-
-        if ( r.hasProperty(VocabTestQuery.query) )
-            return LibTestSetup.getLiteralOrURI(r, VocabTestQuery.query) ;
-
-        // No query property - must be this action node
-
-        if ( _getAction().isAnon() )
-            return "[]" ;
-        return _getAction().getURI() ;
-    }
-
     private boolean _getTextIndex() {
-        Statement s = testResource.getProperty(TestManifestX.textIndex) ;
-        if ( s == null )
+        Node x = G.getZeroOrOneSP(graph, testResource, TestManifestX.textIndex.asNode()) ;
+        if ( x == null )
             return false ;
-        return s.getString().equalsIgnoreCase("true") ;
+        return G.asString(x).equalsIgnoreCase("true") ;
     }
 
     // ----------------------------------------------------

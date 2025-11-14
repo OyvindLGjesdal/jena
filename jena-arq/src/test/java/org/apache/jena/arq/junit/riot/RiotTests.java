@@ -18,142 +18,168 @@
 
 package org.apache.jena.arq.junit.riot;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import static org.apache.jena.arq.junit.Scripts.entryContainsSubstring;
 
-import org.apache.jena.arq.junit.LibTestSetup;
+import java.util.Objects;
+
 import org.apache.jena.arq.junit.SkipTest;
 import org.apache.jena.arq.junit.SurpressedTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
+import org.apache.jena.graph.Graph;
+import org.apache.jena.graph.Node;
+import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.riot.RDFLanguages;
-import org.apache.jena.riot.RiotException;
-import org.apache.jena.vocabulary.RDF;
+import org.apache.jena.util.SplitIRI;
 import org.apache.jena.vocabulary.TestManifest;
 
 public class RiotTests
 {
-    public static String assumedRootURIex = "http://example/base/";
-
-//    // Depends on origin of the tests.
-//    // Now done by entry.getManifest().getTestBase();
-//    public static String x_assumedRootURITurtle = "https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-turtle/";
-//    public static String x_assumedRootURITriG = "https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-trig/";
-
     /** Create a RIOT language test - or return null for "unrecognized" */
     public static Runnable makeRIOTTest(ManifestEntry entry) {
         //Resource manifest = entry.getManifest();
-        Resource item = entry.getEntry();
+        Node item = entry.getEntry();
         String testName = entry.getName();
-        Resource action = entry.getAction();
-        Resource result = entry.getResult();
+        Node action = entry.getAction();
+        Node result = entry.getResult();
+        Graph graph = entry.getManifest().getGraph();
 
-        String labelPrefix = "[RIOT]";
+        Node testType = entry.getTestType();
+        if ( testType == null )
+            return null;
 
         try {
-            Resource testType = LibTestSetup.getResource(item, RDF.type);
-            if ( testType == null )
-                throw new RiotException("Can't determine the test type");
-
+            String labelPrefix = "[RIOT]";
             if ( labelPrefix != null )
                 testName = labelPrefix+testName;
 
             // In Turtle tests, the action directly names the file to process.
-            Resource input = action;
-            Resource output = result;
+            Node input = action;
+            Node output = result;
 
             // Some tests assume a certain base URI.
 
             // == Syntax tests.
-
+            // Assumed base from manifest.
             String assumedBase = entry.getManifest().getTestBase();
+            if ( assumedBase == null )
+                assumedBase = "http://example/base/";
 
             // TTL
-            if ( testType.equals(VocabLangRDF.TestPositiveSyntaxTTL) ) {
+            if ( equalsType(testType, VocabLangRDF.TestPositiveSyntaxTTL) ) {
                 String base = rebase(input, assumedBase);
                 return new RiotSyntaxTest(entry, base, RDFLanguages.TURTLE, true);
             }
-            if ( testType.equals(VocabLangRDF.TestNegativeSyntaxTTL) )
+            if ( equalsType(testType, VocabLangRDF.TestNegativeSyntaxTTL) )
                 return new RiotSyntaxTest(entry, RDFLanguages.TURTLE, false);
 
             // TRIG
-            if ( testType.equals(VocabLangRDF.TestPositiveSyntaxTriG) ) {
-                    String base = rebase(input, assumedBase);
-                    return new RiotSyntaxTest(entry, base, RDFLanguages.TRIG, true);
-                }
-            if ( testType.equals(VocabLangRDF.TestNegativeSyntaxTriG) )
+            if ( equalsType(testType, VocabLangRDF.TestPositiveSyntaxTriG) ) {
+                String base = rebase(input, assumedBase);
+                return new RiotSyntaxTest(entry, base, RDFLanguages.TRIG, true);
+            }
+            if ( equalsType(testType, VocabLangRDF.TestNegativeSyntaxTriG) )
                 return new RiotSyntaxTest(entry, RDFLanguages.TRIG, false);
 
             // NT
-            if ( testType.equals(VocabLangRDF.TestPositiveSyntaxNT) )
+            if ( equalsType(testType, VocabLangRDF.TestPositiveSyntaxNT) )
                 return new RiotSyntaxTest(entry, RDFLanguages.NTRIPLES, true);
-            if ( testType.equals(VocabLangRDF.TestNegativeSyntaxNT) )
+            if ( equalsType(testType, VocabLangRDF.TestNegativeSyntaxNT) )
                 return new RiotSyntaxTest(entry, RDFLanguages.NTRIPLES, false);
 
             // NQ
-            if ( testType.equals(VocabLangRDF.TestPositiveSyntaxNQ) )
+            if ( equalsType(testType, VocabLangRDF.TestPositiveSyntaxNQ) )
                 return new RiotSyntaxTest(entry, RDFLanguages.NQUADS, true);
-            if ( testType.equals(VocabLangRDF.TestNegativeSyntaxNQ) )
+            if ( equalsType(testType, VocabLangRDF.TestNegativeSyntaxNQ) )
                 return new RiotSyntaxTest(entry, RDFLanguages.NQUADS, false);
 
             // RDF/XML - W3C test suite
             // This suite has eval tests (positive and warning - they have "warn" in the filename) and negative syntax tests.
-            if ( testType.equals(VocabLangRDF.TestPositiveRDFXML) ) {
+            if ( equalsType(testType, VocabLangRDF.TestPositiveRDFXML) ) {
+                if ( entryContainsSubstring(entry, "#xml-canon-test") ) {
+                    // Alternative location.
+                    // "rdf-tests-cg/rdf/rdf11/rdf-xml/xml-canon/" --> "RIOT/Lang/rdf-xml/xml-canon/"
+                    String actionURI = action.getURI().replaceAll("/rdf-tests-cg/rdf/rdf11/rdf-xml/xml-canon/", "/RIOT/Lang/rdf-xml/xml-canon/");
+                    String resultURI = result.getURI().replaceAll("/rdf-tests-cg/rdf/rdf11/rdf-xml/xml-canon/", "/RIOT/Lang/rdf-xml/xml-canon/");
+                    Node action2 = NodeFactory.createURI(actionURI);
+                    Node result2 = NodeFactory.createURI(resultURI);
+                    entry = ManifestEntry.alter(entry, testType, action2, result2);
+                }
                 String fn = entry.getAction().getURI();
-                // Assumes the tests are stored in "rdf-xml" or "rdf11-xml"
-                String base = fn.replaceAll("^.*/rdf(\\d\\d)?-xml/", "https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-xml/");
+                // Adjust to changes in rdf-tests-cg layout.
+                String base = fn.replaceAll("^.*/rdf-xml/", "https://w3c.github.io/rdf-tests/rdf/rdf11/rdf-xml/");
                 return new RiotEvalTest(entry, base, RDFLanguages.RDFXML, true);
             }
-            if ( testType.equals(VocabLangRDF.TestNegativeRDFXML) )
+            if ( equalsType(testType, VocabLangRDF.TestNegativeRDFXML) )
                 return new RiotSyntaxTest(entry, RDFLanguages.RDFXML, false);
 
-            // Other
-            if ( testType.equals(VocabLangRDF.TestPositiveSyntaxRJ) )
+            // Other: RDF/JSON
+            if ( equalsType(testType, VocabLangRDF.TestPositiveSyntaxRJ) )
                 return new RiotSyntaxTest(entry, RDFLanguages.RDFJSON, true);
-            if ( testType.equals(VocabLangRDF.TestNegativeSyntaxRJ) )
+            if ( equalsType(testType, VocabLangRDF.TestNegativeSyntaxRJ) )
                 return new RiotSyntaxTest(entry, RDFLanguages.RDFJSON, false);
 
-            if ( testType.equals(VocabLangRDF.TestSurpressed ))
+            if ( equalsType(testType, VocabLangRDF.TestSurpressed ))
                 return new SurpressedTest(entry);
 
             // == Eval tests
 
-            if ( testType.equals(VocabLangRDF.TestEvalTTL) ) {
+            if ( equalsType(testType, VocabLangRDF.TestEvalTTL) ) {
                 String base = rebase(input, assumedBase);
                 return new RiotEvalTest(entry, base, RDFLanguages.TURTLE, true);
             }
-            if ( testType.equals(VocabLangRDF.TestNegativeEvalTTL) ) {
+            if ( equalsType(testType, VocabLangRDF.TestNegativeEvalTTL) ) {
                 String base = rebase(input, assumedBase);
                 return new RiotEvalTest(entry, base, RDFLanguages.TURTLE, false);
             }
 
-            if ( testType.equals(VocabLangRDF.TestEvalTriG) ) {
+            if ( equalsType(testType, VocabLangRDF.TestEvalTriG) ) {
                 String base = rebase(input, assumedBase);
                 return new RiotEvalTest(entry, base, RDFLanguages.TRIG, true);
             }
-            if ( testType.equals(VocabLangRDF.TestNegativeEvalTriG) ) {
+            if ( equalsType(testType, VocabLangRDF.TestNegativeEvalTriG) ) {
                 String base = rebase(input, assumedBase);
                 return new RiotEvalTest(entry, base, RDFLanguages.TRIG, false);
             }
 
-            if ( testType.equals(VocabLangRDF.TestEvalNT) ) {
+            if ( equalsType(testType, VocabLangRDF.TestEvalNT) ) {
                 String base = entry.getAction().getURI();//rebase(input, assumedRootURI);
                 return new RiotEvalTest(entry, base, RDFLanguages.NTRIPLES, true);
             }
-            if ( testType.equals(VocabLangRDF.TestNegativeEvalNT) ) {
+            if ( equalsType(testType, VocabLangRDF.TestNegativeEvalNT) ) {
                 String base = entry.getAction().getURI();//rebase(input, assumedRootURI);
                 return new RiotEvalTest(entry, base, RDFLanguages.NTRIPLES, false);
             }
 
-            if ( testType.equals(VocabLangRDF.TestEvalRJ) ) {
-                String base = rebase(input, assumedRootURIex);
+            if ( equalsType(testType, VocabLangRDF.TestEvalRJ) ) {
+                String base = rebase(input, assumedBase);
                 return new RiotEvalTest(entry, base, RDFLanguages.RDFJSON, true);
             }
-//            if ( testType.equals(VocabLangRDF.TestNegativeEvalRJ) ) {
+//            if ( equalsType(testType, VocabLangRDF.TestNegativeEvalRJ) ) {
 //                String base = rebase(input, assumedRootURIex);
 //                return new RiotEvalTest(entry, base, RDFLanguages.RDFJSON, false);
 //            }
+
+            // Canonicalization tests
+            if ( equalsType(testType, VocabLangRDF.TestNTriplesPositiveC14N) ) {
+                String base = rebase(input, assumedBase);
+                return new RiotC14NTest(entry, base, RDFLanguages.NTRIPLES, true);
+            }
+
+            if ( equalsType(testType, VocabLangRDF.TestNTriplesNegativeC14N) ) {
+                String base = rebase(input, assumedBase);
+                return new RiotC14NTest(entry, base, RDFLanguages.NTRIPLES, false);
+
+            }
+            if ( equalsType(testType, VocabLangRDF.TestNQuadsPositiveC14N) ) {
+                String base = rebase(input, assumedBase);
+                return new RiotC14NTest(entry, base, RDFLanguages.NQUADS, true);
+
+            }
+            if ( equalsType(testType, VocabLangRDF.TestNQuadsNegativeC14N) ) {
+                String base = rebase(input, assumedBase);
+                return new RiotC14NTest(entry, base, RDFLanguages.NQUADS, false);
+            }
 
             // == Not supported : Entailment tests.
 
@@ -163,77 +189,29 @@ public class RiotTests
             if ( Objects.equals(testType.getURI(), NSX+"NegativeEntailmentTest") )
                 return new SkipTest(entry);
             return null;
-        } catch (Exception ex)
-        {
-            ex.printStackTrace(System.err);
-            System.err.println("Failed to grok test : " + testName);
+        } catch (Exception ex) {
+            ex.printStackTrace();
             return null;
         }
     }
 
-    private static String rebase(Resource input, String baseIRI) {
-        String x = input.getLocalName();
-        // Yuk, yuk, yuk.
+    /*package*/static boolean equalsType(Node typeNode, Resource typeResource) {
+        return typeNode.equals(typeResource.asNode());
+    }
+
+    private static String rebase(Node input, String baseIRI) {
+        if ( input.isBlank() )
+            return baseIRI;
+        String inputURI = input.getURI();
+        if ( baseIRI == null )
+            return inputURI;
+        int splitPoint = SplitIRI.splitpoint(input.getURI());
+        if ( splitPoint < 0 )
+            return inputURI;
+
+        String x = SplitIRI.localname(inputURI) ;
         baseIRI = baseIRI+x;
         return baseIRI;
-    }
-
-    static Set<String> allowWarningSet = new HashSet<>();
-    static {
-        // example:
-        //allowWarningSet.add("#turtle-eval-bad-01");
-    }
-
-    /** Tune tests for warnings. */
-    // Some tests have U+FFFD which, in Jena, generates a helpful warning.
-    // Some tests have <http:g> which RIOT warns about but passes.
-    /*package*/ static boolean allowWarnings(ManifestEntry testEntry) {
-
-        if ( VocabLangRDF.TestPositiveRDFXML.equals(testEntry.getTestType()) ) {
-            // Various warnings in eval tests.
-
-            String name = testEntry.getName();
-
-            if ( name.equals("datatypes-test002") )
-                return true;
-
-            if ( name.equals("rdfms-empty-property-elements-test016") )
-                // Processing instruction warning.
-                return true;
-
-            if ( name.equals("rdfms-rdf-names-use-test-015") )
-                //rdf:_1 is being used on a typed node.
-                return true;
-
-            if ( name.startsWith("rdfms-rdf-names-use-warn-") )
-                // "is not a recognized RDF property or type."
-                // "is not a recognized RDF property."
-                return true;
-
-            if ( name.startsWith("unrecognised-xml-attributes-test00") )
-                // XML attribute: xml:foo is not known
-                return true;
-
-            return false;
-        }
-
-        String fragment = fragment(testEntry.getURI());
-        if ( fragment == null )
-            return false;
-
-        // rdf-tests-cg/sparql11-query/syntax-query/
-        // rdf-tests-cg/ntriples/manifest.ttl
-        // rdf-tests-cg/nquads/manifest.ttl
-        // rdf-tests-cg/turtle/manifest.ttl
-        // rdf-tests-cg/trig/manifest.ttl
-        // jena-shex
-        if ( fragment.endsWith("UTF8_boundaries") || fragment.endsWith("character_boundaries") )
-            // Boundaries of the Unicode allowed character blocks.
-            return true;
-        // rdf-tests Turtle and Trig
-        if ( fragment.contains("IRI-resolution") )
-            return true;
-        return false;
     }
 
     /*package*/ static String fragment(String uri) {
@@ -243,5 +221,4 @@ public class RiotTests
         String frag = (j >= 0) ? uri.substring(j) : uri;
         return frag;
     }
-
 }

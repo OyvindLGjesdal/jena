@@ -19,5 +19,21 @@
 package org.apache.jena.fuseki.mgt;
 
 public class FusekiAdmin {
-    public final static Object systemLock = new Object();
+    /**
+     * Control whether to allow creating new dataservices by uploading a config file.
+     * See {@link ActionDatasets}.
+     *
+     */
+    public static final String allowConfigFileProperty = "fuseki:allowAddByConfigFile";
+
+    /**
+     * Return whether to allow service configuration files to be uploaded as a file.
+     * See {@link ActionDatasets}.
+     */
+    public static boolean allowConfigFiles() {
+        String value = System.getProperty(allowConfigFileProperty);
+        if ( value != null )
+            return "true".equals(value);
+        return false;
+    }
 }

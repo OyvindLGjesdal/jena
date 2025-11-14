@@ -23,15 +23,7 @@ import org.junit.platform.suite.api.Suite;
 
 @Suite
 @SelectClasses({
-
-//import org.junit.runner.RunWith;
-//import org.junit.runners.Suite;
-//import org.junit.runners.Suite.SuiteClasses;
-//@RunWith(Suite.class)
-//@SuiteClasses({
-
     TestIRIxRIOT_iri3986.class,
-    TestIRIxRIOT_JenaIRI.class
 })
 
 public class TS_IRIxProviders {}

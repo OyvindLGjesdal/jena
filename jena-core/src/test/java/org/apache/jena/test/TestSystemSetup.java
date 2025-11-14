@@ -18,17 +18,14 @@
 
 package org.apache.jena.test;
 
-import junit.framework.TestCase ;
-import junit.framework.TestSuite ;
+import junit.framework.TestCase;
+import org.junit.Test;
 
 public class TestSystemSetup extends TestCase {
 
-    public static TestSuite suite() {
-        return new TestSuite(TestSystemSetup.class, "System setup") ;
-    }
-
     // Check any settings that must have particular values in a release.
 
+    @Test
     public void testRDF11() {
         // RDF 1.1 and later is now built-in.
     }

@@ -19,6 +19,7 @@
 package org.apache.jena.arq.junit.sparql.tests;
 
 
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.atlas.io.IndentedLineBuffer ;
 import org.apache.jena.query.Query ;
@@ -26,14 +27,12 @@ import org.apache.jena.query.Syntax ;
 import org.apache.jena.sparql.sse.SSE_ParseException ;
 import org.apache.jena.sparql.util.QueryCheck ;
 
-public class SerializationTest implements Runnable
+public class SerializationTest extends AbstractManifestTest
 {
     static int count = 0 ;
-    String queryString ;
-    ManifestEntry testEntry;
 
     public SerializationTest(ManifestEntry entry) {
-        testEntry = entry ;
+        super(entry);
     }
     // A serialization test is:
     //   Read query in.
@@ -42,9 +41,9 @@ public class SerializationTest implements Runnable
     //   Are they equal?
 
     @Override
-    public void run()
+    public void runTest()
     {
-        Query query = SparqlTestLib.queryFromEntry(testEntry);
+        Query query = SparqlTestLib.queryFromEntry(manifestEntry);
         // Whatever was read in.
         runTestWorker(query, query.getSyntax()) ;
     }
@@ -66,7 +65,7 @@ public class SerializationTest implements Runnable
         }
         catch (RuntimeException ex)
         {
-            System.err.println("**** Test: "+testEntry.getName()) ;
+            System.err.println("**** Test: "+manifestEntry.getName()) ;
             System.err.println("** "+ex.getMessage()) ;
             System.err.println(query) ;
             throw ex ;
@@ -76,7 +75,7 @@ public class SerializationTest implements Runnable
             QueryCheck.checkOp(query, true) ;
         } catch (SSE_ParseException ex)
         {
-            System.err.println("**** Test: "+testEntry.getName()) ;
+            System.err.println("**** Test: "+manifestEntry.getName()) ;
             System.err.println("** Algebra error: "+ex.getMessage()) ;
         }
     }

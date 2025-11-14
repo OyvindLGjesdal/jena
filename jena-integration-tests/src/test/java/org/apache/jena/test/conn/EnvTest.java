@@ -40,7 +40,7 @@ import org.eclipse.jetty.security.UserStore;
  * Example usage:
  * <pre>
  *    private static EnvTest env;
- *    {@literal @BeforeClass} public static void beforeClass() {
+ *    {@literal @BeforeAll} public static void beforeClass() {
  *       env = EnvTest.create("/ds");
  *    }
  *
@@ -48,7 +48,7 @@ import org.eclipse.jetty.security.UserStore;
  *       env.clear();
  *    }
  *
- *    {@literal @AfterClass} public static void afterClass() {
+ *    {@literal @AfterAll} public static void afterClass() {
  *       EnvTest.stop(env);
  *    }
  * </pre>
@@ -73,7 +73,7 @@ public class EnvTest {
         return create(dsName, null);
     }
 
-    public static EnvTest create(String dsName, DatasetGraph dsg) {
+    private static EnvTest create(String dsName, DatasetGraph dsg) {
         return new EnvTest(dsName, dsg, null, null);
     }
 

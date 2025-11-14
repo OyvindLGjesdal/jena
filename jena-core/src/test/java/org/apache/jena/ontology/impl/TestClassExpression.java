@@ -25,11 +25,11 @@ package org.apache.jena.ontology.impl;
 // Imports
 ///////////////
 import junit.framework.*;
-import org.apache.jena.ontology.* ;
-import org.apache.jena.rdf.model.* ;
-import org.apache.jena.util.iterator.ClosableIterator ;
-import org.apache.jena.util.iterator.NullIterator ;
-import org.apache.jena.vocabulary.* ;
+import org.apache.jena.ontology.*;
+import org.apache.jena.rdf.model.*;
+import org.apache.jena.util.iterator.ClosableIterator;
+import org.apache.jena.util.iterator.NullIterator;
+import org.apache.jena.vocabulary.*;
 
 
 /**
@@ -37,6 +37,7 @@ import org.apache.jena.vocabulary.* ;
  * Unit tests for OntClass and other class expressions.
  * </p>
  */
+@SuppressWarnings("removal")
 public class TestClassExpression
     extends OntTestBase
 {
@@ -731,7 +732,7 @@ public class TestClassExpression
             new OntTestCase( "OntClass.subclass.fromFile", true, true, true ) {
                 @Override
                 public void ontTest( OntModel m ) {
-                    String lang = m_owlLang ? "owl" : "rdfs" ;
+                    String lang = m_owlLang ? "owl" : "rdfs";
                     String fileName = "file:testing/ontology/" + lang + "/ClassExpression/test.rdf";
                     m.read( fileName );
 
@@ -745,7 +746,7 @@ public class TestClassExpression
             new OntTestCase( "OntClass.equivalentClass.fromFile", true, true, false ) {
                 @Override
                 public void ontTest( OntModel m ) {
-                    String lang = m_owlLang ? "owl" : "rdfs" ;
+                    String lang = m_owlLang ? "owl" : "rdfs";
                     String fileName = "file:testing/ontology/" + lang + "/ClassExpression/test.rdf";
                     m.read( fileName );
 
@@ -758,7 +759,7 @@ public class TestClassExpression
             new OntTestCase( "OntClass.disjoint.fromFile", true, false, false ) {
                 @Override
                 public void ontTest( OntModel m ) {
-                    String lang = m_owlLang ? "owl" : "rdfs" ;
+                    String lang = m_owlLang ? "owl" : "rdfs";
                     String fileName = "file:testing/ontology/" + lang + "/ClassExpression/test.rdf";
                     m.read( fileName );
 

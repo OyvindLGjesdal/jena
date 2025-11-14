@@ -18,8 +18,11 @@
 
 package org.apache.jena.arq.junit.riot;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.function.Consumer;
+
+import org.apache.jena.arq.junit.manifest.AbstractManifestTest;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.lib.FileOps;
@@ -31,28 +34,33 @@ import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFLib;
 import org.apache.jena.shared.NotFoundException;
 
-public class RiotSyntaxTest implements Runnable {
+public class RiotSyntaxTest extends AbstractManifestTest {
 
     final private boolean expectLegalSyntax;
-    final private ManifestEntry testEntry;
-    final private String testBase;
-    final private Lang lang;
     final private String filename;
+    final private String baseIRI;
+    final private Lang lang;
+    final private Consumer<StreamRDF> parser;
 
     public RiotSyntaxTest(ManifestEntry entry, Lang lang, boolean positiveTest) {
         this(entry, null, lang, positiveTest);
     }
 
-    public RiotSyntaxTest(ManifestEntry entry, String base, Lang lang, boolean positiveTest) {
-        this.testEntry = entry;
-        this.testBase = base;
-        this.expectLegalSyntax = positiveTest;
+    public RiotSyntaxTest(ManifestEntry entry, String baseIRI, Lang lang, boolean positiveTest) {
+        super(entry);
         this.filename = entry.getAction().getURI();
+        this.baseIRI = ( baseIRI == null ) ? filename : baseIRI;
+        this.expectLegalSyntax = positiveTest;
         this.lang = lang;
+        boolean silentWarnings = RiotTestsConfig.allowWarnings(manifestEntry);
+        parser = ( baseIRI != null )
+            ? ParsingStepForTest.parse(filename, baseIRI, lang, silentWarnings)
+            : ParsingStepForTest.parse(filename, lang, silentWarnings);
+
     }
 
     @Override
-    public void run() {
+    public void runTest() {
         StreamRDF stream = StreamRDFLib.sinkNull();
         // Check so the parse step does not confuse missing with bad syntax.
         String fn = IRILib.IRIToFilename(filename);
@@ -61,25 +69,35 @@ public class RiotSyntaxTest implements Runnable {
                 @Override public Throwable fillInStackTrace() { return this; }
             };
         }
-        String base = testBase;
-        if ( base == null )
-            base = filename;
-
         try {
-            boolean allowWarnings = RiotTests.allowWarnings(testEntry);
-            ParseForTest.parse(stream, filename, base, lang, allowWarnings);
+            parser.accept(stream);
             if (! expectLegalSyntax ) {
+                String reason = "Parsing succeeded in a bad syntax test";
+                outputFailure(reason, fn, null);
                 String s = IO.readWholeFileAsUTF8(fn);
-                System.err.println();
-                System.err.println("== "+filename);
-                System.err.print(s);
-                fail("Parsing succeeded in a bad syntax test");
+                System.out.println();
+                System.out.println("== "+filename);
+                System.out.println(s);
+                fail(reason);
             }
         } catch(RiotNotFoundException ex) {
             throw ex;
         } catch(RiotException ex) {
-            if ( expectLegalSyntax )
-                fail("Parse error: "+ex.getMessage());
+            if ( expectLegalSyntax ) {
+                String reason = "Parsing failed in a good syntax test";
+                outputFailure(reason, fn, ex);
+                fail(reason+" : "+ex.getMessage());
+            }
         }
+    }
+
+    private void outputFailure(String reason, String fn, Throwable th) {
+        String s = IO.readWholeFileAsUTF8(fn);
+        System.err.println();
+        System.err.println("== "+filename+ " -- "+reason);
+        System.err.print(s);
+        if ( !s.endsWith("\n") )
+            System.err.println();
+        fail("Parsing succeeded in a bad syntax test");
     }
 }
