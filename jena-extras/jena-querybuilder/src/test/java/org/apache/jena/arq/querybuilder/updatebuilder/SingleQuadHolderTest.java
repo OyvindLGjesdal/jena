@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License. You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,18 +17,19 @@
  */
 package org.apache.jena.arq.querybuilder.updatebuilder;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Var;
-import org.junit.Test;
 
 public class SingleQuadHolderTest {
 
@@ -40,7 +41,7 @@ public class SingleQuadHolderTest {
         Node s = NodeFactory.createURI("s");
         Node p = NodeFactory.createURI("p");
         Node o = NodeFactory.createURI("o");
-        Quad quad = new Quad(g, s, p, o);
+        Quad quad = Quad.create(g, s, p, o);
         holder = new SingleQuadHolder(quad);
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
@@ -53,7 +54,7 @@ public class SingleQuadHolderTest {
         Node s = NodeFactory.createURI("s");
         Node p = NodeFactory.createVariable("p");
         Node o = NodeFactory.createURI("o");
-        Quad quad = new Quad(g, s, p, o);
+        Quad quad = Quad.create(g, s, p, o);
         holder = new SingleQuadHolder(quad);
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
@@ -63,7 +64,7 @@ public class SingleQuadHolderTest {
         Node p2 = NodeFactory.createURI("p2");
         map.put(Var.alloc(p), p2);
         holder.setValues(map);
-        Quad quad2 = new Quad(g, s, p2, o);
+        Quad quad2 = Quad.create(g, s, p2, o);
         lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
         assertEquals(quad2, lst.get(0));
@@ -76,7 +77,7 @@ public class SingleQuadHolderTest {
         Node p = NodeFactory.createURI("p");
         Node o = NodeFactory.createURI("o");
         Triple triple = Triple.create(s, p, o);
-        Quad quad = new Quad(Quad.defaultGraphNodeGenerated, s, p, o);
+        Quad quad = Quad.create(Quad.defaultGraphNodeGenerated, s, p, o);
         holder = new SingleQuadHolder(triple);
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
@@ -89,7 +90,7 @@ public class SingleQuadHolderTest {
         Node p = NodeFactory.createVariable("p");
         Node o = NodeFactory.createURI("o");
         Triple triple = Triple.create(s, p, o);
-        Quad quad = new Quad(Quad.defaultGraphNodeGenerated, s, p, o);
+        Quad quad = Quad.create(Quad.defaultGraphNodeGenerated, s, p, o);
         holder = new SingleQuadHolder(triple);
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
@@ -99,7 +100,7 @@ public class SingleQuadHolderTest {
         Node p2 = NodeFactory.createURI("p2");
         map.put(Var.alloc(p), p2);
         holder.setValues(map);
-        Quad quad2 = new Quad(Quad.defaultGraphNodeGenerated, s, p2, o);
+        Quad quad2 = Quad.create(Quad.defaultGraphNodeGenerated, s, p2, o);
         lst = holder.getQuads().toList();
         assertEquals(1, lst.size());
         assertEquals(quad2, lst.get(0));

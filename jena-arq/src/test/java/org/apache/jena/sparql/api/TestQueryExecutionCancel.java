@@ -82,13 +82,13 @@ public class TestQueryExecutionCancel {
     @Test
     public void test_Cancel_API_1()
     {
-		try(QueryExecution qExec = makeQExec("SELECT * {?s ?p ?o}")) {
+        try(QueryExecution qExec = makeQExec("SELECT * {?s ?p ?o}")) {
             ResultSet rs = qExec.execSelect();
             assertTrue(rs.hasNext());
             qExec.abort();
-			assertThrows(QueryCancelledException.class,
-						 ()-> rs.nextSolution(),
-						 ()->"Results not expected after cancel.");
+            assertThrows(QueryCancelledException.class,
+                         ()-> rs.nextSolution(),
+                         ()->"Results not expected after cancel.");
         }
     }
 
@@ -100,8 +100,8 @@ public class TestQueryExecutionCancel {
             assertTrue(rs.hasNext());
             qExec.abort();
             assertThrows(QueryCancelledException.class,
-						 ()-> rs.hasNext(),
-						 ()->"Results not expected after cancel.");
+                         ()-> rs.hasNext(),
+                         ()->"Results not expected after cancel.");
         }
     }
 
@@ -133,7 +133,7 @@ public class TestQueryExecutionCancel {
     public void test_Cancel_API_5() {
         try (QueryExecution qe = QueryExecutionFactory.create("SELECT * { ?s ?p ?o }", m)) {
             qe.abort();
-			assertThrows(QueryCancelledException.class, ()-> ResultSetFormatter.consume(qe.execSelect()));
+            assertThrows(QueryCancelledException.class, ()-> ResultSetFormatter.consume(qe.execSelect()));
         }
     }
 
@@ -344,6 +344,24 @@ public class TestQueryExecutionCancel {
         // Create a query that creates 3 cross joins - resulting in one billion result rows.
         // Tests against additional operators, namely UNION and BIND.
         test_cancel_concurrent("SELECT * { { ?a ?b ?c . ?d ?e ?f . ?g ?h ?i . } UNION { BIND('x' AS ?x) } }");
+    }
+
+    @Test
+    @Timeout(value = 10000, unit=TimeUnit.MILLISECONDS)
+    public void test_cancel_concurrent_3() {
+        test_cancel_concurrent("""
+            SELECT * {
+              ?s ?p ?o
+              {
+                SELECT * {
+                  ?s ?p ?o
+                }
+                LIMIT 1
+              }
+              ?s ?p ?o
+            }
+            LIMIT 1
+        """);
     }
 
     private static void test_cancel_concurrent(String queryString) {

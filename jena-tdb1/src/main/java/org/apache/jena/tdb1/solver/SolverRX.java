@@ -23,6 +23,7 @@ import static org.apache.jena.sparql.engine.main.solver.SolverLib.tripleHasEmbTr
 import static org.apache.jena.tdb1.solver.SolverLibTDB.convFromBinding;
 
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -37,16 +38,17 @@ import org.apache.jena.sparql.core.Substitute;
 import org.apache.jena.sparql.engine.ExecutionContext;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.engine.binding.BindingFactory;
+import org.apache.jena.sparql.engine.iterator.IterAbortable;
 import org.apache.jena.sparql.engine.main.solver.SolverRX4;
 import org.apache.jena.tdb1.lib.TupleLib;
 import org.apache.jena.tdb1.store.NodeId;
 import org.apache.jena.tdb1.store.nodetable.NodeTable;
 import org.apache.jena.tdb1.store.nodetupletable.NodeTupleTable;
 
-/** RDF-star processing for matching an individual triple/quad pattern. */
+/** Processing for matching an individual triple/quad pattern including triple terms with variables. */
 public class SolverRX {
     /**
-     * Control whether to check for embedded triple terms with variables or to act in a direct manner.
+     * Control whether to check for triple terms with variables or to act in a direct manner.
      * <p>
      * This constant is not public API. It is exposed only so integration testing can
      * check the value for a release build.
@@ -60,11 +62,11 @@ public class SolverRX {
                                                     boolean anyGraph, Predicate<Tuple<NodeId>> filter, ExecutionContext execCxt) {
         if ( DATAPATH ) {
             if ( ! tripleHasEmbTripleWithVars(tPattern) )
-                // No RDF-star <<>> with variables which are wildcards at this point.
+                // No RDF triple terms <<()>> with variables which are wildcards at this point.
                 return StageMatchTuple.access(nodeTupleTable, chain, patternTuple, filter, anyGraph, execCxt);
         }
 
-        // RDF-star <<>> with wildcards.
+        // RDF triple terms <<()>> with wildcards.
         // This path should work regardless.
 
         boolean isTriple = (patternTuple.len() == 3);
@@ -113,6 +115,11 @@ public class SolverRX {
 
         // -- DRY/StageMatchTuple ??
         Iterator<Tuple<NodeId>> iterMatches = nodeTupleTable.find(patternTupleId);
+
+        // Add cancel
+        AtomicBoolean cancelSignal = execCxt.getCancelSignal();
+        iterMatches = IterAbortable.wrap(iterMatches, cancelSignal);
+
         // Add filter
         if ( filter != null )
             iterMatches = Iter.filter(iterMatches, filter);

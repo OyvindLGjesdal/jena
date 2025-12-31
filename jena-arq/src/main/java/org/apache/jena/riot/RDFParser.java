@@ -50,8 +50,9 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.riot.process.normalize.StreamCanonicalLangTag;
 import org.apache.jena.riot.process.normalize.StreamCanonicalLiterals;
 import org.apache.jena.riot.system.*;
-import org.apache.jena.riot.system.stream.StreamManager;
+import org.apache.jena.riot.system.streammgr.StreamManager;
 import org.apache.jena.riot.web.HttpNames;
+import org.apache.jena.sparql.SystemARQ;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.DatasetGraphFactory;
 import org.apache.jena.sparql.graph.GraphFactory;
@@ -111,7 +112,7 @@ public class RDFParser {
     private final ErrorHandler        errorHandler;
     private final Context             context;
     // Some cases the parser is reusable (read a file), some are not (input streams).
-    private boolean                 canUseThisParser = true;
+    private boolean                   canUseThisParser = true;
 
     // ---- Builder creation
 
@@ -154,21 +155,6 @@ public class RDFParser {
     public static RDFParserBuilder source(String uriOrFile) {
         return RDFParserBuilder.create().source(uriOrFile);
     }
-
-//    /**
-//     * Create an {@link RDFParserBuilder} and set content to be parsed to the
-//     * string. The syntax must be set with {@code .lang(...)}.
-//     * <p>
-//     * Shortcut for {@code RDFParser.create.fromString(string)}.
-//     *
-//     * @param string
-//     * @return RDFParserBuilder
-//     * @deprecated Use {@link #fromString(String, Lang)}
-//     */
-//    @Deprecated
-//    public static RDFParserBuilder fromString(String string) {
-//        return RDFParserBuilder.create().fromString(string);
-//    }
 
     /**
      * Create an {@link RDFParserBuilder} and set content to be parsed
@@ -556,9 +542,19 @@ public class RDFParser {
                 ? resolver
                 : IRIxResolver.create().base(baseStr).resolve(resolve).allowRelative(allowRelative).build();
         PrefixMap pmap = ( this.prefixMap != null ) ? this.prefixMap : PrefixMapFactory.create();
-        ParserProfileStd parserFactory = new CDTAwareParserProfile(factory, errorHandler,
-                                                                   parserResolver, pmap,
-                                                                   context, checking$, strict);
-        return parserFactory;
+        ParserProfile parserProfile = createParserProfile(factory, errorHandler, parserResolver, pmap, context, checking$, strict);
+        return parserProfile;
+    }
+
+    private static ParserProfile createParserProfile(FactoryRDF factory, ErrorHandler errorHandler,
+                                         IRIxResolver parserResolver, PrefixMap prefixMap, Context context,
+                                         boolean checking, boolean strictMode) {
+        if ( SystemARQ.EnableCDTs )
+            return new CDTAwareParserProfile(factory, errorHandler,
+                                             parserResolver, prefixMap,
+                                             context, checking, strictMode);
+        return new ParserProfileStd(factory, errorHandler,
+                                    parserResolver, prefixMap,
+                                    context, checking, strictMode);
     }
 }

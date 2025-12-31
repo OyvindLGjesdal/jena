@@ -244,19 +244,6 @@ public class ARQ
      */
     public static final Symbol regexImpl =  SystemARQ.allocSymbol("regexImpl");
 
-//    /**
-//     * Symbol to name java.util.regex regular expression engine
-//     * @deprecated Use string "javaRegex"
-//     */
-//    @Deprecated(forRemoval = true)
-//    public static final Symbol javaRegex =  SystemARQ.allocSymbol("javaRegex");
-//    /**
-//     * Symbol to name the Xerces-J regular expression engine
-//     * @deprecated Use string "xercesRegex"
-//     */
-//    @Deprecated(forRemoval = true)
-//    public static final Symbol xercesRegex =  SystemARQ.allocSymbol("xercesRegex");
-
     /**
      * Use this Symbol to allow passing additional query parameters to a
      * {@literal SERVICE <IRI>} call.
@@ -601,6 +588,7 @@ public class ARQ
         SystemARQ.StrictDateTimeFO      = true;
         SystemARQ.ValueExtensions       = false;
         SystemARQ.EnableRomanNumerals   = false;
+        SystemARQ.EnableCDTs            = false;
 
         context.set(optimization,                   false);
         context.set(hideNonDistiguishedVariables,   true);
@@ -622,6 +610,7 @@ public class ARQ
         SystemARQ.StrictDateTimeFO      = false;
         SystemARQ.ValueExtensions       = true;
         SystemARQ.EnableRomanNumerals   = false;
+        SystemARQ.EnableCDTs            = true;
         setNormalMode(ARQ.getContext());
     }
 
@@ -690,11 +679,14 @@ public class ARQ
         }
     }
 
+    // Settings for normal operation.
     private static void setARQSettings() {
         // This must be executable before initialization
         SystemARQ.StrictDateTimeFO      = false;
         SystemARQ.ValueExtensions       = true;
         SystemARQ.EnableRomanNumerals   = false;
+        SystemARQ.EnableCDTs            = true;
+
 
         // The system context is allocated in RIOT because RIOT initializes before ARQ.
         Context context = RIOT.getContext();

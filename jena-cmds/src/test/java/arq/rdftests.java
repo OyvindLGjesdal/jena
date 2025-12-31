@@ -27,7 +27,6 @@ import arq.cmdline.ModContext;
 import arq.cmdline.ModEngine;
 import org.apache.jena.Jena;
 import org.apache.jena.arq.junit.EarlReport;
-import org.apache.jena.arq.junit.Scripts;
 import org.apache.jena.arq.junit.manifest.ManifestEntry;
 import org.apache.jena.arq.junit.riot.ParsingStepForTest;
 import org.apache.jena.arq.junit.riot.RiotTests;
@@ -41,7 +40,7 @@ import org.apache.jena.atlas.lib.Lib;
 import org.apache.jena.atlas.logging.LogCtl;
 import org.apache.jena.cmd.ArgDecl;
 import org.apache.jena.cmd.CmdException;
-import org.apache.jena.cmd.CmdGeneral;
+import org.apache.jena.cmd.CmdMain;
 import org.apache.jena.cmd.TerminationException;
 import org.apache.jena.graph.Node;
 import org.apache.jena.query.ARQ;
@@ -54,7 +53,7 @@ import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.riot.RIOT;
 import org.apache.jena.riot.SysRIOT;
-import org.apache.jena.riot.lang.extra.TurtleJCC;
+import org.apache.jena.riot.lang.turtlejcc.TurtleJCC;
 import org.apache.jena.sparql.expr.E_Function;
 import org.apache.jena.sparql.expr.NodeValue;
 import org.apache.jena.sparql.util.NodeFactoryExtra;
@@ -77,8 +76,7 @@ import org.apache.jena.vocabulary.XSD;
  * </pre>
  */
 
-public class rdftests extends CmdGeneral
-{
+public class rdftests extends CmdMain {
     static {
         JenaSystem.init();
         LogCtl.setLog4j2();
@@ -117,7 +115,7 @@ public class rdftests extends CmdGeneral
         super.modVersion.addClass(Jena.class);
         addModule(modEngine);
         addModule(modContext);
-        
+
         getUsage().startCategory("Tests (execute test manifest)");
         add(useARQ,       "--arq",     "Operate with ARQ syntax");
         add(useTTLjcc,    "--ttljcc",  "Use the alternative Turtle parser in tests");
@@ -192,10 +190,9 @@ public class rdftests extends CmdGeneral
         if ( manifests.isEmpty() )
             throw new CmdException("No manifest files");
         if ( createEarlReport )
-            TextTestRunner.run(earlReport, manifests, Scripts.testMaker());
+            TextTestRunner.run(earlReport, manifests);
         else
-            TextTestRunner.run(manifests, Scripts.testMaker());
-
+            TextTestRunner.run(manifests);
     }
 
     // Test subsystems.

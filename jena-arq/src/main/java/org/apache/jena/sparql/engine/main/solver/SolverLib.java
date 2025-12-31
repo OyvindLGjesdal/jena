@@ -20,6 +20,7 @@ package org.apache.jena.sparql.engine.main.solver;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -35,10 +36,10 @@ public class SolverLib {
      * Create an abortable iterator, storing it in the killList.
      * Just return the input iterator if killList is null.
      */
-    public static <T> Iterator<T> makeAbortable(Iterator<T> iter, List<Abortable> killList) {
+    public static <T> Iterator<T> makeAbortable(Iterator<T> iter, List<Abortable> killList, AtomicBoolean cancel) {
         if ( killList == null )
             return iter;
-        IterAbortable<T> k = new IterAbortable<>(iter);
+        IterAbortable<T> k = IterAbortable.wrap(iter, cancel);
         killList.add(k);
         return k;
     }
@@ -63,8 +64,8 @@ public class SolverLib {
     }
 
     /**
-     * Test whether a triple has a triple term (RDF-star) as one of its components
-     * and that embedded triple term has variables.
+     * Test whether a triple has a triple term as one of its components
+     * and that the nest triple term has variables.
      */
     public static boolean tripleHasEmbTripleWithVars(Triple triple) {
         return isTripleTermWithVars(triple.getSubject())
@@ -73,8 +74,8 @@ public class SolverLib {
     }
 
     /**
-     * Test whether a quad has a triple term (RDF-star) as one of its components
-     * and that embedded triple term has variables.
+     * Test whether a quad has a triple term as one of its components
+     * and that triple term has variables.
      */
     public static boolean quadHasEmbTripleWithVars(Quad quad) {
         return isTripleTermWithVars(quad.getSubject())

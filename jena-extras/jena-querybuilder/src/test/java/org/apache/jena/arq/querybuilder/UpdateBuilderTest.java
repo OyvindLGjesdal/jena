@@ -17,12 +17,14 @@
  */
 package org.apache.jena.arq.querybuilder;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
@@ -40,8 +42,8 @@ import org.apache.jena.sparql.syntax.ElementGroup;
 import org.apache.jena.sparql.syntax.ElementPathBlock;
 import org.apache.jena.update.Update;
 import org.apache.jena.update.UpdateAction;
+import org.apache.jena.update.UpdateRequest;
 import org.apache.jena.vocabulary.DC_11;
-import org.junit.Test;
 
 public class UpdateBuilderTest {
 
@@ -130,7 +132,7 @@ public class UpdateBuilderTest {
     @Test
     public void testInsert_Quad() {
         UpdateBuilder builder = new UpdateBuilder();
-        builder.addInsert(new Quad(g, s, p, o));
+        builder.addInsert(Quad.create(g, s, p, o));
         Update update = builder.build();
         assertTrue(update instanceof UpdateDataInsert);
         UpdateDataInsert udi = (UpdateDataInsert) update;
@@ -148,14 +150,14 @@ public class UpdateBuilderTest {
         UpdateBuilder builder = new UpdateBuilder();
         Collection<Quad> quads = new ArrayList<Quad>();
 
-        quads.add(new Quad(g, s, p, o));
+        quads.add(Quad.create(g, s, p, o));
 
         Node g2 = NodeFactory.createURI("http://example.com/graph2");
         Node s2 = NodeFactory.createURI("http://example.com/subject2");
         Node p2 = NodeFactory.createURI("http://example.com/predicate2");
         Node o2 = NodeFactory.createURI("http://example.com/object2");
 
-        quads.add(new Quad(g2, s2, p2, o2));
+        quads.add(Quad.create(g2, s2, p2, o2));
 
         builder.addInsertQuads(quads);
         Update update = builder.build();
@@ -265,7 +267,7 @@ public class UpdateBuilderTest {
     public void testDelete_Quad() {
 
         UpdateBuilder builder = new UpdateBuilder();
-        builder.addDelete(new Quad(g, s, p, o));
+        builder.addDelete(Quad.create(g, s, p, o));
         Update update = builder.build();
         assertTrue(update instanceof UpdateDataDelete);
         UpdateDataDelete udd = (UpdateDataDelete) update;
@@ -283,14 +285,14 @@ public class UpdateBuilderTest {
         UpdateBuilder builder = new UpdateBuilder();
         Collection<Quad> quads = new ArrayList<Quad>();
 
-        quads.add(new Quad(g, s, p, o));
+        quads.add(Quad.create(g, s, p, o));
 
         Node g2 = NodeFactory.createURI("http://example.com/graph2");
         Node s2 = NodeFactory.createURI("http://example.com/subject2");
         Node p2 = NodeFactory.createURI("http://example.com/predicate2");
         Node o2 = NodeFactory.createURI("http://example.com/object2");
 
-        quads.add(new Quad(g2, s2, p2, o2));
+        quads.add(Quad.create(g2, s2, p2, o2));
 
         builder.addDeleteQuads(quads);
         Update update = builder.build();
@@ -332,7 +334,7 @@ public class UpdateBuilderTest {
     @Test
     public void testInsertAndDelete() {
         UpdateBuilder builder = new UpdateBuilder();
-        builder.addInsert(new Quad(g, s, p, o));
+        builder.addInsert(Quad.create(g, s, p, o));
         builder.addDelete(Triple.create(s, p, o));
         builder.addWhere(null, p, "foo");
         Update update = builder.build();
@@ -370,7 +372,7 @@ public class UpdateBuilderTest {
         UpdateBuilder builder = new UpdateBuilder();
         Var v = Var.alloc("v");
 
-        builder.addInsert(new Quad(g, s, v, o));
+        builder.addInsert(Quad.create(g, s, v, o));
         builder.addDelete(Triple.create(s, v, o));
         builder.addWhere(null, v, "foo");
         builder.setVar(v, p);
@@ -409,7 +411,7 @@ public class UpdateBuilderTest {
         UpdateBuilder builder = new UpdateBuilder();
         Node v = NodeFactory.createVariable("v");
 
-        builder.addInsert(new Quad(g, s, v, o));
+        builder.addInsert(Quad.create(g, s, v, o));
         builder.addDelete(Triple.create(s, v, o));
         builder.addWhere(null, v, "foo");
         builder.setVar(v, p);
@@ -448,7 +450,7 @@ public class UpdateBuilderTest {
         UpdateBuilder builder = new UpdateBuilder();
         Node v = NodeFactory.createVariable("v");
 
-        builder.addInsert(new Quad(g, s, v, o));
+        builder.addInsert(Quad.create(g, s, v, o));
         builder.addDelete(Triple.create(s, v, o));
         builder.addWhere(null, v, "foo");
 
@@ -557,5 +559,21 @@ public class UpdateBuilderTest {
 
         // JENA-1739 fails here
         new UpdateBuilder().addDelete("?s", "<x>", "?p").addOptional("?s", path, "?p").build();
+    }
+
+    @Test
+    public void testValuesInWhereClause() {
+        Var s = Converters.makeVar("s");
+        Node[] uris = { NodeFactory.createURI("my:uri1"), NodeFactory.createURI("my:uri2") };
+        WhereBuilder where = new WhereBuilder();
+        where.addWhere("?s", "?p", "?o");
+        where.addWhereValueVar(s, (Object[])uris);
+        UpdateBuilder update = new UpdateBuilder();
+        update.addDelete("?s", "?p", "?o");
+        update.addWhere(where);
+        UpdateRequest upRequest = update.buildRequest();
+
+        String output = upRequest.toString();
+        assertTrue(output.contains("VALUES"));
     }
 }

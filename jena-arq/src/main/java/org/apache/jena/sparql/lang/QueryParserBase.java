@@ -37,7 +37,7 @@ import org.apache.jena.irix.IRIx;
 import org.apache.jena.irix.RelativeIRIException;
 import org.apache.jena.query.ARQ;
 import org.apache.jena.query.QueryParseException;
-import org.apache.jena.riot.lang.extra.LangParserLib;
+import org.apache.jena.riot.lang.LangParserLib;
 import org.apache.jena.riot.system.Checker;
 import org.apache.jena.riot.system.ErrorHandler;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
@@ -81,7 +81,6 @@ public class QueryParserBase {
     private boolean bNodesAreAllowed = true;
 
     // label => bNode for construct templates patterns
-    @SuppressWarnings("deprecation")
     final LabelToNodeMap bNodeLabels = LabelToNodeMap.createBNodeMap();
 
     // label => bNode (as variable) for graph patterns

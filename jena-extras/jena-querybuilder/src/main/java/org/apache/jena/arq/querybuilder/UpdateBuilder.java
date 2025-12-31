@@ -414,7 +414,7 @@ public class UpdateBuilder {
      * @return this builder for chaining.
      */
     public UpdateBuilder addInsert(Object g, Triple t) {
-        Quad q = new Quad(makeNode(g), t);
+        Quad q = Quad.create(makeNode(g), t);
         inserts.add(new SingleQuadHolder(q));
         return this;
     }
@@ -617,7 +617,7 @@ public class UpdateBuilder {
      * @return this builder for chaining.
      */
     public UpdateBuilder addDelete(Object g, Triple t) {
-        Quad q = new Quad(makeNode(g), t);
+        Quad q = Quad.create(makeNode(g), t);
         deletes.add(new SingleQuadHolder(q));
         return this;
     }
@@ -975,45 +975,6 @@ public class UpdateBuilder {
     public UpdateBuilder addBind(String expression, Var var) {
         whereProcessor.addBind(expression, var);
         return this;
-    }
-
-    /**
-     * Create a list node from a list of objects as per RDF Collections.
-     *
-     * http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#collections
-     *
-     * See {@link AbstractQueryBuilder#makeNode} for conversion of the param values.
-     * <p>
-     * usage:
-     * <ul>
-     * <li>list( param1, param2, param3, ... )</li>
-     * <li>addWhere( list( param1, param2, param3, ... ), p, o )</li>
-     * <li>addOptional( list( param1, param2, param3, ... ), p, o )</li>
-     * </ul>
-     *
-     * @param objs the list of objects for the list.
-     * @return the first blank node in the list.
-     * @deprecated use makeList
-     * @see #makeList(Object...)
-     */
-    @Deprecated(since="5.0.0")
-    public Node list(Object... objs) {
-        Node retval = NodeFactory.createBlankNode();
-        Node lastObject = retval;
-        for (int i = 0; i < objs.length; i++) {
-            Node n = makeNode(objs[i]);
-            addWhere(new TriplePath(Triple.create(lastObject, RDF.first.asNode(), n)));
-            if (i + 1 < objs.length) {
-                Node nextObject = NodeFactory.createBlankNode();
-                addWhere(new TriplePath(Triple.create(lastObject, RDF.rest.asNode(), nextObject)));
-                lastObject = nextObject;
-            } else {
-                addWhere(new TriplePath(Triple.create(lastObject, RDF.rest.asNode(), RDF.nil.asNode())));
-            }
-
-        }
-
-        return retval;
     }
 
     /**

@@ -14,6 +14,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 // ARQ/SPARQL 1.1 Grammar - native syntax for the query engine
@@ -86,6 +88,8 @@ PARSER_BEGIN(CLASS)
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package PACKAGE.javacc ;
@@ -1890,10 +1894,10 @@ Node TripleTermData() :  { Node n = null ; Token openToken ; String iri ; Node s
 Node TripleTermDataSubject() : { Node n = null; String iri; }
 {
  ( iri = iri()            { n = createNode(iri) ; }
- | n = RDFLiteral()
- | n = NumericLiteral()
- | n = BooleanLiteral()
- | n = TripleTermData()
+//  | n = RDFLiteral()
+//  | n = NumericLiteral()
+//  | n = BooleanLiteral()
+//  | n = TripleTermData()
  )
  { return n; }
 }
@@ -2116,11 +2120,11 @@ Node ExprTripleTerm() : { Token t ; Node s,p,o,n; }
 Node ExprTripleTermSubject() : { Node n; String iri; }
 {
   ( iri = iri() { n = createNode(iri); }
-  | n = RDFLiteral()
-  | n = NumericLiteral()
-  | n = BooleanLiteral()
   | n = Var()
-  | n = ExprTripleTerm()
+//   | n = RDFLiteral()
+//   | n = NumericLiteral()
+//   | n = BooleanLiteral()
+//   | n = ExprTripleTerm()
   )
   { return n; }
 }
@@ -2136,9 +2140,6 @@ Node ExprTripleTermObject() : { Node n; String iri; }
   )
   { return n; }
 }
-
-
-
 
 Expr BrackettedExpression() : { Expr expr ; }
 {

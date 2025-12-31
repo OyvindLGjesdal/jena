@@ -38,7 +38,9 @@ import org.apache.jena.vocabulary.RDF;
  * Library for RDF-star translation to and from reification form.
  * There is one reification for each unique quoted triple term.
  * This is especially important when decoding.
+ * @deprecated Do NOT use this class. It is related to RDF-star Community Group, not RDF 1.2.
  */
+@Deprecated(forRemoval = true)
 public class RDFStar {
 
     private static final Node rdfSubject   = RDF.Nodes.subject;
@@ -57,6 +59,7 @@ public class RDFStar {
      * Returns a new graph with triples involving triple terms replaced with
      * reification.
      */
+    @Deprecated(forRemoval = true)
     public static Graph encodeAsRDF(Graph graph) {
         Graph output = GraphFactory.createDefaultGraph();
         StreamRDF dest = StreamRDFLib.graph(output);
@@ -71,6 +74,7 @@ public class RDFStar {
      * Copy to a {@link StreamRDF}, encoding RDF-star Triple terms by replacing them with
      * RDF Reification.
      */
+    @Deprecated(forRemoval = true)
     public static void encodeAsRDF(Graph graph, StreamRDF dest) {
         StreamRDFOps.sendPrefixesToStream(graph.getPrefixMapping(), dest);
         // Ensure set because this process uses vocabulary from RDF.
@@ -88,6 +92,7 @@ public class RDFStar {
      * See {@link #encodeAsRDFInPlace(Graph)} {@link #decodeFromRDFInPlace(Graph)}
      * for operations that alters the argument graph in-place.
      */
+    @Deprecated(forRemoval = true)
     public static Graph decodeFromRDF(Graph graph) {
         Graph gx = GraphFactory.createDefaultGraph();
         decodeFromRDF(graph, StreamRDFLib.graph(gx));
@@ -100,6 +105,7 @@ public class RDFStar {
      * Copy the argument graph to a {@link StreamRDF}, replacing reifications with for triple terms.
      * Caution: this operation uses space proportional to the number of triple terms present.
      */
+    @Deprecated(forRemoval = true)
     public static void decodeFromRDF(Graph graph, StreamRDF dest) {
         // Two pass
         // 1: Generate <<>>
@@ -150,6 +156,7 @@ public class RDFStar {
      * Changes the argument graph in-place.
      * @see #decodeFromRDF
      */
+    @Deprecated(forRemoval = true)
     public static Graph encodeAsRDFInPlace(Graph graph) {
         Graph gx = graph;
 
@@ -185,6 +192,7 @@ public class RDFStar {
      */
 
     // [RDF-star] Streamify. Buffering Graph
+    @Deprecated(forRemoval = true)
     public static Graph decodeFromRDFInPlace(Graph graph) {
         Graph gx = copyGraph(graph);
 
@@ -349,6 +357,7 @@ public class RDFStar {
     /**
      * Test whether a triple has an triple term as one of its components.
      */
+    @Deprecated(forRemoval = true)
     static boolean tripleHasNodeTriple(Triple triple) {
         return triple.getSubject().isTripleTerm()
                /*|| triple.getPredicate().isNodeTriple()*/
@@ -454,6 +463,7 @@ public class RDFStar {
      * This must be the same node (same by value) whenever called with
      * a {@link Node_Triple} with the same s/p/o.
      */
+    @Deprecated(forRemoval = true)
     public static Node reificationSubject(Node_Triple nodeTriple) {
         Triple t = nodeTriple.getTriple();
         String x = reifStr(t);

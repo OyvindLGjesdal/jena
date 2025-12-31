@@ -19,21 +19,18 @@
 package org.apache.jena.sparql.function;
 
 import org.apache.jena.sparql.ARQConstants;
-import org.apache.jena.sparql.function.library.cdt.CDTLiteralFunctions;
-import org.apache.jena.sparql.function.library.triple.TripleTermFunctions;
+import org.apache.jena.sparql.util.MappedLoader;
 
 /** Load ARQ functions ().
- * The one in package {@link org.apache.jena.sparql.function.library}
- * can be invoked by afn:name without registration because afn:-&gt;java: is built-in
- * in MappedLoader.
+ *
+ *  Any additional functions from afn: that need special loading.
+ *
+ * They can be invoked by afn:name without registration because
+ * the {@link MappedLoader} maps the names to a "java:" loadable name.
  *
  * @see ARQConstants#ARQFunctionLibraryURI
  * @see ARQConstants#ARQFunctionLibrary
  */
 public class ARQFunctions {
-
-    public static void load(FunctionRegistry reg) {
-        TripleTermFunctions.register(reg);
-        CDTLiteralFunctions.register(reg);
-    }
+    public static void load(FunctionRegistry reg) {}
 }

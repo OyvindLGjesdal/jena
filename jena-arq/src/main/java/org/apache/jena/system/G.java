@@ -21,6 +21,7 @@ package org.apache.jena.system;
 import static org.apache.jena.graph.Node.ANY;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -34,10 +35,12 @@ import org.apache.jena.rdf.model.impl.Util;
 import org.apache.jena.riot.out.NodeFmtLib;
 import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.Quad;
+import org.apache.jena.sparql.engine.iterator.IterAbortable;
 import org.apache.jena.sparql.graph.NodeConst;
 import org.apache.jena.sparql.util.graph.GNode;
 import org.apache.jena.sparql.util.graph.GraphList;
 import org.apache.jena.util.iterator.ExtendedIterator;
+import org.apache.jena.util.iterator.WrappedIterator;
 
 /**
  * A library of functions for working with {@link Graph graphs}. Internally, all
@@ -72,6 +75,7 @@ public class G {
     public static boolean isResource(Node n)    { return n != null && (n.isURI()||n.isBlank()); }
     public static boolean isNodeTriple(Node n)  { return n != null && n.isTripleTerm(); }
     public static boolean isNodeGraph(Node n)   { return n != null && n.isNodeGraph(); }
+    public static boolean isAny(Node n)         { return Node.ANY.equals(n); }
     public static boolean isNullOrAny(Node n)   { return n == null || Node.ANY.equals(n); }
 
     /**
@@ -96,6 +100,14 @@ public class G {
         if ( ! isBoolean(n) )
             throw new RDFDataException("Not a boolean: "+NodeFmtLib.strTTL(n));
         return Boolean.TRUE.equals(n.getLiteralValue());
+    }
+
+    /**
+     * Convert {@code Node.ANY} to {@code null}, otherwise return the original node so that
+     * {@code ==} may be used to test whether any change has occurred.
+     */
+    public static Node anyAsNull(Node x) {
+        return isAny(x) ? null : x;
     }
 
     /**
@@ -925,7 +937,7 @@ public class G {
 
     /** Convert an iterator of triples into quads for the specified graph name. */
     public static Iter<Quad> triples2quads(Node graphNode, Iterator<Triple> iter) {
-        return Iter.iter(iter).map(t -> new Quad(graphNode, t));
+        return Iter.iter(iter).map(t -> Quad.create(graphNode, t));
     }
 
     /**
@@ -1130,5 +1142,21 @@ public class G {
         if ( x.equals("") )
             return false ;
         return true ;
+    }
+
+    // --- Cancellable variants ---
+
+    /**
+     * Cancellable variant of {@link Graph#find(Node, Node, Node)}.
+     * Wraps the iterator returned by {@code graph.find()} with the provided cancel signal.
+     * If the cancel signal is null then no wrapping is applied.
+     */
+    public static ExtendedIterator<Triple> find(AtomicBoolean cancel, Graph graph, Node subject, Node predicate, Node object) {
+        Objects.requireNonNull(graph, "graph");
+        ExtendedIterator<Triple> it = graph.find(subject, predicate, object);
+        if (cancel == null) {
+            return it;
+        }
+        return WrappedIterator.create(IterAbortable.wrap(it, cancel));
     }
 }

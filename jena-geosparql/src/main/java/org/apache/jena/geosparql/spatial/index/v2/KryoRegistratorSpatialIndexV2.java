@@ -18,31 +18,22 @@
 package org.apache.jena.geosparql.spatial.index.v2;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.esotericsoftware.kryo.kryo5.Kryo;
+import com.esotericsoftware.kryo.kryo5.Serializer;
+import com.esotericsoftware.kryo.kryo5.serializers.MapSerializer;
 
 import org.apache.jena.geosparql.kryo.EnvelopeSerializer;
 import org.apache.jena.geosparql.kryo.NodeSerializer;
 import org.apache.jena.geosparql.kryo.TripleSerializer;
 import org.apache.jena.graph.Triple;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryCollection;
-import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.LinearRing;
-import org.locationtech.jts.geom.MultiLineString;
-import org.locationtech.jts.geom.MultiPoint;
-import org.locationtech.jts.geom.MultiPolygon;
-import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.*;
 import org.locationtech.jts.index.strtree.STRtree;
 import org.locationtech.jts.index.strtree.STRtreeSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.Serializer;
-import com.esotericsoftware.kryo.serializers.MapSerializer;
 
 /**
  * The class is used to configure the kryo serialization
@@ -58,10 +49,10 @@ public class KryoRegistratorSpatialIndexV2 {
         LOGGER.debug("Registering kryo serializers for spatial index v2.");
 
         // Java
-        Serializer<?> mapSerializer = new MapSerializer();
+        Serializer<?> mapSerializer = new MapSerializer<>();
         kryo.register(Map.class, mapSerializer);
         kryo.register(HashMap.class, mapSerializer);
-        kryo.register(LinkedHashMap.class, mapSerializer);
+        kryo.register(ConcurrentHashMap.class, mapSerializer);
 
         // Jena
         NodeSerializer.register(kryo);
@@ -83,7 +74,7 @@ public class KryoRegistratorSpatialIndexV2 {
 
     /**
      * The default serializer for {@link Triple}.
-     * Must be registered in addition to node serializers for RDF-Star (triples-in-nodes).
+     * Must be registered in addition to node serializers for triple terms.
      */
     public static void registerTripleSerializer(Kryo kryo) {
         kryo.register(Triple.class, new TripleSerializer());

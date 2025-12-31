@@ -26,7 +26,6 @@ import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.apache.jena.riot.RiotNotFoundException;
 import org.apache.jena.sparql.vocabulary.TestManifestX;
 import org.apache.jena.system.G;
 import org.apache.jena.vocabulary.RDF;
@@ -55,11 +54,6 @@ public class Manifest
         // Exceptions from @TestFactories are swallowed by JUnit5.
         try {
             manifestRDF = RDFParser.source(filenameOrURI).toGraph();
-        } catch (RiotNotFoundException ex) {
-            log.error("Not found: "+filenameOrURI);
-            // Exit on error.
-            System.exit(1);
-            throw new RiotNotFoundException("Manifest "+filenameOrURI);
         } catch (RiotException ex) {
             // Exit on error.
             log.error("Error reading manifest: "+filenameOrURI);

@@ -17,16 +17,20 @@
  */
 package org.apache.jena.arq.querybuilder.updatebuilder;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
 
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.sparql.core.Var;
-import org.junit.Test;
 
 public class CollectionQuadHolderTest {
 
@@ -51,8 +55,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(g, tLst.get(0)), lst.get(0));
-        assertEquals(new Quad(g, tLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(g, tLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(g, tLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -81,8 +85,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(g, aLst.get(0)), lst.get(0));
-        assertEquals(new Quad(g, aLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(g, aLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(g, aLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -104,8 +108,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(g, tLst.get(0)), lst.get(0));
-        assertEquals(new Quad(g, tLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(g, tLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(g, tLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -135,8 +139,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(g, aLst.get(0)), lst.get(0));
-        assertEquals(new Quad(g, aLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(g, aLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(g, aLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -157,8 +161,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, tLst.get(0)), lst.get(0));
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, tLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, tLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, tLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -185,8 +189,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, aLst.get(0)), lst.get(0));
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, aLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, aLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, aLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -207,8 +211,8 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, tLst.get(0)), lst.get(0));
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, tLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, tLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, tLst.get(1)), lst.get(1));
     }
 
     @Test
@@ -235,7 +239,7 @@ public class CollectionQuadHolderTest {
 
         List<Quad> lst = holder.getQuads().toList();
         assertEquals(2, lst.size());
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, aLst.get(0)), lst.get(0));
-        assertEquals(new Quad(Quad.defaultGraphNodeGenerated, aLst.get(1)), lst.get(1));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, aLst.get(0)), lst.get(0));
+        assertEquals(Quad.create(Quad.defaultGraphNodeGenerated, aLst.get(1)), lst.get(1));
     }
 }

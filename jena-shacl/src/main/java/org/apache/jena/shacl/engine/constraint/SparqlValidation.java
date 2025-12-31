@@ -96,7 +96,6 @@ import org.apache.jena.sparql.util.ModelUtils;
     }
 
     /** return true if the validation is "conforms" */
-    @SuppressWarnings("removal")
     private static boolean validateMap(ValidationContext vCxt, Graph data, Shape shape,
                                         Node focusNode, Path path, Node valueNode,
                                         Query _query, Map<Parameter, Node> parameterMap,
@@ -133,21 +132,21 @@ import org.apache.jena.sparql.util.ModelUtils;
             DatasetGraph dsg = DatasetGraphFactory.createGeneral(model.getGraph()); // Dataset by links.
             dsg.addGraph(shapesGraphResource.asNode(), shape.getShapeGraph());
             Dataset ds = DatasetFactory.wrap(dsg);
-            qExec = QueryExecution.create().query(query).dataset(ds).initialBinding(qsm).build();
+            qExec = QueryExecution.create().query(query).dataset(ds).substitution(qsm).build();
         }
 
         // ASK validator.
         if ( qExec.getQuery().isAskType() ) {
-            boolean b = qExec.execAsk();
-            if ( ! b ) {
+            boolean askResult = qExec.execAsk();
+            if ( ! askResult ) {
                 String msg = ( violationTemplate == null )
                     ? "SPARQL ASK constraint for "+ShLib.displayStr(valueNode)+" returns false"
                     : substitute(violationTemplate, parameterMap, focusNode, path, valueNode);
                 vCxt.reportEntry(msg, shape, focusNode, path, valueNode, reportConstraint);
             }
             vCxt.notifyValidationListener(() ->
-                new ConstraintEvaluatedOnSinglePathNodeEvent(vCxt, shape, focusNode, reportConstraint, path, valueNode,b));
-            return b;
+                new ConstraintEvaluatedOnSinglePathNodeEvent(vCxt, shape, focusNode, reportConstraint, path, valueNode, askResult));
+            return askResult;
         }
 
         // SELECT validator.

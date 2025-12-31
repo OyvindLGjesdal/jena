@@ -24,6 +24,8 @@ import java.util.List;
 
 import com.beust.jcommander.JCommander;
 
+import org.junit.*;
+
 import org.apache.jena.fuseki.geosparql.cli.ArgsConfig;
 import org.apache.jena.geosparql.spatial.SpatialIndexException;
 import org.apache.jena.query.Dataset;
@@ -32,13 +34,11 @@ import org.apache.jena.query.QuerySolution;
 import org.apache.jena.query.ResultSet;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
-import org.junit.*;
+import org.apache.jena.sys.JenaSystem;
 
-/**
- *
- *
- */
 public class MainTest {
+
+    static { JenaSystem.init(); }
 
     private static GeosparqlServer SERVER;
 

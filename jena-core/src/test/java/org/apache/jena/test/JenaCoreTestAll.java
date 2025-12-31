@@ -18,8 +18,12 @@
 
 package org.apache.jena.test;
 
-import junit.framework.*;
+import junit.framework.JUnit4TestAdapter;
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
 import org.apache.jena.rdf.model.impl.RDFReaderFImpl;
+import org.apache.jena.rdf.model.impl.RDFWriterFImpl;
 import org.apache.jena.sys.JenaSystem;
 
 /**
@@ -29,8 +33,10 @@ public class JenaCoreTestAll extends TestCase {
 
     static public TestSuite suite() {
         JenaSystem.init();
-        // Include old Turtle parser - not up-to-date but enough to read test input files
+        // Include parsers and writers needed for the tests.
+        // These are not up-to-date but enough to work with the test suite.
         RDFReaderFImpl.alternative(new X_RDFReaderF());
+        RDFWriterFImpl.alternative(new X_RDFWriterF());
 
         TestSuite ts = new TestSuite();
         ts.setName("Jena Core");
@@ -46,11 +52,11 @@ public class JenaCoreTestAll extends TestCase {
         addTest(ts,  "Enhanced",            org.apache.jena.enhanced.test.TS3_enh.suite());
         addTest(ts,  "Graph",               adaptJUnit4(org.apache.jena.graph.test.TS3_graph.class));
         // mem2
-        addTest(ts,  "Mem",                 adaptJUnit4(org.apache.jena.mem2.TS4_GraphMem2.class));
+        addTest(ts,  "Mem",                 adaptJUnit4(org.apache.jena.mem.TS4_GraphMem.class));
 
         // Old GraphMem/GraphMemValue.
         // TO CHECK
-        addTest(ts,  "MemValue",            adaptJUnit4(org.apache.jena.mem.test.TS3_GraphMemValue.class));
+        addTest(ts,  "MemValue",            adaptJUnit4(org.apache.jena.memvalue.TS3_GraphMemValue.class));
 
         // ** COMPLEX
         addTest(ts,  "Model1",              org.apache.jena.rdf.model.test.TS3_Model1.suite());
@@ -58,7 +64,7 @@ public class JenaCoreTestAll extends TestCase {
         addTest(ts,  "Model2",              org.apache.jena.rdf.model.test.TS3_StandardModels.suite() );
 
         // Test suite building
-        addTest(ts,  "XML Input [ARP1]",    org.apache.jena.rdfxml.xmlinput1.TS3_xmlinput1.suite());
+        addTest(ts,  "XML Input [ARP1]",    org.apache.jena.rdfxml.arp1tests.TS3_xmlinput1.suite());
         addTest(ts,  "XML Output",          org.apache.jena.rdfxml.xmloutput.TS3_xmloutput.suite());
 
         addTest(ts,  "Util",                adaptJUnit4(org.apache.jena.util.TS3_coreutil.class));

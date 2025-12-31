@@ -25,14 +25,14 @@ import org.junit.jupiter.api.Test;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotException;
-import org.apache.jena.riot.lang.extra.TurtleJCC;
+import org.apache.jena.riot.lang.turtlejcc.TurtleJCC;
 import org.apache.jena.riot.system.ErrorHandler;
 import org.apache.jena.riot.system.ErrorHandlerFactory;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFLib;
 
 /**
- * Test parsing of RDF-star constructs for Turtle.
+ * Test parsing of occurrences and triple terms in Turtle.
  */
 public class TestTurtleStarParse {
 

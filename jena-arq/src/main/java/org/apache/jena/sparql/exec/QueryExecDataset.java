@@ -19,9 +19,9 @@
 package org.apache.jena.sparql.exec;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.jena.atlas.iterator.Iter;
 import org.apache.jena.atlas.json.JsonArray;
 import org.apache.jena.atlas.json.JsonObject;
@@ -48,10 +48,10 @@ import org.apache.jena.sparql.core.describe.DescribeHandlerRegistry;
 import org.apache.jena.sparql.engine.Plan;
 import org.apache.jena.sparql.engine.QueryEngineFactory;
 import org.apache.jena.sparql.engine.QueryIterator;
+import org.apache.jena.sparql.engine.Timeouts.Timeout;
 import org.apache.jena.sparql.engine.binding.Binding;
 import org.apache.jena.sparql.engine.binding.BindingFactory;
 import org.apache.jena.sparql.engine.iterator.QueryIteratorWrapper;
-import org.apache.jena.sparql.engine.Timeouts.Timeout;
 import org.apache.jena.sparql.graph.GraphOps;
 import org.apache.jena.sparql.modify.TemplateLib;
 import org.apache.jena.sparql.syntax.ElementGroup;
@@ -89,13 +89,6 @@ public class QueryExecDataset implements QueryExec
     private final AlarmClock         alarmClock       = AlarmClock.get();
     private long                     queryStartTime   = -1; // Unset
     private AtomicBoolean            cancelSignal;
-
-    @Deprecated
-    protected QueryExecDataset(Query query, String queryString, DatasetGraph datasetGraph, Context cxt,
-            QueryEngineFactory qeFactory, long timeout1, TimeUnit timeUnit1, long timeout2, TimeUnit timeUnit2,
-            Binding initialToEngine) {
-        this(query, queryString, datasetGraph, cxt, qeFactory, new Timeout(timeout1, timeUnit1, timeout2, timeUnit2), initialToEngine);
-    }
 
     protected QueryExecDataset(Query query, String queryString, DatasetGraph datasetGraph, Context cxt,
                                QueryEngineFactory qeFactory, Timeout timeout,
@@ -378,15 +371,13 @@ public class QueryExecDataset implements QueryExec
     class TimeoutCallback implements Runnable {
         @Override
         public void run() {
-            synchronized (lockTimeout) {
-                // Abort query if and only if we are the expected callback.
-                // If the first row has appeared, and we are removing timeout1
-                // callback, it still may go off so it needs to check here
-                // it's still wanted.
-                if ( expectedCallback.get() == this ) {
-                    if ( cancelSignal != null )
-                        cancelSignal.set(true);
-                }
+            // Abort query if and only if we are the expected callback.
+            // If the first row has appeared, and we are removing timeout1
+            // callback, it still may go off so it needs to check here
+            // it's still wanted.
+            if ( expectedCallback.get() == this ) {
+                if ( cancelSignal != null )
+                    cancelSignal.set(true);
             }
         }
     }

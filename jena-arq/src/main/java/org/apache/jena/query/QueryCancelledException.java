@@ -22,4 +22,5 @@ package org.apache.jena.query;
 public class QueryCancelledException extends QueryExecException
 {
     public QueryCancelledException() {}
+    public QueryCancelledException(Throwable cause) { super(cause) ; }
 }
