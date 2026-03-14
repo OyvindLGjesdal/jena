@@ -19,6 +19,7 @@ import {defineConfig} from 'cypress'
 import codeCoverageTask from '@cypress/code-coverage/task'
 import vitePreprocessor from 'cypress-vite'
 import {resolve} from 'path'
+import viteConfig from "./vite.config.js";
 
 const __dirname = resolve()
 
@@ -46,6 +47,15 @@ export default defineConfig({
         configFile: resolve(__dirname, './vite.config.js'),
         mode: 'development',
       }))
+      viteConfig: {
+        build: {
+          rolldownOptions: {
+            output: {
+              manualChunks: undefined
+            }
+          }
+        }
+      }
       return config
     },
     specPattern: 'tests/e2e/specs/**/*.cy.{js,jsx,ts,tsx}',
