@@ -61,7 +61,9 @@ export default defineConfig({
     // Change build paths to make them Maven compatible.
     outDir: 'target/webapp',
     assetsDir: 'static',
-    sourcemap: 'inline'
+    sourcemap: 'inline',
+    rolldownOptions : { codeSplitting: true },
+    output: {}
   },
   test: {
     globals: true,
