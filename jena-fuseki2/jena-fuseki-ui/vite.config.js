@@ -62,7 +62,14 @@ export default defineConfig({
     outDir: 'target/webapp',
     assetsDir: 'static',
     sourcemap: 'inline',
-    rolldownOptions : { codeSplitting: true },
+    rolldownOptions : {
+      output: { minify: true,
+        codeSplitting: true,
+      comments: {
+        annotation: true
+        }
+    }
+    },
     output: {}
   },
   test: {
