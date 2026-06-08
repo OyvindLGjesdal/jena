@@ -98,7 +98,8 @@ class DigestLib {
      */
     public static AuthRequestModifier digestAuthModifier(AuthChallenge aHeader, String user, String password, String method, String requestTarget) {
         String clientNonce = DigestLib.generateNonce();
-        AtomicLong ncCounter = new AtomicLong(0);
+        // RFC 7616 sec 3.4: nonce count starts at 1 ("nc=00000001" for the first request).
+        AtomicLong ncCounter = new AtomicLong(1);
         return request->{
             // Bump nc
             String nc = String.format("%08X", ncCounter.getAndIncrement());
