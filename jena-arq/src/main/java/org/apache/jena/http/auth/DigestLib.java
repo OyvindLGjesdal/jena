@@ -98,6 +98,7 @@ class DigestLib {
      */
     public static AuthRequestModifier digestAuthModifier(AuthChallenge aHeader, String user, String password, String method, String requestTarget) {
         String clientNonce = DigestLib.generateNonce();
+        // RFC 7616 sec 3.4: nonce count starts at 1 ("nc=00000001" for the first request).
         AtomicLong ncCounter = new AtomicLong(0);
         return request->{
             // Bump nc
@@ -111,6 +112,7 @@ class DigestLib {
             field(stringBuilder, false, "realm", aHeader.realm, true);
             field(stringBuilder, false, "nonce", aHeader.nonce, true);
             field(stringBuilder, false, "uri", requestTarget, true);
+     //      field(stringBuilder, false, "algorithm", "MD5", false);
             field(stringBuilder, false, "qop", "auth", false);
             field(stringBuilder, false, "cnonce", clientNonce, true);
             field(stringBuilder, false, "nc", nc, false);

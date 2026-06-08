@@ -91,7 +91,18 @@ public class JettySecurityLib {
         loginService.setIdentityService(identService);
         securityHandler.setLoginService(loginService);
 
-        Authenticator authenticator = ( authMode == AuthScheme.BASIC ) ? new BasicAuthenticator() : new DigestAuthenticator();
+        Authenticator authenticator;
+        if ( authMode == AuthScheme.BASIC ) {
+            authenticator = new BasicAuthenticator();
+        } else {
+            // RFC 7616: Jetty 12.1 defaults Digest authentication to SHA-256, but the Jena
+            // HTTP client (DigestLib) currently only computes MD5. Pin the server to MD5 so
+            // digest auth keeps working at the existing (RFC 2617) security level.
+            // TODO Deprecated, temporary: remove once the Jena client supports SHA-256 (RFC 7616).
+            DigestAuthenticator digest = new DigestAuthenticator();
+            digest.setAlgorithm("MD5");
+            authenticator = digest;
+        }
         // Intercept (development)
         if ( false ) {
             authenticator = new BasicAuthenticator() {

@@ -103,14 +103,19 @@ public class AuthLib {
                 throw HttpException.create(httpResponse401);
         }
 
-        // Request target - no query string.
         AuthRequestModifier authRequestModifier;
         switch (aHeader.authScheme) {
             case BASIC :
                 authRequestModifier = basicAuthModifier(passwordRecord.getUsername(), passwordRecord.getPassword());
                 break;
             case DIGEST : {
+                // RFC 7616: the digest "uri" directive is the request-target, i.e. the path
+                // and query (origin-form). Jetty 12.1 (RFC 7616) requires it to match the
+                // request path+query, so include the query string here.
                 String requestTarget = HttpLib.requestTargetServer(request.uri());
+                String rawQuery = request.uri().getRawQuery();
+                if ( rawQuery != null && ! rawQuery.isEmpty() )
+                    requestTarget = requestTarget + "?" + rawQuery;
                 authRequestModifier = digestAuthModifier(aHeader, passwordRecord.getUsername(), passwordRecord.getPassword(),
                                                          request.method(), requestTarget);
                 break;
