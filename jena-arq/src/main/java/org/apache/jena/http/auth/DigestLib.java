@@ -111,6 +111,7 @@ class DigestLib {
             field(stringBuilder, false, "realm", aHeader.realm, true);
             field(stringBuilder, false, "nonce", aHeader.nonce, true);
             field(stringBuilder, false, "uri", requestTarget, true);
+            field(stringBuilder, false, "algorithm", "MD5", false);
             field(stringBuilder, false, "qop", "auth", false);
             field(stringBuilder, false, "cnonce", clientNonce, true);
             field(stringBuilder, false, "nc", nc, false);
