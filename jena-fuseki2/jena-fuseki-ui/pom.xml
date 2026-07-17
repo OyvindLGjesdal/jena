@@ -34,7 +34,7 @@
 
     <properties> 
         <node.version>v24.16.0</node.version>
-        <yarn.version>v1.22.17</yarn.version>
+        <yarn.version>v4.17.1</yarn.version>
         <automatic.module.name>org.apache.jena.fuseki.ui</automatic.module.name>
 
         <!-- 
