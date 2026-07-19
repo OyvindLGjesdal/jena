@@ -30,9 +30,13 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -55,8 +59,13 @@ public class TestLocationLockStoreConnection {
     // Do not use @TempDir - deleted files don't get cleaned up
     // immediately on MS Windows and JUnit6 checks this when
     // cleaning @TempDir
-    // See beforeEach, afterEach.
+    // See beforeEach, afterEach, afterAll.
     public String tempDir;
+
+    // On MS Windows getCleanDir() returns a fresh unique directory per test
+    // because mmap files can't be deleted immediately. Track every one so
+    // they can all be removed once all tests have finished.
+    private static final List<String> tempDirs = new ArrayList<>();
 
     @BeforeAll
     public static void setup() {
@@ -67,6 +76,7 @@ public class TestLocationLockStoreConnection {
     public void beforeEach() {
         tempDir = ConfigTest.getCleanDir()+"/store-location";
         FileOps.ensureDir(tempDir);
+        tempDirs.add(tempDir);
     }
 
     @SuppressWarnings("removal")
@@ -74,6 +84,15 @@ public class TestLocationLockStoreConnection {
     public void afterEach() {
         TDBInternal.reset();
         FileOps.clearDirectory(tempDir);
+    }
+
+    @AfterAll
+    public static void afterAll() {
+        for ( String dir : tempDirs ) {
+            FileOps.clearDirectory(dir);
+            FileOps.deleteSilent(dir);
+        }
+        tempDirs.clear();
     }
 
     @Test
