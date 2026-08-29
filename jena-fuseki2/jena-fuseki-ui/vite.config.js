@@ -56,12 +56,25 @@ export default defineConfig({
     },
   },
   build: {
-    // Our largest chunk: target/webapp/static/Query-CakHSd_3.js  1,172.48 kB │ gzip: 350.95 kB
+    // Keep the optional Geo result renderer separate from the main Query chunk.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'geo',
+              test: /node_modules[\\/](?:yasgui-geo-tg|leaflet|wellknown)/,
+              includeDependenciesRecursively: false,
+            }
+          ]
+        }
+      }
+    },
     chunkSizeWarningLimit: 1250,
     // Change build paths to make them Maven compatible.
     outDir: 'target/webapp',
     assetsDir: 'static',
-    sourcemap: 'inline'
+    sourcemap: 'hidden'
   },
   test: {
     globals: true,
