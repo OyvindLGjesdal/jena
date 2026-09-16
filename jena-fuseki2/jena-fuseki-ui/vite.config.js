@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Keep the optional Geo result renderer separate from the main Query chunk.
+
     rolldownOptions: mode === 'production' ? {
       output: {
         codeSplitting: {
@@ -69,12 +69,13 @@ export default defineConfig(({ mode }) => ({
           ]
         }
       }
+    //
     } : undefined,
     chunkSizeWarningLimit: 1250,
     // Change build paths to make them Maven compatible.
     outDir: 'target/webapp',
     assetsDir: 'static',
-    sourcemap: 'hidden'
+    sourcemap: true
   },
   test: {
     globals: true,
