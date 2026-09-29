@@ -208,8 +208,7 @@ public class ProcBuildIndexX
 
         if ( BulkLoaderX.CompressDataFiles ) {
             // Handles .gz
-            InputStream inData = IO.openFile(datafile);
-            try {
+            try ( InputStream inData = IO.openFile(datafile) ) {
                 inData.transferTo(toSortOutputStream);
                 toSortOutputStream.close();
             } catch (IOException ex) { IO.exception(ex); }
