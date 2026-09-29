@@ -23,7 +23,6 @@ package org.apache.jena.tdb2.xloader;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,7 +35,6 @@ import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.lib.Timer;
 import org.apache.jena.atlas.lib.tuple.TupleMap;
 import org.apache.jena.atlas.logging.FmtLog;
-import org.apache.jena.atlas.logging.Log;
 import org.apache.jena.dboe.base.block.BlockMgr;
 import org.apache.jena.dboe.base.file.BufferChannel;
 import org.apache.jena.dboe.base.file.Location;
@@ -84,12 +82,22 @@ public class ProcBuildIndexX
     // generate_index "$K4 $K2 $K3 $K1" "$DATA_QUADS" OSPG
 
     public static void exec(String location, String indexName, int sortThreads, /*unused*/String sortIndexArgs, XLoaderFiles loaderFiles) {
+        exec(location, indexName, BulkLoaderX.DefaultSortProgram, null, sortThreads, sortIndexArgs, loaderFiles);
+    }
+
+    /**
+     * Build an index using the given sort program, which must accept the GNU sort(1) options used here,
+     * and the given program for compressing sort's temporary files.
+     * A null sort program means {@link BulkLoaderX#DefaultSortProgram}; a null compress program means gzip.
+     */
+    public static void exec(String location, String indexName, String sortProgram, String sortCompressProgram,
+                            int sortThreads, /*unused*/String sortIndexArgs, XLoaderFiles loaderFiles) {
 
         Timer timer = new Timer();
         FmtLog.info(BulkLoaderX.LOG_Index, "Build index %s", indexName);
 
         timer.startTimer();
-        long items = ProcBuildIndexX.exec2(location, indexName, sortThreads, sortIndexArgs, loaderFiles);
+        long items = ProcBuildIndexX.exec2(location, indexName, BulkLoaderX.sortProgram(sortProgram), sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
         long timeMillis = timer.endTimer();
 
         double xSec = timeMillis/1000.0;
@@ -100,14 +108,14 @@ public class ProcBuildIndexX
         FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName, Timer.timeStr(timeMillis), elapsedStr, rateStr);
     }
 
-    private static long exec2(String location, String indexName, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
-        long x = buildIndex(dsg, indexName, sortThreads, sortIndexArgs, loaderFiles);
-        TDBInternal.expel(dsg);
-        return x;
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+        }
     }
 
-    private static long buildIndex(DatasetGraph dsg, String indexName, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
         long tickPoint = BulkLoaderX.DataTick;
         int superTick = BulkLoaderX.DataSuperTick;
         String K1 = "--key=1,1";
@@ -117,23 +125,23 @@ public class ProcBuildIndexX
 
         switch (indexName) {
             case "SPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "SPO", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "SPO", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3));
             case "POS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "POS", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "POS", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K1));
             case "OSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "OSP", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K1, K2));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "OSP", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K1, K2));
             case "GSPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GSPO", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3, K4));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GSPO", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3, K4));
             case "GPOS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GPOS", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K3, K4, K2));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GPOS", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K3, K4, K2));
             case "GOSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GOSP", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K4, K2, K3));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GOSP", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K4, K2, K3));
             case "SPOG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "SPOG", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K4, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "SPOG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K4, K1));
             case "POSG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "POSG", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K4, K2, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "POSG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K4, K2, K1));
             case "OSPG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "OSPG", sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K4, K2, K3, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "OSPG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K4, K2, K3, K1));
             default :
                 throw new TDBException("Index name '" + indexName + "' not recognized");
         }
@@ -153,93 +161,39 @@ public class ProcBuildIndexX
     }
 
     private static long sort_build_index(Logger LOG, String datafile, DatasetGraph dsg, String indexName,
-                                         int sortThreads, String sortIndexArgs, long tickPoint, int superTick,
+                                         String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, long tickPoint, int superTick,
                                          String TMPDIR,
                                          List<String>sortKeyArgs) {
         if ( isEmpty(datafile) )
             return 0;
-        // Sort task.
-        Process proc2;
-        OutputStream toSortOutputStream; // Not used. Input is a file.
-        InputStream fromSortInputStream;
-
         if ( sortThreads <= 0 )
             sortThreads = 2;
+        List<String> sortCmd = new ArrayList<>(Arrays.asList(
+                sortProgram,
+                "--temporary-directory="+TMPDIR,
+                "--buffer-size=50%",
+                "--parallel="+sortThreads,
+                "--unique"
+        ));
+        if ( BulkLoaderX.CompressSortIndexFiles )
+            sortCmd.add("--compress-program="+BulkLoaderX.sortCompressProgram(sortCompressProgram));
+        sortCmd.addAll(sortKeyArgs);
+        if ( !BulkLoaderX.CompressDataFiles )
+            sortCmd.add(datafile);
 
-        try {
-            //LOG.info("Step : external sort : "+indexName);
-            //if ( sortArgs != null ) {}
-
-            List<String> sortCmd = new ArrayList<>(Arrays.asList(
-                 "sort",
-                    "--temporary-directory="+TMPDIR,
-                    "--buffer-size=50%",
-                    "--parallel="+sortThreads,
-                    "--unique"
-            ));
-
-            if ( BulkLoaderX.CompressSortIndexFiles )
-                sortCmd.add("--compress-program="+BulkLoaderX.gzipProgram());
-
-            // Sort order
-            sortCmd.addAll(sortKeyArgs);
-
-            // Add the file to sort if not compressed.
-            if ( ! BulkLoaderX.CompressDataFiles )
-                sortCmd.add(datafile);
-            // else this process will decompress and send the data.
-
-            //if ( sortIndexArgs != null ) {}
-
-            ProcessBuilder pb2 = new ProcessBuilder(sortCmd);
-            pb2.environment().put("LC_ALL","C");
-            proc2 = pb2.start();
-
-            // To process. Not used if uncompressed file.
-            toSortOutputStream = proc2.getOutputStream();
-            // From process
-            fromSortInputStream = proc2.getInputStream(); // Needs buffering
-//            // Debug sort process.
-//            InputStream fromSortErrortStream = proc2.getErrorStream();
-//            IOUtils.copy(fromSortErrortStream, System.err);
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
+        try ( SortProcess sort = new SortProcess(sortCmd) ) {
+            return sort.run(output -> {
+                if ( BulkLoaderX.CompressDataFiles ) {
+                    try ( InputStream inData = IO.openFile(datafile) ) {
+                        inData.transferTo(output);
+                    }
+                }
+                // SortProcess closes stdin, including when it is unused.
+            }, (input, checkSuccess) -> indexBuilder(dsg, input, indexName, checkSuccess));
         }
-
-        if ( BulkLoaderX.CompressDataFiles ) {
-            // Handles .gz
-            try ( InputStream inData = IO.openFile(datafile) ) {
-                inData.transferTo(toSortOutputStream);
-                toSortOutputStream.close();
-            } catch (IOException ex) { IO.exception(ex); }
-        }
-
-        // From sort, buffered.
-        InputStream input = IO.ensureBuffered(fromSortInputStream);
-        // This thread - run builder.
-        long count = indexBuilder(dsg, input, indexName);
-        try {
-            int exitCode = proc2.waitFor();
-            if ( exitCode != 0 ) {
-                String msg = IO.readWholeFileAsUTF8(proc2.getErrorStream());
-                String logMsg = String.format("Sort RC = %d : Error: %s", exitCode, msg);
-                Log.error(LOG, logMsg);
-                // ** Exit process
-                System.exit(exitCode);
-            }
-//            else
-//                LOG.info("Sort finished");
-        } catch (InterruptedException e) {
-            LOG.error("Failed to cleanly wait-for the subprocess");
-            throw new RuntimeException(e);
-        } finally {
-            IO.close(toSortOutputStream);
-            IO.close(fromSortInputStream);
-        }
-        return count;
     }
 
-    private static long indexBuilder(DatasetGraph dsg, InputStream input, String indexName) {
+    private static long indexBuilder(DatasetGraph dsg, InputStream input, String indexName, Runnable checkSuccess) {
         long tickPoint = BulkLoaderX.DataTick;
         int superTick = BulkLoaderX.DataSuperTick;
 
@@ -291,6 +245,7 @@ public class ProcBuildIndexX
         // Independent transaction on just this BPlusTree, not the dataset.
         CoLib.executeWrite(index, ()->{
             BPlusTree bpt2 = BPlusTreeRewriter.packIntoBPlusTree(iter2, bptParams, recordFactory, blkState, blkMgrNodes, blkMgrRecords);
+            checkSuccess.run();
         });
         monitor.finish();
 

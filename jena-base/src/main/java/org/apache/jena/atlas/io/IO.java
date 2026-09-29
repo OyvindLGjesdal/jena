@@ -29,6 +29,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -254,6 +255,26 @@ public class IO
         catch (IOException ex) { IO.exception(ex); return null; }
     }
 
+    /**
+     * Open a file for output - may include adding gzip processing,
+     * using the given gzip compression level and buffer size.
+     * These only apply to ".gz" files.
+     * <p>
+     * Throws {@link RuntimeIOException} on failure to open.
+     *
+     * @param gzipLevel {@link Deflater} level: {@link #GZIP_LEVEL_DEFAULT}, or 0 to 9.
+     * @param gzipBufferSize Output buffer size in bytes; the default is {@link #GZIP_BUFSIZE_DEFAULT}.
+     */
+    static public OutputStream openOutputFile(String filename, int gzipLevel, int gzipBufferSize) {
+        try { return openOutputFileEx(filename, gzipLevel, gzipBufferSize); }
+        catch (IOException ex) { IO.exception(ex); return null; }
+    }
+
+    /** Gzip compression level used by {@link #openOutputFile(String)}. */
+    public static final int GZIP_LEVEL_DEFAULT = Deflater.DEFAULT_COMPRESSION;
+    /** Gzip output buffer size used by {@link #openOutputFile(String)}; as {@link GZIPOutputStream#GZIPOutputStream(OutputStream)}. */
+    public static final int GZIP_BUFSIZE_DEFAULT = 512;
+
     /** Open an input stream to a file; do not mask IOExceptions.
      * If the filename ends in .gz, wrap in GZIPOutputStream
      * @param filename
@@ -262,6 +283,23 @@ public class IO
      */
     static public OutputStream openOutputFileEx(String filename) throws FileNotFoundException,IOException
     {
+        return openOutputFileEx(filename, GZIP_LEVEL_DEFAULT, GZIP_BUFSIZE_DEFAULT);
+    }
+
+    /** Open an output stream to a file; do not mask IOExceptions.
+     * If the filename ends in .gz, wrap in GZIPOutputStream with the given level and buffer size.
+     * @see #openOutputFile(String, int, int)
+     * @throws FileNotFoundException If the output can't be opened.
+     * @throws IOException for bad gzip encoded data
+     * @throws IllegalArgumentException for an invalid gzip level or buffer size.
+     */
+    static public OutputStream openOutputFileEx(String filename, int gzipLevel, int gzipBufferSize) throws FileNotFoundException,IOException
+    {
+        // Check before creating the file.
+        if ( gzipLevel != Deflater.DEFAULT_COMPRESSION && ( gzipLevel < Deflater.NO_COMPRESSION || gzipLevel > Deflater.BEST_COMPRESSION ) )
+            throw new IllegalArgumentException("Gzip level must be -1 (default) or 0 to 9: " + gzipLevel);
+        if ( gzipBufferSize <= 0 )
+            throw new IllegalArgumentException("Gzip buffer size must be positive: " + gzipBufferSize);
         if ( filename == null || filename.equals("-") )
             return System.out;
         if ( filename.startsWith("file:") )
@@ -273,11 +311,18 @@ public class IO
         String ext = getExtension(filename);
         switch ( ext ) {
             case "":        return out;
-            case "gz":      return new GZIPOutputStream(out);
+            case "gz":      return gzipOutput(out, gzipLevel, gzipBufferSize);
             case "bz2":     return new BZip2CompressorOutputStream(out);
             case "sz":      throw new UnsupportedOperationException("Snappy output");
         }
         return out;
+    }
+
+    private static GZIPOutputStream gzipOutput(OutputStream out, int level, int bufferSize) throws IOException {
+        if ( level == Deflater.DEFAULT_COMPRESSION )
+            return new GZIPOutputStream(out, bufferSize);
+        // GZIPOutputStream has no level argument; its Deflater is protected.
+        return new GZIPOutputStream(out, bufferSize) {{ def.setLevel(level); }};
     }
 
     /** An {@link OutputStream} that discards all bytes. */

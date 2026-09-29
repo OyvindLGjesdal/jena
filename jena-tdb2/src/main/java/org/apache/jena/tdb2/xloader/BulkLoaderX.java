@@ -24,12 +24,21 @@ package org.apache.jena.tdb2.xloader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.zip.Deflater;
 
+import org.apache.jena.atlas.io.IO;
 import org.apache.jena.tdb2.TDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BulkLoaderX {
+    /** Cleanup actions whose failures are suppressed by try-with-resources. */
+    @FunctionalInterface
+    interface Cleanup extends AutoCloseable {
+        @Override
+        void close();
+    }
+
     public static int DataTick = 1_000_000;
     public static int DataSuperTick = 10;
 
@@ -51,6 +60,23 @@ public class BulkLoaderX {
     public static boolean CompressDataFiles = true;
 
     /**
+     * Gzip level for the compressed triples and quads workfiles.
+     * These are written once and read for each index, then discarded,
+     * so favour speed over size. {@link Deflater#DEFAULT_COMPRESSION} (-1)
+     * is the general Jena default.
+     */
+    public static final int WorkfileGzipLevel = Deflater.BEST_SPEED;
+
+    /**
+     * Gzip output buffer size for the workfiles.
+     * The general Jena default, {@link IO#GZIP_BUFSIZE_DEFAULT}, is 512 bytes,
+     * which results in many small writes. This matches the 128 KiB buffer that
+     * {@link IO#ensureBuffered(java.io.OutputStream)} puts in front of the gzip stream,
+     * so each buffered chunk is written out in at most one write.
+     */
+    public static final int WorkfileGzipBufferSize = 128 * 1024;
+
+    /**
      * Whether to compress intermediate sort files for the node table.
      * We'll need this amount of space for the final indexes so this isn't helpful.
      */
@@ -60,6 +86,25 @@ public class BulkLoaderX {
      * Whether to compress intermediate sort files for the indexes.
      */
     public static boolean CompressSortIndexFiles = true;
+
+    /**
+     * Default sort program, found on the PATH.
+     * It must accept the GNU sort(1) options used by xloader.
+     */
+    public static final String DefaultSortProgram = "sort";
+
+    /*package*/ static String sortProgram(String sortProgram) {
+        return ( sortProgram == null || sortProgram.isBlank() ) ? DefaultSortProgram : sortProgram;
+    }
+
+    /**
+     * Program sort(1) uses to compress its temporary files, when compression is enabled.
+     * It is run with no arguments to compress and with "-d" to decompress.
+     * A null or blank program means {@link #gzipProgram()}.
+     */
+    /*package*/ static String sortCompressProgram(String sortCompressProgram) {
+        return ( sortCompressProgram == null || sortCompressProgram.isBlank() ) ? gzipProgram() : sortCompressProgram;
+    }
 
     // Ubuntu: it now (21.04) is at /usr/bin/gzip.
     //   /bin has become a symbolic link to /usr/bin.
@@ -91,7 +136,10 @@ public class BulkLoaderX {
 
     public static void waitFor(Thread thread) {
         try { thread.join(); }
-        catch (InterruptedException e) { e.printStackTrace(); }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new TDBException("Interrupted while waiting for " + thread.getName(), e);
+        }
     }
 
     public static String rateStr(long items, long elapsedMillis) {

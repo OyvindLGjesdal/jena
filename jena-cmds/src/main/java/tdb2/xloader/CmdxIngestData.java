@@ -55,6 +55,8 @@ public class CmdxIngestData extends AbstractCmdxLoad {
     protected void setCmdArgs() {
         super.add(argLocation,   "--loc=",     "Database location");
         super.add(argTmpdir,     "--tmpdir=",  "Temporary directory (defaults to --loc)");
+        super.add(argWorkfileGzipLevel,  "--workfile-gzip-level=", "Gzip level for the triples/quads workfiles: 0-9, or -1 for the Java default (default: 1)");
+        super.add(argWorkfileGzipBuffer, "--workfile-gzip-buffer=", "Gzip output buffer size in bytes for the workfiles (default: 131072)");
 //        super.add(argTriplesOut, "--triples=", "Triples temporary file");
 //        super.add(argQuadsOut,   "--quads=",   "Quads temporary file");
     }
@@ -117,6 +119,6 @@ public class CmdxIngestData extends AbstractCmdxLoad {
 
     @Override
     protected void exec() {
-        ProcIngestDataX.exec(location, loaderFiles, filenames, collectStats);
+        ProcIngestDataX.exec(location, loaderFiles, filenames, collectStats, workfileGzipLevel, workfileGzipBufferSize);
     }
 }

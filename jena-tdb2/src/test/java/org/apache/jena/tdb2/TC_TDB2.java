@@ -44,6 +44,7 @@ import org.apache.jena.tdb2.store.tupletable.TS_TupleTable;
 import org.apache.jena.tdb2.store.value.TS_NodeValues;
 import org.apache.jena.tdb2.sys.SystemTDB;
 import org.apache.jena.tdb2.sys.TS_Sys;
+import org.apache.jena.tdb2.xloader.TS_XLoader;
 
 @Suite
 @SelectClasses({
@@ -60,6 +61,7 @@ import org.apache.jena.tdb2.sys.TS_Sys;
     , TS_TDBAssembler.class
     , TS_Sys.class
     , TS_Loader.class
+    , TS_XLoader.class
     , TestMiscTDB2.class
     , Scripts_TDB2.class
 } )

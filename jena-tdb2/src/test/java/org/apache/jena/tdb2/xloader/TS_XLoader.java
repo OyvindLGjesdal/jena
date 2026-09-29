@@ -19,32 +19,11 @@
  *   SPDX-License-Identifier: Apache-2.0
  */
 
-package org.apache.jena.atlas.io;
+package org.apache.jena.tdb2.xloader;
 
 import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 
 @Suite
-@SelectClasses({
-    // Basic classes
-    TestIndentedWriter.class
-    , TestStreamUTF8.class
-    , TestBlockUTF8.class
-    , TestInputStreamBuffered.class
-
-    // Peek readers.
-    , TestPeekReaderSource.class
-    , TestPeekReaderCharSequence.class
-    , TestPeekInputStreamSource.class
-
-    // Writers
-    , TestBufferingWriter.class
-    // Other
-    , TestFilenameExtensions.class
-    , TestOutputFileGzip.class
-    , TestPrintUtils.class
-} )
-public class TS_IO
-{
-
-}
+@SelectClasses({TestSortProcess.class, TestXLoader.class})
+public class TS_XLoader {}

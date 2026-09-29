@@ -23,6 +23,8 @@ package tdb2.xloader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.io.IOX;
@@ -59,6 +61,10 @@ public class CmdxLoader extends AbstractCmdxLoad {
         super.add(argLocation,      "--loc=", "Database location");
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
+        super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
+        super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
+        super.add(argWorkfileGzipLevel,  "--workfile-gzip-level=", "Gzip level for the triples/quads workfiles: 0-9, or -1 for the Java default (default: 1)");
+        super.add(argWorkfileGzipBuffer, "--workfile-gzip-buffer=", "Gzip output buffer size in bytes for the workfiles (default: 131072)");
     }
 
     @Override
@@ -100,29 +106,43 @@ public class CmdxLoader extends AbstractCmdxLoad {
         System.out.printf("RAM = %,d\n", maxMemory);
 
         System.out.println("STEP 1 - load node table");
-        step(() -> CmdxBuildNodeTable.main("--loc=" + DIR, "--threads=" + super.sortThreads, datafile));
+        step(() -> CmdxBuildNodeTable.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, datafile)));
 
         System.out.println("STEP 2 - ingest triples and quads");
-        step(() -> CmdxIngestData.main("--loc=" + DIR, datafile));
+        step(() -> CmdxIngestData.main("--loc=" + DIR,
+                                        "--workfile-gzip-level=" + super.workfileGzipLevel,
+                                        "--workfile-gzip-buffer=" + super.workfileGzipBufferSize,
+                                        datafile));
 
         System.out.println("STEP 3 - build indexes");
 
         if ( !isEmptyFile(loaderFiles.triplesFile) ) {
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=SPO"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=POS"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=OSP"));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=SPO")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=POS")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=OSP")));
         }
 
         if ( !isEmptyFile(loaderFiles.quadsFile) ) {
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GSPO"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GPOS"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GOSP"));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GSPO")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GPOS")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=GOSP")));
 
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=SPOG"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=POSG"));
-            step(() -> CmdxBuildIndex.main("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=OSPG"));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=SPOG")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=POSG")));
+            step(() -> CmdxBuildIndex.main(sortArgs("--loc=" + DIR, "--threads=" + super.sortThreads, "--index=OSPG")));
         }
         expel();
+    }
+
+    // Pass --sort and --sort-compress on only when given, so the stages keep their own defaults.
+    private String[] sortArgs(String... args) {
+        List<String> withSort = new ArrayList<>();
+        if ( super.sortProgram != null )
+            withSort.add("--sort=" + super.sortProgram);
+        if ( super.sortCompressProgram != null )
+            withSort.add("--sort-compress=" + super.sortCompressProgram);
+        withSort.addAll(List.of(args));
+        return withSort.toArray(String[]::new);
     }
 
     // Compression - empty file != zero size

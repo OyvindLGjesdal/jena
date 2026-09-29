@@ -21,8 +21,6 @@
 
 package org.apache.jena.tdb2.xloader;
 
-import static org.apache.jena.tdb2.xloader.BulkLoaderX.async;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +35,6 @@ import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.iterator.IteratorSlotted;
 import org.apache.jena.atlas.lib.*;
 import org.apache.jena.atlas.logging.FmtLog;
-import org.apache.jena.atlas.logging.Log;
 import org.apache.jena.dboe.base.file.BinaryDataFile;
 import org.apache.jena.dboe.base.file.BufferChannel;
 import org.apache.jena.dboe.base.file.FileFactory;
@@ -50,8 +47,6 @@ import org.apache.jena.dboe.trans.bplustree.BPlusTreeParams;
 import org.apache.jena.dboe.trans.bplustree.rewriter.BPlusTreeRewriter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
-import org.apache.jena.irix.IRIProvider;
-import org.apache.jena.irix.SystemIRIx;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.thrift.RiotThriftException;
@@ -63,6 +58,7 @@ import org.apache.jena.system.progress.ProgressIterator;
 import org.apache.jena.system.progress.ProgressMonitorOutput;
 import org.apache.jena.system.progress.ProgressStreamRDF;
 import org.apache.jena.tdb2.DatabaseMgr;
+import org.apache.jena.tdb2.TDBException;
 import org.apache.jena.tdb2.lib.NodeLib;
 import org.apache.jena.tdb2.store.DatasetGraphTDB;
 import org.apache.jena.tdb2.store.Hash;
@@ -89,6 +85,17 @@ import org.slf4j.Logger;
  */
 public class ProcBuildNodeTableX {
     public static void exec(String location, XLoaderFiles loaderFiles, int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
+        exec(location, loaderFiles, BulkLoaderX.DefaultSortProgram, null, sortThreads, sortNodeTableArgs, datafiles);
+    }
+
+    /**
+     * Build the node table using the given sort program, which must accept the GNU sort(1) options used here,
+     * and the given program for compressing sort's temporary files; that is only used if
+     * {@link BulkLoaderX#CompressSortNodeTableFiles} is set.
+     * A null sort program means {@link BulkLoaderX#DefaultSortProgram}; a null compress program means gzip.
+     */
+    public static void exec(String location, XLoaderFiles loaderFiles, String sortProgram, String sortCompressProgram,
+                            int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
         Timer timer = new Timer();
         timer.startTimer();
         FmtLog.info(BulkLoaderX.LOG_Nodes, "Build node table");
@@ -96,7 +103,7 @@ public class ProcBuildNodeTableX {
 //        FmtLog.info(LOG1, "  TMPDIR     = %s", tmpdir==null?"unset":tmpdir);
 //        FmtLog.info(LOG1, "  Data files = %s", StrUtils.strjoin(datafiles, " "));
         Pair<Long/*triples or quads*/, Long/*indexed nodes*/> buildCounts =
-                ProcBuildNodeTableX.exec2(location, loaderFiles, sortThreads, sortNodeTableArgs, datafiles);
+                ProcBuildNodeTableX.exec2(location, loaderFiles, BulkLoaderX.sortProgram(sortProgram), sortCompressProgram, sortThreads, sortNodeTableArgs, datafiles);
         long timeMillis = timer.endTimer();
 
         long items = buildCounts.getLeft();
@@ -110,173 +117,94 @@ public class ProcBuildNodeTableX {
     }
 
     /** @return Pair<triples, indexed nodes> */
-    private static Pair<Long, Long> exec2(String DB, XLoaderFiles loaderFiles, int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
-
-        //Threads - 1 parser, 1 builder, 2 sort.
-        // Steps:
-        // 1 - parser to and pipe terms to sort
-        // 2 - sort
-        // 3 - build node table from unique sort
-
-        IRIProvider provider = SystemIRIx.getProvider();
-        //SystemIRIx.setProvider(new IRIProviderAny());
+    private static Pair<Long, Long> exec2(String DB, XLoaderFiles loaderFiles, String sortProgram, String sortCompressProgram, int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
 
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(DB);
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+            return buildNodeTable(dsg, loaderFiles, sortProgram, sortCompressProgram, sortThreads, datafiles);
+        }
+    }
+
+    private static Pair<Long, Long> buildNodeTable(DatasetGraph dsg, XLoaderFiles loaderFiles,
+                                                  String sortProgram, String sortCompressProgram, int sortThreads, List<String> datafiles) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
         NodeTable nt = dsgtdb.getTripleTable().getNodeTupleTable().getNodeTable();
         NodeTableTRDF nodeTable = (NodeTableTRDF)nt.baseNodeTable();
 
-        OutputStream toSortOutputStream;
-        InputStream fromSortInputStream;
-
         if ( sortThreads <= 0 )
             sortThreads = 2;
+        List<String> sortCmd = new ArrayList<>(Arrays.asList(
+                sortProgram,
+                "--temporary-directory="+loaderFiles.TMPDIR,
+                "--buffer-size=50%",
+                "--parallel="+sortThreads,
+                "--unique",
+                "--key=1,1"
+        ));
+        if ( BulkLoaderX.CompressSortNodeTableFiles )
+            sortCmd.add("--compress-program="+BulkLoaderX.sortCompressProgram(sortCompressProgram));
 
-        // ** Step 2: The sort
-        Process procSort;
-        try {
-            //LOG.info("Step : external sort");
-            // Mutable list.
-            List<String> sortCmd = new ArrayList<>(Arrays.asList(
-                  "sort",
-                    "--temporary-directory="+loaderFiles.TMPDIR,
-                    "--buffer-size=50%",
-                    "--parallel="+sortThreads,
-                    "--unique",
-                    "--key=1,1"
-                    ));
-
-            if ( BulkLoaderX.CompressSortNodeTableFiles )
-                sortCmd.add("--compress-program="+BulkLoaderX.gzipProgram());
-
-            //if ( sortNodeTableArgs != null ) {}
-
-            ProcessBuilder pb2 = new ProcessBuilder(sortCmd);
-            pb2.environment().put("LC_ALL","C");
-            procSort = pb2.start();
-
-            // To process.
-            // Let the writer close it.
-            toSortOutputStream = procSort.getOutputStream();
-            // From process to the tree builder.
-            // Let the reader side close it.
-            fromSortInputStream = procSort.getInputStream();
-//            // Debug sort process.
-//            InputStream fromSortErrortStream = proc2.getErrorStream();
-//            IOUtils.copy(fromSortErrortStream, System.err);
-
-        } catch (Exception ex) {
-            throw new RuntimeException(ex);
-        }
-
-        // ** Step 1 : write intermediate file (hash, thrift bytes).
         AtomicLong countParseTicks = new AtomicLong(-1);
-        AtomicLong countIndexedNodes = new AtomicLong(-1);
-
-        long tickPoint = BulkLoaderX.DataTick;
-        int superTick = BulkLoaderX.DataSuperTick;
-
-        Runnable task1 = ()->{
-            ProgressMonitorOutput monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Nodes, "Nodes", tickPoint, superTick);
-            OutputStream output = IO.ensureBuffered(toSortOutputStream);
-            // Counting.
-            StreamRDF worker = new NodeHashTmpStream(output);
-            ProgressStreamRDF stream = new ProgressStreamRDF(worker, monitor);
-            monitor.start();
-            String label = monitor.getLabel();
-            datafiles.forEach( datafile->{
-                String basename = FileOps.basename(datafile);
-                monitor.setLabel(basename);
-                stream.start();
-                RDFParser.source(datafile).parse(stream);
-                stream.finish();
-            });
-            monitor.finish();
-            monitor.setLabel(label);
-
-            IO.flush(output);
-            IO.close(output);
-
-            long x = monitor.getTime();
-
-            long count = monitor.getTicks();
-            countParseTicks.set(count);
-
-            double xSec = x/1000.0;
-            double rate = count/xSec;
-            FmtLog.info(BulkLoaderX.LOG_Nodes, "%s Parse (nodes): %s seconds : %,d triples/quads %,.0f TPS", BulkLoaderX.StageMarker,
-                        Timer.timeStr(x), count, rate);
-        };
-
-        // AsyncParser.asyncParse(files, output) but with logging.
-        Thread thread1 = async(task1, "AsyncParser");
-
-        // Step3: build node table.
-        Runnable task3 = ()->{
-            Timer timer = new Timer();
-            // Don't start timer until sort send something
-
-            // Process stream are already buffered.
-            InputStream input = IO.ensureBuffered(fromSortInputStream);
-
-            FileSet fileSet = new FileSet(dsgtdb.getLocation(), Names.nodeTableBaseName);
-            BufferChannel blkState = FileFactory.createBufferChannel(fileSet, Names.extBptState);
-            long idxTickPoint = BulkLoaderX.DataTick;
-            int idxSuperTick = BulkLoaderX.DataSuperTick;
-            ProgressMonitorOutput monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Terms, "Index", idxTickPoint, idxSuperTick);
-
-            dsg.executeWrite(()->{
-                BinaryDataFile objectFile = nodeTable.getData();
-                Iterator<Record> rIter = records(BulkLoaderX.LOG_Terms, input, objectFile);
-                rIter = new ProgressIterator<>(rIter, monitor);
-                BPlusTree bpt1 = (BPlusTree)(nodeTable.getIndex());
-                BPlusTreeParams bptParams = bpt1.getParams();
-                RecordFactory factory = new RecordFactory(SystemTDB.LenNodeHash,  NodeId.SIZE);
-                // Wait until something has been received from the sort step
-                rIter.hasNext();
+        try ( SortProcess sort = new SortProcess(sortCmd) ) {
+            long indexed = sort.run(output -> {
+                ProgressMonitorOutput monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Nodes,
+                        "Nodes", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
+                StreamRDF worker = new NodeHashTmpStream(output);
+                ProgressStreamRDF stream = new ProgressStreamRDF(worker, monitor);
                 monitor.start();
-                // .. then start the timer. It is closed after the transaction finishes.
-                timer.startTimer();
-
-                BPlusTree bpt2 = BPlusTreeRewriter.packIntoBPlusTree(rIter,
-                                                                     bptParams, factory, blkState,
-                                                                     bpt1.getNodeManager().getBlockMgr(),
-                                                                     bpt1.getRecordsMgr().getBlockMgr());
-                bpt2.sync();
-                //bpt1.sync();
-                objectFile.sync();
+                String label = monitor.getLabel();
+                for ( String datafile : datafiles ) {
+                    if ( Thread.currentThread().isInterrupted() )
+                        throw new TDBException("Node parsing interrupted");
+                    monitor.setLabel(FileOps.basename(datafile));
+                    stream.start();
+                    RDFParser.source(datafile).parse(stream);
+                    stream.finish();
+                }
                 monitor.finish();
+                monitor.setLabel(label);
+                output.flush();
+                long count = monitor.getTicks();
+                countParseTicks.set(count);
+                FmtLog.info(BulkLoaderX.LOG_Nodes, "%s Parse (nodes): %s seconds : %,d triples/quads %s TPS",
+                            BulkLoaderX.StageMarker, Timer.timeStr(monitor.getTime()), count,
+                            BulkLoaderX.rateStr(count, monitor.getTime()));
+            }, (input, checkSuccess) -> {
+                Timer timer = new Timer();
+                FileSet fileSet = new FileSet(dsgtdb.getLocation(), Names.nodeTableBaseName);
+                BufferChannel blkState = FileFactory.createBufferChannel(fileSet, Names.extBptState);
+                try ( BulkLoaderX.Cleanup closeState = blkState::close ) {
+                    ProgressMonitorOutput monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Terms,
+                            "Index", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
+                    dsg.executeWrite(() -> {
+                        BinaryDataFile objectFile = nodeTable.getData();
+                        Iterator<Record> rIter = records(BulkLoaderX.LOG_Terms, input, objectFile);
+                        rIter = new ProgressIterator<>(rIter, monitor);
+                        BPlusTree bpt1 = (BPlusTree)nodeTable.getIndex();
+                        BPlusTreeParams bptParams = bpt1.getParams();
+                        RecordFactory factory = new RecordFactory(SystemTDB.LenNodeHash, NodeId.SIZE);
+                        // Wait for sort to produce output before starting the build timer.
+                        rIter.hasNext();
+                        monitor.start();
+                        timer.startTimer();
+                        BPlusTree bpt2 = BPlusTreeRewriter.packIntoBPlusTree(rIter,
+                                bptParams, factory, blkState,
+                                bpt1.getNodeManager().getBlockMgr(), bpt1.getRecordsMgr().getBlockMgr());
+                        // EOF may be caused by a failed parser or sort: do not commit it.
+                        checkSuccess.run();
+                        bpt2.sync();
+                        objectFile.sync();
+                        monitor.finish();
+                    });
+                    long elapsed = timer.endTimer();
+                    long count = monitor.getTicks();
+                    FmtLog.info(BulkLoaderX.LOG_Terms, "%s Index terms: %s seconds : %,d indexed RDF terms : %s PerSecond",
+                                BulkLoaderX.StageMarker, Timer.timeStr(elapsed), count, BulkLoaderX.rateStr(count, elapsed));
+                    return count;
+                }
             });
-            IO.close(input);
-            long x = timer.endTimer();
-            long count = monitor.getTicks();
-            countIndexedNodes.set(count);
-            String rateStr = BulkLoaderX.rateStr(count, x);
-            FmtLog.info(BulkLoaderX.LOG_Terms, "%s Index terms: %s seconds : %,d indexed RDF terms : %s PerSecond", BulkLoaderX.StageMarker, Timer.timeStr(x), count, rateStr);
-        };
-        Thread thread3 = async(task3, "AsyncBuild");
-
-        try {
-            int exitCode = procSort.waitFor();
-            if ( exitCode != 0 ) {
-                String msg = IO.readWholeFileAsUTF8(procSort.getErrorStream());
-                String logMsg = String.format("Sort RC = %d : Error: %s", exitCode, msg);
-                Log.error(BulkLoaderX.LOG_Terms, logMsg);
-                // ** Exit process
-                System.exit(exitCode);
-            } else
-                BulkLoaderX.LOG_Terms.info("Sort finished");
-
-            // I/O Stream toSortOutputStream and fromSortInputStream closed by
-            // their users - step 1 and step 3.
-        } catch (InterruptedException e) {
-            BulkLoaderX.LOG_Nodes.error("Failed to cleanly wait-for the subprocess");
-            throw new RuntimeException(e);
+            return Pair.create(countParseTicks.get(), indexed);
         }
-
-        BulkLoaderX.waitFor(thread1);
-        BulkLoaderX.waitFor(thread3);
-        return Pair.create(countParseTicks.get(), countIndexedNodes.get());
     }
 
     private static Iterator<Record> records(Logger logger, InputStream input, BinaryDataFile objectFile) {
@@ -316,11 +244,15 @@ public class ProcBuildNodeTableX {
                 // read hash.
                 for ( int i = 0 ; i < 16 ; i++ ) {
                     int x = hexRead(input);
-                    if ( x < 0 )
-                        return null;
+                    if ( x < 0 ) {
+                        if ( i == 0 )
+                            return null;
+                        throw new IOException("Incomplete node hash from sort");
+                    }
                     bHash[i] = (byte)(x&0xFF);
                 }
-                char ch0 = (char)input.read(); // space.
+                if ( input.read() != ' ' )
+                    throw new IOException("Missing separator after node hash");
                 byte[] key = bHash;
 
                 ByteArrayOutputStream bout = new ByteArrayOutputStream();
@@ -340,9 +272,8 @@ public class ProcBuildNodeTableX {
                 Bytes.setLong(nodeId.getPtrLocation(), bbNodeId);
                 Record r = factory.create(key, bbNodeId);
                 return r;
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                return null;
+            } catch (IOException ex) {
+                throw new TDBException("Failed to read sorted node records", ex);
             }
         }
     }
@@ -417,6 +348,8 @@ public class ProcBuildNodeTableX {
         }
 
         private void node(Node node) {
+            if ( Thread.currentThread().isInterrupted() )
+                throw new TDBException("Node parsing interrupted");
             NodeId nid = NodeId.inline(node);
             if ( nid != null )
                 return ;
@@ -433,10 +366,8 @@ public class ProcBuildNodeTableX {
                 outputData.write(' ');
                 write(outputData, tBytes);
                 outputData.write('\n');
-            } catch (TException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (TException | IOException ex) {
+                throw new TDBException("Failed to write node to sort", ex);
             }
         }
 

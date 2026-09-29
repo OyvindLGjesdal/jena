@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
+import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.json.JSON;
 import org.apache.jena.atlas.json.JsonObject;
@@ -37,8 +38,6 @@ import org.apache.jena.dboe.base.file.Location;
 import org.apache.jena.dboe.sys.Names;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
-import org.apache.jena.irix.IRIProvider;
-import org.apache.jena.irix.SystemIRIx;
 import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.sparql.core.DatasetGraph;
@@ -72,55 +71,59 @@ public class ProcIngestDataX {
     public static void exec(String location,
                             XLoaderFiles loaderFiles,
                             List<String> datafiles, boolean collectStats) {
+        exec(location, loaderFiles, datafiles, collectStats,
+             BulkLoaderX.WorkfileGzipLevel, BulkLoaderX.WorkfileGzipBufferSize);
+    }
+
+    /**
+     * Ingest data, writing the triples and quads workfiles with the given gzip level and buffer size
+     * (see {@link IO#openOutputFile(String, int, int)}). These apply when {@link BulkLoaderX#CompressDataFiles} is set.
+     */
+    public static void exec(String location,
+                            XLoaderFiles loaderFiles,
+                            List<String> datafiles, boolean collectStats,
+                            int gzipLevel, int gzipBufferSize) {
         FmtLog.info(BulkLoaderX.LOG_Data, "Ingest data");
-        // Possible parser speed up. This has no effect if parsing in parallel
-        // because the parser isn't the slowest step when loading at scale.
-        IRIProvider provider = SystemIRIx.getProvider();
-        //SystemIRIx.setProvider(new IRIProviderAny());
-
-        // Defaults.
-        // DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
-
         DatasetGraph dsg = getDatasetGraph(location);
-
-        ProgressMonitor monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Data, "Data", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
-        // WriteRows does it's own buffering and has direct write-to-buffer.
-        // Do not buffer here.
-        // Adds gzip processing if required.
-        // But we'll need the disk space eventually so we aren't space constrained to use gzip here.
-        OutputStream outputTriples = IO.openOutputFile(loaderFiles.triplesFile);
-        OutputStream outputQuads = IO.openOutputFile(loaderFiles.quadsFile);
-
-        OutputStream outT = outputTriples;
-        OutputStream outQ = outputQuads;
-        dsg.executeWrite(() -> {
-            Pair<Long, Long> p = build(dsg, monitor, outT, outQ, datafiles);
-            String str = DateTimeUtils.nowAsXSDDateTimeString();
-            long cTriple = p.getLeft();
-            long cQuad = p.getRight();
-            FmtLog.info(BulkLoaderX.LOG_Data, "Triples = %,d ; Quads = %,d", cTriple, cQuad);
-            JsonObject obj = JSON.buildObject(b->{
-                b.pair("ingested", str);
-                b.key("data").startArray();
-                datafiles.forEach(fn->b.value(fn));
-                b.finishArray();
-                b.pair("triples", cTriple);
-                b.pair("quads", cQuad);
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+            ProgressMonitor monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Data,
+                    "Data", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
+            dsg.executeWrite(() -> {
+                Pair<Long, Long> counts;
+                // Close both intermediate files before publishing load information or
+                // committing, including when opening the second output or parsing fails.
+                try ( OutputStream triples = IO.ensureBuffered(IO.openOutputFile(loaderFiles.triplesFile, gzipLevel, gzipBufferSize));
+                      OutputStream quads = IO.ensureBuffered(IO.openOutputFile(loaderFiles.quadsFile, gzipLevel, gzipBufferSize)) ) {
+                    counts = build(dsg, monitor, triples, quads, datafiles);
+                } catch (IOException ex) {
+                    throw new RuntimeIOException(ex);
+                }
+                long cTriple = counts.getLeft();
+                long cQuad = counts.getRight();
+                FmtLog.info(BulkLoaderX.LOG_Data, "Triples = %,d ; Quads = %,d", cTriple, cQuad);
+                JsonObject obj = JSON.buildObject(b->{
+                    b.pair("ingested", DateTimeUtils.nowAsXSDDateTimeString());
+                    b.key("data").startArray();
+                    datafiles.forEach(fn->b.value(fn));
+                    b.finishArray();
+                    b.pair("triples", cTriple);
+                    b.pair("quads", cQuad);
+                });
+                try ( OutputStream out = IO.openOutputFile(loaderFiles.loadInfo) ) {
+                    JSON.write(out, obj);
+                } catch (IOException ex) { IO.exception(ex); }
             });
-            try ( OutputStream out = IO.openOutputFile(loaderFiles.loadInfo) ) {
-                JSON.write(out, obj);
-            } catch (IOException ex) { IO.exception(ex); }
-        });
-        TDBInternal.expel(dsg);
-        SystemIRIx.setProvider(provider);
+        }
     }
 
     private static DatasetGraph getDatasetGraph(String location) {
         Location loc = Location.create(location);
         // Ensure reset
         DatasetGraph dsg0 = DatabaseMgr.connectDatasetGraph(location);
-        StoreParams storeParams = TDBInternal.getDatasetGraphTDB(dsg0).getStoreParams();
-        TDBInternal.expel(dsg0);
+        StoreParams storeParams;
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg0) ) {
+            storeParams = TDBInternal.getDatasetGraphTDB(dsg0).getStoreParams();
+        }
 
         if ( true ) {
             storeParams = StoreParams.builder("xloader", storeParams)
@@ -139,8 +142,6 @@ public class ProcIngestDataX {
                               OutputStream outputTriples, OutputStream outputQuads,
                               List<String> datafiles) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
-        outputTriples = IO.ensureBuffered(outputTriples);
-        outputQuads = IO.ensureBuffered(outputQuads);
         IngestData sink = new IngestData(dsgtdb, monitor, outputTriples, outputQuads, false);
         Timer timer = new Timer();
         timer.startTimer();
@@ -154,8 +155,6 @@ public class ProcIngestDataX {
 //            RDFParser.source(filename).parse(sink);
 //        }
         sink.finishBulk();
-        IO.close(outputTriples);
-        IO.close(outputQuads);
 
         long cTriple = sink.tripleCount();
         long cQuad = sink.quadCount();

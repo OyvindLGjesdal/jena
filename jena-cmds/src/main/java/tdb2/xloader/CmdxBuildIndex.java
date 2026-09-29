@@ -41,6 +41,8 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
         super.add(argIndex,         "--index=", "Index name");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
+        super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
+        super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
         //super.add(argSortIndexArgs, "--sortIndexArgs=", "Specialised argument for the sort for the indexes");
     }
 
@@ -80,6 +82,6 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
 
         if ( tmpdir == null )
             tmpdir = location;
-        ProcBuildIndexX.exec(location, indexName, sortThreads, sortIndexArgs, loaderFiles);
+        ProcBuildIndexX.exec(location, indexName, sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
     }
 }

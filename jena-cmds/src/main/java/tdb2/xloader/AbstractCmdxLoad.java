@@ -33,6 +33,7 @@ import org.apache.jena.cmd.ArgDecl;
 import org.apache.jena.cmd.CmdException;
 import org.apache.jena.cmd.CmdMain;
 import org.apache.jena.sys.JenaSystem;
+import org.apache.jena.tdb2.xloader.BulkLoaderX;
 import org.apache.jena.tdb2.xloader.XLoaderFiles;
 
 /**
@@ -50,6 +51,10 @@ abstract class AbstractCmdxLoad extends CmdMain {
     protected static ArgDecl argTmpdir       = new ArgDecl(true, "tmpdir", "tmp");
     protected static ArgDecl argIndex        = new ArgDecl(true, "index");
     protected static ArgDecl argSortThreads  = new ArgDecl(true, "threads",  "thread", "sortThreads", "sortthreads");
+    protected static ArgDecl argSortProgram  = new ArgDecl(true, "sort", "sortProgram", "sortprogram");
+    protected static ArgDecl argSortCompress = new ArgDecl(true, "sort-compress", "sortCompress", "sortcompress");
+    protected static ArgDecl argWorkfileGzipLevel  = new ArgDecl(true, "workfile-gzip-level");
+    protected static ArgDecl argWorkfileGzipBuffer = new ArgDecl(true, "workfile-gzip-buffer");
 
 //    // If this is put back, note there are two different sorts - one for the node table and several for the indexes.
 //    protected static ArgDecl argSortNodeTableArgs   = new ArgDecl(true, "sortNodeTableArgs");
@@ -60,6 +65,15 @@ abstract class AbstractCmdxLoad extends CmdMain {
     protected String indexName = null;
 
     protected int sortThreads = -1;
+
+    // Executable used in place of sort(1); null means the default "sort" on the PATH.
+    protected String sortProgram = null;
+    // Compressor for sort's temporary files; null means gzip.
+    protected String sortCompressProgram = null;
+
+    // Gzip settings for the triples and quads workfiles written by the ingest step.
+    protected int workfileGzipLevel = BulkLoaderX.WorkfileGzipLevel;
+    protected int workfileGzipBufferSize = BulkLoaderX.WorkfileGzipBufferSize;
 
     // If we add support for arguments to sort(1)
     protected String sortNodeTableArgs = null;
@@ -95,6 +109,27 @@ abstract class AbstractCmdxLoad extends CmdMain {
         tmpdir = super.getValue(argTmpdir);
         indexName = super.getValue(argIndex);
 
+        if ( super.contains(argSortProgram) ) {
+            sortProgram = super.getValue(argSortProgram);
+            if ( sortProgram == null || sortProgram.isBlank() )
+                throw new CmdException("--sort :: No sort program given");
+        }
+        if ( super.contains(argSortCompress) ) {
+            sortCompressProgram = super.getValue(argSortCompress);
+            if ( sortCompressProgram == null || sortCompressProgram.isBlank() )
+                throw new CmdException("--sort-compress :: No compress program given");
+        }
+        if ( super.contains(argWorkfileGzipLevel) ) {
+            workfileGzipLevel = intArg(argWorkfileGzipLevel, "--workfile-gzip-level");
+            if ( workfileGzipLevel < -1 || workfileGzipLevel > 9 )
+                throw new CmdException("--workfile-gzip-level :: Must be -1 (Java default) or 0 to 9: "+workfileGzipLevel);
+        }
+        if ( super.contains(argWorkfileGzipBuffer) ) {
+            workfileGzipBufferSize = intArg(argWorkfileGzipBuffer, "--workfile-gzip-buffer");
+            if ( workfileGzipBufferSize <= 0 )
+                throw new CmdException("--workfile-gzip-buffer :: Must be a positive number of bytes: "+workfileGzipBufferSize);
+        }
+
 //        sortNodeTableArgs = super.getValue(argSortNodeTableArgs);
 //        sortIndexArgs = super.getValue(argSortIndexArgs);
 
@@ -118,6 +153,15 @@ abstract class AbstractCmdxLoad extends CmdMain {
         subCheckArgs();
 
         loaderFiles = new XLoaderFiles(tmpdir);
+    }
+
+    private int intArg(ArgDecl arg, String name) {
+        String str = super.getValue(arg);
+        try {
+            return Integer.parseInt(str);
+        } catch (NumberFormatException ex) {
+            throw new CmdException(name+" :: Failed to parse '"+str+"' as an integer");
+        }
     }
 
     private void checkDirectory(String dirname) {
