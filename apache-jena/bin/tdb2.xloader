@@ -20,11 +20,13 @@
 ##   JENA_CP
 ##   JENA_HOME
 ##   JVM_ARGS
+##   SORT_COMPRESS_ARGS
 
 ## Programs used:
 ## jq
 ## sort (or the program given by --sort)
 ## /usr/bin/gzip (or the program given by --sort-compress, for sort's temporary files)
+## xloader-sort-compress (next to this script; only when SORT_COMPRESS_ARGS is set)
 
 ## ======= Check environment
 
@@ -51,14 +53,16 @@ function testSortParallel() {
 
 ## Test that a compressor round-trips data the way sort(1) uses it:
 ## no arguments to compress, "-d" to decompress, both stdin to stdout.
+## The optional second argument describes the program in the error message.
 function testCompressProgram() {
     local CMD="$1"
+    local DESCRIPTION="${2:-$1}"
     local SAMPLE="xloader sort compression check"
     set +e
     local OUT="$(echo "$SAMPLE" | "$CMD" 2>/dev/null | "$CMD" -d 2>/dev/null)"
     set -e
     if [[ "$OUT" != "$SAMPLE" ]]; then
-        echo "Compress program $CMD failed to round-trip data (compress, then -d)" 1>&2
+        echo "Compress program $DESCRIPTION failed to round-trip data (compress, then -d)" 1>&2
         exit 9
     fi
 }
@@ -153,7 +157,7 @@ function printUsage() {
 $(basename $0) TDB2 Bulk Loader
 
 Usage: ${TDB_CMD} --loc <Directory> [--tmpdir=DIR] [--threads=N] [--sort=PROGRAM] [--sort-compress=PROGRAM] \
-       [--workfile-gzip-level=N] [--workfile-gzip-buffer=BYTES] FILE ...
+       [--sort-compress-nodes] [--workfile-gzip-level=N] [--workfile-gzip-buffer=BYTES] FILE ...
 
 Bulk loader for TDB2.
 See https://jena.apache.org/documentation/tdb/tdb-xloader.html
@@ -168,7 +172,15 @@ See https://jena.apache.org/documentation/tdb/tdb-xloader.html
     The program sort uses to compress its temporary files, instead of gzip.
     It is run with no arguments to compress and with -d to decompress,
     reading stdin and writing stdout; pigz, zstd and lz4 work this way.
-    xloader compresses sort temporary files for the index builds only.
+    xloader compresses sort temporary files for the index builds only,
+    unless --sort-compress-nodes is given.
+    Arguments for the program go in SORT_COMPRESS_ARGS (see below).
+
+--sort-compress-nodes
+    Also compress the node table sort's temporary files, with the same
+    program and SORT_COMPRESS_ARGS. Off by default: on a single disk it
+    does not lower the peak space use, which comes later in the load.
+    Useful when --tmpdir is on a small or slow separate volume.
 
 --workfile-gzip-level=N, --workfile-gzip-buffer=BYTES
     Gzip settings for the triples/quads workfiles written by the ingest step
@@ -190,6 +202,14 @@ JVM_ARGS
     This defaults to "-Xmx4G"
     Do not set to all available RAM.
     Increasing is only necessary for large numbers of long literals.
+
+SORT_COMPRESS_ARGS
+    Arguments for the program that compresses sort's temporary files
+    (--sort-compress, default gzip), split at spaces. Unset by default.
+    Later arguments win for most compressors, so values can be combined:
+      export SORT_COMPRESS_ARGS="-1 \$SORT_COMPRESS_ARGS"
+    sort cannot pass arguments itself; when this is set, xloader uses the
+    wrapper xloader-sort-compress next to this script.
 
 The temporary directory defaults to the datbase directory.
 
@@ -287,6 +307,7 @@ SORT_COMPRESS=""
 ## Empty means the Java step's own default.
 WORKFILE_GZIP_LEVEL=""
 WORKFILE_GZIP_BUFFER=""
+SORT_COMPRESS_NODES=()
 
 while [ $# -gt 0 ]
 do
@@ -357,6 +378,10 @@ do
 	    [[ -z $SORT_COMPRESS ]] && abort 1 "No program given for --sort-compress"
 	    shift
 	    ;;
+	--sort-compress-nodes|-sort-compress-nodes)
+	    SORT_COMPRESS_NODES=(--sort-compress-nodes)
+	    shift
+	    ;;
 	## Gzip settings for the ingest workfiles
 	--workfile-gzip-level|-workfile-gzip-level)
 	    shift
@@ -402,11 +427,27 @@ testForProgram "$SORT" || abort 9 "Sort program not found: $SORT"
 testSortParallel "$SORT"
 
 ## Optional argument SORT_COMPRESS; passed to the Java steps only if given.
-SORT_COMPRESS_ARGS=()
-if [[ -n $SORT_COMPRESS ]] ; then
+## Optional environment variable SORT_COMPRESS_ARGS: sort runs its compress
+## program without arguments, so they go through the wrapper
+## xloader-sort-compress, which finds the program and the arguments in the
+## environment that sort passes on. Unset: no wrapper, behaviour unchanged.
+SORT_COMPRESS_PROGRAM=()
+if [[ -n ${SORT_COMPRESS_ARGS:-} ]] ; then
+    if [[ -z $SORT_COMPRESS ]] ; then
+        ## The default compressor, as the Java steps choose it.
+        if [[ -x /usr/bin/gzip ]] ; then SORT_COMPRESS=/usr/bin/gzip ; else SORT_COMPRESS=/bin/gzip ; fi
+    fi
+    testForProgram "$SORT_COMPRESS" || abort 9 "Compress program not found: $SORT_COMPRESS"
+    SORT_COMPRESS_WRAPPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/xloader-sort-compress"
+    [[ -x $SORT_COMPRESS_WRAPPER ]] || abort 9 "SORT_COMPRESS_ARGS is set but $SORT_COMPRESS_WRAPPER is missing or not executable"
+    export XLOADER_SORT_COMPRESS="$(type -p "$SORT_COMPRESS")"
+    export SORT_COMPRESS_ARGS
+    testCompressProgram "$SORT_COMPRESS_WRAPPER" "'$XLOADER_SORT_COMPRESS $SORT_COMPRESS_ARGS' (SORT_COMPRESS_ARGS)"
+    SORT_COMPRESS_PROGRAM=(--sort-compress "$SORT_COMPRESS_WRAPPER")
+elif [[ -n $SORT_COMPRESS ]] ; then
     testForProgram "$SORT_COMPRESS" || abort 9 "Compress program not found: $SORT_COMPRESS"
     testCompressProgram "$SORT_COMPRESS"
-    SORT_COMPRESS_ARGS=(--sort-compress "$SORT_COMPRESS")
+    SORT_COMPRESS_PROGRAM=(--sort-compress "$SORT_COMPRESS")
 fi
 
 ## Optional workfile gzip settings; passed to the ingest step only if given.
@@ -490,8 +531,13 @@ info "  Database: $LOC"
 info "  Data:     $DATAFILES"
 info "  TMPDIR:   $TMPDIR"
 info "  Sort:     $(type -p "$SORT")"
-if [[ -n $SORT_COMPRESS ]] ; then
+if [[ -n ${SORT_COMPRESS_ARGS:-} ]] ; then
+    info "  Compress: $XLOADER_SORT_COMPRESS $SORT_COMPRESS_ARGS (sort temporary files, via $(basename "$SORT_COMPRESS_WRAPPER"))"
+elif [[ -n $SORT_COMPRESS ]] ; then
     info "  Compress: $(type -p "$SORT_COMPRESS") (sort temporary files)"
+fi
+if [[ ${#SORT_COMPRESS_NODES[@]} -gt 0 ]] ; then
+    info "  Node table sort: compressed temporary files"
 fi
 if [[ ${#WORKFILE_GZIP_ARGS[@]} -gt 0 ]] ; then
     info "  Workfile gzip: ${WORKFILE_GZIP_ARGS[*]}"
@@ -514,7 +560,7 @@ if [ "$SYSTEM" == "TDB2" ]; then
     info
     T="$(now)"
     info "Load node table"
-    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_ARGS[@]}" $DATAFILES
+    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_COMPRESS_NODES[@]}" $DATAFILES
     TIME_NODE_TABLE=$(($(now)-$T))
     info "$STEP_END_MARKER"
 fi
@@ -539,7 +585,7 @@ function index() {
     info "Build $IDX"
     info "(Very long pause likely at this point)"
     local T="$(now)"
-    exec_java $PKG.CmdxBuildIndex --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_ARGS[@]}" --index $IDX \
+    exec_java $PKG.CmdxBuildIndex --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" --index $IDX \
 	      "$TMPDIR/triples.tmp" "$TMPDIR/quads.tmp"
     info "$STEP_END_MARKER"
     local T_IDX=$(($(now)-$T))

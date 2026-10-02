@@ -21,6 +21,7 @@
 
 package org.apache.jena.tdb2.xloader;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -104,6 +105,29 @@ public class BulkLoaderX {
      */
     /*package*/ static String sortCompressProgram(String sortCompressProgram) {
         return ( sortCompressProgram == null || sortCompressProgram.isBlank() ) ? gzipProgram() : sortCompressProgram;
+    }
+
+    /**
+     * Whether a program can be run: a pathname that is an executable file,
+     * or a name found as an executable file on the PATH.
+     * Used to reject a missing --sort or --sort-compress program before a load starts,
+     * rather than when sort(1) first needs it.
+     */
+    public static boolean programAvailable(String program) {
+        if ( program.contains("/") )
+            return isExecutableFile(Path.of(program));
+        String searchPath = System.getenv("PATH");
+        if ( searchPath == null )
+            return false;
+        for ( String dir : searchPath.split(File.pathSeparator) ) {
+            if ( !dir.isEmpty() && isExecutableFile(Path.of(dir, program)) )
+                return true;
+        }
+        return false;
+    }
+
+    private static boolean isExecutableFile(Path path) {
+        return Files.isRegularFile(path) && Files.isExecutable(path);
     }
 
     // Ubuntu: it now (21.04) is at /usr/bin/gzip.

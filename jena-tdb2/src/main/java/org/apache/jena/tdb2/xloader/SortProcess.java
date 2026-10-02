@@ -121,6 +121,11 @@ final class SortProcess implements AutoCloseable {
         return result;
     }
 
+    /** True once {@link #close()} has started stopping the pipeline. */
+    boolean isCancelled() {
+        return cancelled;
+    }
+
     private void checkCancelled() {
         if ( cancelled )
             throw new TDBException("Sort cancelled");

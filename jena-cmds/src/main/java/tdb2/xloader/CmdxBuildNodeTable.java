@@ -23,6 +23,7 @@ package tdb2.xloader;
 
 import org.apache.jena.atlas.lib.FileOps;
 import org.apache.jena.cmd.CmdException;
+import org.apache.jena.tdb2.xloader.BulkLoaderX;
 import org.apache.jena.tdb2.xloader.ProcBuildNodeTableX;
 
 public class CmdxBuildNodeTable extends AbstractCmdxLoad {
@@ -42,6 +43,7 @@ public class CmdxBuildNodeTable extends AbstractCmdxLoad {
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
         super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
         super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
+        super.add(argSortCompressNodes, "--sort-compress-nodes", "Compress the node table sort's temporary files too (default: only the index sorts)");
         //super.add(argSortNodeTableArgs, "--sortNodeTableArgs=", "Specialised argument for the sort for the node table");
     }
 
@@ -71,6 +73,8 @@ public class CmdxBuildNodeTable extends AbstractCmdxLoad {
 
         if ( tmpdir == null )
             tmpdir = location;
+        // Each xloader stage runs in its own JVM, so setting the switch here affects only this load.
+        BulkLoaderX.CompressSortNodeTableFiles = sortCompressNodes;
         ProcBuildNodeTableX.exec(location, loaderFiles, sortProgram, sortCompressProgram, sortThreads, sortNodeTableArgs, filenames);
     }
 }

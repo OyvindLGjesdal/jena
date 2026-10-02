@@ -47,7 +47,7 @@ import org.apache.jena.dboe.trans.bplustree.BPlusTreeParams;
 import org.apache.jena.dboe.trans.bplustree.rewriter.BPlusTreeRewriter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
-import org.apache.jena.riot.RDFParser;
+import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.thrift.RiotThriftException;
 import org.apache.jena.riot.thrift.ThriftConvert;
@@ -158,7 +158,12 @@ public class ProcBuildNodeTableX {
                         throw new TDBException("Node parsing interrupted");
                     monitor.setLabel(FileOps.basename(datafile));
                     stream.start();
-                    RDFParser.source(datafile).parse(stream);
+                    // Parse on a separate thread; hashing and writing stay on this one.
+                    AsyncParser.asyncParse(datafile, stream);
+                    // AsyncParser returns normally, and clears the interrupt,
+                    // if this thread is interrupted while waiting for the parser.
+                    if ( sort.isCancelled() )
+                        throw new TDBException("Node parsing interrupted");
                     stream.finish();
                 }
                 monitor.finish();

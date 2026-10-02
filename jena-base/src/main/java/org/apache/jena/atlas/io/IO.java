@@ -319,8 +319,12 @@ public class IO
     }
 
     private static GZIPOutputStream gzipOutput(OutputStream out, int level, int bufferSize) throws IOException {
-        if ( level == Deflater.DEFAULT_COMPRESSION )
+        if ( level == Deflater.DEFAULT_COMPRESSION ) {
+            // Unchanged behaviour for the existing openOutputFile(String).
+            if ( bufferSize == GZIP_BUFSIZE_DEFAULT )
+                return new GZIPOutputStream(out);
             return new GZIPOutputStream(out, bufferSize);
+        }
         // GZIPOutputStream has no level argument; its Deflater is protected.
         return new GZIPOutputStream(out, bufferSize) {{ def.setLevel(level); }};
     }

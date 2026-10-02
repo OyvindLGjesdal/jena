@@ -55,6 +55,7 @@ abstract class AbstractCmdxLoad extends CmdMain {
     protected static ArgDecl argSortCompress = new ArgDecl(true, "sort-compress", "sortCompress", "sortcompress");
     protected static ArgDecl argWorkfileGzipLevel  = new ArgDecl(true, "workfile-gzip-level");
     protected static ArgDecl argWorkfileGzipBuffer = new ArgDecl(true, "workfile-gzip-buffer");
+    protected static ArgDecl argSortCompressNodes  = new ArgDecl(false, "sort-compress-nodes");
 
 //    // If this is put back, note there are two different sorts - one for the node table and several for the indexes.
 //    protected static ArgDecl argSortNodeTableArgs   = new ArgDecl(true, "sortNodeTableArgs");
@@ -74,6 +75,9 @@ abstract class AbstractCmdxLoad extends CmdMain {
     // Gzip settings for the triples and quads workfiles written by the ingest step.
     protected int workfileGzipLevel = BulkLoaderX.WorkfileGzipLevel;
     protected int workfileGzipBufferSize = BulkLoaderX.WorkfileGzipBufferSize;
+
+    // Whether the node table sort compresses its temporary files, as the index sorts do.
+    protected boolean sortCompressNodes = BulkLoaderX.CompressSortNodeTableFiles;
 
     // If we add support for arguments to sort(1)
     protected String sortNodeTableArgs = null;
@@ -113,17 +117,24 @@ abstract class AbstractCmdxLoad extends CmdMain {
             sortProgram = super.getValue(argSortProgram);
             if ( sortProgram == null || sortProgram.isBlank() )
                 throw new CmdException("--sort :: No sort program given");
+            if ( ! BulkLoaderX.programAvailable(sortProgram) )
+                throw new CmdException("--sort :: Program not found or not executable: "+sortProgram);
         }
         if ( super.contains(argSortCompress) ) {
             sortCompressProgram = super.getValue(argSortCompress);
             if ( sortCompressProgram == null || sortCompressProgram.isBlank() )
                 throw new CmdException("--sort-compress :: No compress program given");
+            // Otherwise this would only fail when an index sort first spills to disk.
+            if ( ! BulkLoaderX.programAvailable(sortCompressProgram) )
+                throw new CmdException("--sort-compress :: Program not found or not executable: "+sortCompressProgram);
         }
         if ( super.contains(argWorkfileGzipLevel) ) {
             workfileGzipLevel = intArg(argWorkfileGzipLevel, "--workfile-gzip-level");
             if ( workfileGzipLevel < -1 || workfileGzipLevel > 9 )
                 throw new CmdException("--workfile-gzip-level :: Must be -1 (Java default) or 0 to 9: "+workfileGzipLevel);
         }
+        if ( super.contains(argSortCompressNodes) )
+            sortCompressNodes = true;
         if ( super.contains(argWorkfileGzipBuffer) ) {
             workfileGzipBufferSize = intArg(argWorkfileGzipBuffer, "--workfile-gzip-buffer");
             if ( workfileGzipBufferSize <= 0 )
