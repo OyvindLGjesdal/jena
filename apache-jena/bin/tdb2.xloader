@@ -157,7 +157,8 @@ function printUsage() {
 $(basename $0) TDB2 Bulk Loader
 
 Usage: ${TDB_CMD} --loc <Directory> [--tmpdir=DIR] [--threads=N] [--sort=PROGRAM] [--sort-compress=PROGRAM] \
-       [--sort-compress-nodes] [--workfile-gzip-level=N] [--workfile-gzip-buffer=BYTES] FILE ...
+       [--sort-compress-nodes] [--sort-buffer=SIZE] [--parallel-indexes] [--parse-threads=N] [--ingest-threads=N] \
+       [--workfile-gzip-level=N] [--workfile-gzip-buffer=BYTES] FILE ...
 
 Bulk loader for TDB2.
 See https://jena.apache.org/documentation/tdb/tdb-xloader.html
@@ -181,6 +182,32 @@ See https://jena.apache.org/documentation/tdb/tdb-xloader.html
     program and SORT_COMPRESS_ARGS. Off by default: on a single disk it
     does not lower the peak space use, which comes later in the load.
     Useful when --tmpdir is on a small or slow separate volume.
+
+--sort-buffer=SIZE
+    The --buffer-size given to every sort, instead of 50% (of memory).
+    For example 25%, 4G or 1024M. For uutils sort, which takes the size
+    per segment, use a fixed size such as 1024M.
+
+--parallel-indexes
+    Build the triple indexes (SPO, POS, OSP) at the same time, then the quad
+    indexes, in one step with one sort each. Off by default. A percentage
+    --sort-buffer is shared between the sorts running together (50% becomes
+    16% each); a fixed size applies to each sort. Each sort uses --threads
+    threads, and their temporary files exist at the same time, so peak space
+    in the temporary directory is higher.
+
+--parse-threads=N
+    Parse N-Triples and N-Quads input on N threads, in chunks cut at line
+    ends, in the node table and ingest steps (default 1: one parser thread,
+    as before). In ingest each thread also finds node ids itself, in its own
+    read transaction. Other syntaxes are parsed as before. Blank node labels
+    use one seed per file, so a label is the same node in every chunk.
+
+--ingest-threads=N
+    Threads for the ingest step only, instead of --parse-threads. When the
+    node table is larger than memory, ingest waits on node lookups from disk;
+    many more threads than cores (for example 32 or 64 on an NVMe SSD) keep
+    more reads in flight. Default: the --parse-threads value.
 
 --workfile-gzip-level=N, --workfile-gzip-buffer=BYTES
     Gzip settings for the triples/quads workfiles written by the ingest step
@@ -308,6 +335,10 @@ SORT_COMPRESS=""
 WORKFILE_GZIP_LEVEL=""
 WORKFILE_GZIP_BUFFER=""
 SORT_COMPRESS_NODES=()
+SORT_BUFFER=""
+PARALLEL_INDEXES=""
+PARSE_THREADS=""
+INGEST_THREADS=""
 
 while [ $# -gt 0 ]
 do
@@ -347,6 +378,25 @@ do
 	    shift
 	    ;;
 	## Number of sort threads
+	## Before the --threads patterns: -*threads=* would also match these.
+	--ingest-threads|-ingest-threads)
+	    shift
+	    INGEST_THREADS="$1"
+	    shift
+	    ;;
+	--ingest-threads=*|-ingest-threads=*)
+	    INGEST_THREADS=${ARG#*=}
+	    shift
+	    ;;
+	--parse-threads|-parse-threads)
+	    shift
+	    PARSE_THREADS="$1"
+	    shift
+	    ;;
+	--parse-threads=*|-parse-threads=*)
+	    PARSE_THREADS=${ARG#*=}
+	    shift
+	    ;;
 	--threads|-threads)
 	    shift
 	    SORT_THREADS="$1"
@@ -380,6 +430,19 @@ do
 	    ;;
 	--sort-compress-nodes|-sort-compress-nodes)
 	    SORT_COMPRESS_NODES=(--sort-compress-nodes)
+	    shift
+	    ;;
+	--sort-buffer|-sort-buffer)
+	    shift
+	    SORT_BUFFER="$1"
+	    shift
+	    ;;
+	--sort-buffer=*|-sort-buffer=*)
+	    SORT_BUFFER=${ARG#*=}
+	    shift
+	    ;;
+	--parallel-indexes|-parallel-indexes)
+	    PARALLEL_INDEXES="yes"
 	    shift
 	    ;;
 	## Gzip settings for the ingest workfiles
@@ -448,6 +511,27 @@ elif [[ -n $SORT_COMPRESS ]] ; then
     testForProgram "$SORT_COMPRESS" || abort 9 "Compress program not found: $SORT_COMPRESS"
     testCompressProgram "$SORT_COMPRESS"
     SORT_COMPRESS_PROGRAM=(--sort-compress "$SORT_COMPRESS")
+fi
+
+## Optional sort buffer size; passed to the node table and index steps only if given.
+SORT_BUFFER_ARGS=()
+if [[ -n $SORT_BUFFER ]] ; then
+    [[ $SORT_BUFFER =~ ^[1-9][0-9]*(%|[bKMGTPEZYkmgtpezy])?$ ]] || abort 1 "Bad value for --sort-buffer (for example 50%, 4G, 1024M): $SORT_BUFFER"
+    SORT_BUFFER_ARGS=("--sort-buffer=$SORT_BUFFER")
+fi
+
+## Optional parser threads for the node table step.
+PARSE_THREADS_ARGS=()
+if [[ -n $PARSE_THREADS ]] ; then
+    [[ $PARSE_THREADS =~ ^[1-9][0-9]*$ ]] || abort 1 "Bad value for --parse-threads (a positive number): $PARSE_THREADS"
+    PARSE_THREADS_ARGS=("--parse-threads=$PARSE_THREADS")
+fi
+
+## Optional thread count for the ingest step only.
+INGEST_THREADS_ARGS=()
+if [[ -n $INGEST_THREADS ]] ; then
+    [[ $INGEST_THREADS =~ ^[1-9][0-9]*$ ]] || abort 1 "Bad value for --ingest-threads (a positive number): $INGEST_THREADS"
+    INGEST_THREADS_ARGS=("--ingest-threads=$INGEST_THREADS")
 fi
 
 ## Optional workfile gzip settings; passed to the ingest step only if given.
@@ -536,6 +620,18 @@ if [[ -n ${SORT_COMPRESS_ARGS:-} ]] ; then
 elif [[ -n $SORT_COMPRESS ]] ; then
     info "  Compress: $(type -p "$SORT_COMPRESS") (sort temporary files)"
 fi
+if [[ -n $SORT_BUFFER ]] ; then
+    info "  Sort buffer: $SORT_BUFFER"
+fi
+if [[ -n $PARALLEL_INDEXES ]] ; then
+    info "  Indexes:  built in parallel"
+fi
+if [[ -n $PARSE_THREADS ]] ; then
+    info "  Parse threads: $PARSE_THREADS (node table and ingest, N-Triples/N-Quads)"
+fi
+if [[ -n $INGEST_THREADS ]] ; then
+    info "  Ingest threads: $INGEST_THREADS (ingest step, N-Triples/N-Quads)"
+fi
 if [[ ${#SORT_COMPRESS_NODES[@]} -gt 0 ]] ; then
     info "  Node table sort: compressed temporary files"
 fi
@@ -560,7 +656,7 @@ if [ "$SYSTEM" == "TDB2" ]; then
     info
     T="$(now)"
     info "Load node table"
-    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_COMPRESS_NODES[@]}" $DATAFILES
+    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_COMPRESS_NODES[@]}" "${SORT_BUFFER_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" $DATAFILES
     TIME_NODE_TABLE=$(($(now)-$T))
     info "$STEP_END_MARKER"
 fi
@@ -569,7 +665,7 @@ fi
 info
 info "Ingest data"
 T="$(now)"
-exec_java $PKG.CmdxIngestData --loc $LOC --tmpdir "$TMPDIR" "${WORKFILE_GZIP_ARGS[@]}" --triples "$TMPDIR/triples.tmp" --quads "$TMPDIR/quads.tmp" $DATAFILES
+exec_java $PKG.CmdxIngestData --loc $LOC --tmpdir "$TMPDIR" "${WORKFILE_GZIP_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" "${INGEST_THREADS_ARGS[@]}" --triples "$TMPDIR/triples.tmp" --quads "$TMPDIR/quads.tmp" $DATAFILES
 TIME_INGEST=$(($(now)-$T))
 info "$STEP_END_MARKER"
 
@@ -578,6 +674,7 @@ INFO="$TMPDIR/load.json"
 
 ## Bash assocative array
 declare -A TIME_IDX
+declare -A TIME_IDX_GROUP
 
 function index() {
     local IDX="$1"
@@ -585,11 +682,27 @@ function index() {
     info "Build $IDX"
     info "(Very long pause likely at this point)"
     local T="$(now)"
-    exec_java $PKG.CmdxBuildIndex --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" --index $IDX \
+    exec_java $PKG.CmdxBuildIndex --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_BUFFER_ARGS[@]}" --index $IDX \
 	      "$TMPDIR/triples.tmp" "$TMPDIR/quads.tmp"
     info "$STEP_END_MARKER"
     local T_IDX=$(($(now)-$T))
     TIME_IDX[$IDX]=$T_IDX
+}
+
+## Build a group of indexes (all triple or all quad indexes) at the same time, in one step.
+function index_group() {
+    local GROUP="$1"
+    shift
+    [[ $# -eq 0 ]] && return
+    local LIST="$(IFS=, ; echo "$*")"
+    info
+    info "Build $* (in parallel)"
+    info "(Very long pause likely at this point)"
+    local T="$(now)"
+    exec_java $PKG.CmdxBuildIndex --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_BUFFER_ARGS[@]}" --index "$LIST" \
+	      "$TMPDIR/triples.tmp" "$TMPDIR/quads.tmp"
+    info "$STEP_END_MARKER"
+    TIME_IDX_GROUP[$GROUP]=$(($(now)-$T))
 }
 
 ## Decide which indexes to generate.
@@ -611,17 +724,22 @@ if [ -e "$INFO" ] ; then
     fi
 fi
 
-## ==== Triples
+if [[ -n $PARALLEL_INDEXES ]] ; then
+    index_group triples $TRIPLES_IDX
+    index_group quads $QUADS_IDX
+else
+    ## ==== Triples
 
-for IDX in $TRIPLES_IDX ; do
-    index $IDX
-done
+    for IDX in $TRIPLES_IDX ; do
+	index $IDX
+    done
 
-## ==== Quads
+    ## ==== Quads
 
-for IDX in $QUADS_IDX ; do
-    index $IDX
-done
+    for IDX in $QUADS_IDX ; do
+	index $IDX
+    done
+fi
 
 ## ======== Finish
 
@@ -645,12 +763,17 @@ TIME_HMS="$(printf '%02dh %02dm %02ds\n' $((SECS/3600)) $((SECS%3600/60)) $((SEC
 info "Load ingest data = $TIME_INGEST seconds"
 
 ## Indexes
-for IDX in $TRIPLES_IDX ; do
-     info "Build index ${IDX}  = ${TIME_IDX[${IDX}]} seconds"
-done
-for IDX in $QUADS_IDX ; do
-     info "Build index ${IDX} = ${TIME_IDX[${IDX}]} seconds"
-done
+if [[ -n $PARALLEL_INDEXES ]] ; then
+    [[ -n $TRIPLES_IDX ]] && info "Build indexes $TRIPLES_IDX (in parallel) = ${TIME_IDX_GROUP[triples]} seconds"
+    [[ -n $QUADS_IDX ]] && info "Build indexes $QUADS_IDX (in parallel) = ${TIME_IDX_GROUP[quads]} seconds"
+else
+    for IDX in $TRIPLES_IDX ; do
+	info "Build index ${IDX}  = ${TIME_IDX[${IDX}]} seconds"
+    done
+    for IDX in $QUADS_IDX ; do
+	info "Build index ${IDX} = ${TIME_IDX[${IDX}]} seconds"
+    done
+fi
 
 ## Whole run
 info "Overall          $TIME_TOTAL seconds"

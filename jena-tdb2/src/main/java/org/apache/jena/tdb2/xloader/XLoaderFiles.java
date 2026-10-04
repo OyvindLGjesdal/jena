@@ -30,12 +30,15 @@ public class XLoaderFiles {
     static final String nameTriplesFile = "triples.tmp";
     static final String nameQuadsFile = "quads.tmp";
     static final String nameLoadInfo = "load.json";
+    static final String nameBlankNodeSeed = "blank-node-seed.txt";
 
     // Names.
     public final String TMPDIR;
     public final String triplesFile;
     public final String quadsFile;
     public final String loadInfo;
+    /** The load's blank node label seed, shared by the node table and ingest steps. */
+    public final String blankNodeSeed;
     public XLoaderFiles(String TMPDIR) {
         String ext = BulkLoaderX.CompressDataFiles ? ".gz" : "";
 
@@ -44,5 +47,6 @@ public class XLoaderFiles {
         triplesFile = loc.resolve(nameTriplesFile).toString()+ext;
         quadsFile = loc.resolve(nameQuadsFile).toString()+ext;
         loadInfo = loc.resolve(nameLoadInfo).toString();
+        blankNodeSeed = loc.resolve(nameBlankNodeSeed).toString();
     }
 }

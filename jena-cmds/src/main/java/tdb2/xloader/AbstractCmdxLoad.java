@@ -56,6 +56,9 @@ abstract class AbstractCmdxLoad extends CmdMain {
     protected static ArgDecl argWorkfileGzipLevel  = new ArgDecl(true, "workfile-gzip-level");
     protected static ArgDecl argWorkfileGzipBuffer = new ArgDecl(true, "workfile-gzip-buffer");
     protected static ArgDecl argSortCompressNodes  = new ArgDecl(false, "sort-compress-nodes");
+    protected static ArgDecl argSortBuffer   = new ArgDecl(true, "sort-buffer", "sortBuffer", "sortbuffer");
+    protected static ArgDecl argParseThreads = new ArgDecl(true, "parse-threads", "parseThreads", "parsethreads");
+    protected static ArgDecl argIngestThreads = new ArgDecl(true, "ingest-threads", "ingestThreads", "ingestthreads");
 
 //    // If this is put back, note there are two different sorts - one for the node table and several for the indexes.
 //    protected static ArgDecl argSortNodeTableArgs   = new ArgDecl(true, "sortNodeTableArgs");
@@ -135,6 +138,26 @@ abstract class AbstractCmdxLoad extends CmdMain {
         }
         if ( super.contains(argSortCompressNodes) )
             sortCompressNodes = true;
+        if ( super.contains(argParseThreads) ) {
+            int threads = intArg(argParseThreads, "--parse-threads");
+            if ( threads < 1 || threads > 256 )
+                throw new CmdException("--parse-threads :: Must be 1 to 256: "+threads);
+            // Each xloader step runs in its own JVM.
+            BulkLoaderX.ParseThreads = threads;
+        }
+        if ( super.contains(argIngestThreads) ) {
+            int threads = intArg(argIngestThreads, "--ingest-threads");
+            if ( threads < 1 || threads > 1024 )
+                throw new CmdException("--ingest-threads :: Must be 1 to 1024: "+threads);
+            BulkLoaderX.IngestThreads = threads;
+        }
+        if ( super.contains(argSortBuffer) ) {
+            String bufferSize = super.getValue(argSortBuffer);
+            if ( !BulkLoaderX.isSortBufferSize(bufferSize) )
+                throw new CmdException("--sort-buffer :: Expected a size such as 50%, 4G or 1024M: "+bufferSize);
+            // Each xloader step runs in its own JVM.
+            BulkLoaderX.SortBufferSize = bufferSize;
+        }
         if ( super.contains(argWorkfileGzipBuffer) ) {
             workfileGzipBufferSize = intArg(argWorkfileGzipBuffer, "--workfile-gzip-buffer");
             if ( workfileGzipBufferSize <= 0 )

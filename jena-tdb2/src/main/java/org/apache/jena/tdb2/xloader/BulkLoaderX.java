@@ -89,6 +89,59 @@ public class BulkLoaderX {
     public static boolean CompressSortIndexFiles = true;
 
     /**
+     * Default for sort's {@code --buffer-size}: half the machine's memory, for one sort at a time.
+     */
+    public static final String DefaultSortBufferSize = "50%";
+
+    /**
+     * Value of sort's {@code --buffer-size} for every xloader sort.
+     * Each xloader step runs in its own JVM, which sets this from its command line.
+     */
+    public static String SortBufferSize = DefaultSortBufferSize;
+
+    /**
+     * The {@code --buffer-size} for each of {@code sorts} sorts running at the same time:
+     * a percentage of memory is shared between them (at least 1%); an absolute size, which
+     * sort takes as a per-process size, is used by each.
+     */
+    /*package*/ static String sortBufferSize(String bufferSize, int sorts) {
+        if ( sorts > 1 && bufferSize.endsWith("%") ) {
+            int percent = Integer.parseInt(bufferSize.substring(0, bufferSize.length() - 1));
+            return Math.max(1, percent / sorts) + "%";
+        }
+        return bufferSize;
+    }
+
+    /**
+     * Whether a value is a size sort's {@code --buffer-size} accepts: a number,
+     * optionally followed by {@code %} or a unit suffix (b, K, M, G, T, P, E, Z, Y).
+     */
+    public static boolean isSortBufferSize(String bufferSize) {
+        return bufferSize != null && bufferSize.matches("[1-9][0-9]*(%|[bKMGTPEZYkmgtpezy])?");
+    }
+
+    /**
+     * Threads parsing N-Triples and N-Quads input in the node table step; 1 (the default)
+     * parses as before, with one parser thread ({@link ParallelNodeParser} otherwise).
+     */
+    public static int ParseThreads = 1;
+
+    /**
+     * Threads for the ingest step; 0 (the default) means {@link #ParseThreads}. Ingest is
+     * limited by node lookups waiting for the disk once the node table is larger than
+     * memory; more threads keep more reads in flight than parsing alone would need.
+     */
+    public static int IngestThreads = 0;
+
+    /** The thread count for the ingest step. */
+    static int ingestThreads() {
+        return IngestThreads > 0 ? IngestThreads : ParseThreads;
+    }
+
+    /** Size of the input chunks for {@link #ParseThreads} above 1. */
+    public static int ParseChunkSize = 4 * 1024 * 1024;
+
+    /**
      * Default sort program, found on the PATH.
      * It must accept the GNU sort(1) options used by xloader.
      */

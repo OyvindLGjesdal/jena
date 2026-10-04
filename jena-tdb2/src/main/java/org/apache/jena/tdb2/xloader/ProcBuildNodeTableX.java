@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.jena.atlas.io.IO;
@@ -47,6 +48,9 @@ import org.apache.jena.dboe.trans.bplustree.BPlusTreeParams;
 import org.apache.jena.dboe.trans.bplustree.rewriter.BPlusTreeRewriter;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
+import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFParserBuilder;
+import org.apache.jena.atlas.lib.IRILib;
 import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.thrift.RiotThriftException;
@@ -136,7 +140,7 @@ public class ProcBuildNodeTableX {
         List<String> sortCmd = new ArrayList<>(Arrays.asList(
                 sortProgram,
                 "--temporary-directory="+loaderFiles.TMPDIR,
-                "--buffer-size=50%",
+                "--buffer-size="+BulkLoaderX.SortBufferSize,
                 "--parallel="+sortThreads,
                 "--unique",
                 "--key=1,1"
@@ -153,17 +157,35 @@ public class ProcBuildNodeTableX {
                 ProgressStreamRDF stream = new ProgressStreamRDF(worker, monitor);
                 monitor.start();
                 String label = monitor.getLabel();
+                // Shared with ingest, which then finds this step's blank nodes.
+                UUID loadSeed = BlankNodeSeed.create(loaderFiles);
+                int fileIndex = -1;
                 for ( String datafile : datafiles ) {
+                    fileIndex++;
                     if ( Thread.currentThread().isInterrupted() )
                         throw new TDBException("Node parsing interrupted");
                     monitor.setLabel(FileOps.basename(datafile));
+                    Lang lang = InputFile.lang(datafile);
+                    if ( BulkLoaderX.ParseThreads > 1 && ( Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang) ) ) {
+                        // Line-based syntax: parse chunks on several threads.
+                        try ( InputFile input = InputFile.open(datafile) ) {
+                            ParallelNodeParser.parse(input.stream(), lang, IRILib.filenameToIRI(datafile),
+                                                     BlankNodeSeed.fileSeed(loadSeed, fileIndex), output,
+                                                     BulkLoaderX.ParseThreads, BulkLoaderX.ParseChunkSize, sort::isCancelled,
+                                                     n -> { synchronized (monitor) { for ( long i = 0 ; i < n ; i++ ) monitor.tick(); } });
+                        }
+                        continue;
+                    }
                     stream.start();
-                    // Parse on a separate thread; hashing and writing stay on this one.
-                    AsyncParser.asyncParse(datafile, stream);
-                    // AsyncParser returns normally, and clears the interrupt,
-                    // if this thread is interrupted while waiting for the parser.
-                    if ( sort.isCancelled() )
-                        throw new TDBException("Node parsing interrupted");
+                    try ( InputFile input = InputFile.open(datafile) ) {
+                        // Parse on a separate thread; hashing and writing stay on this one.
+                        RDFParserBuilder parser = input.parser().labelToNode(BlankNodeSeed.labelToNode(loadSeed, fileIndex));
+                        AsyncParser.asyncParseSources(List.of(parser), stream);
+                        // AsyncParser returns normally, and clears the interrupt,
+                        // if this thread is interrupted while waiting for the parser.
+                        if ( sort.isCancelled() )
+                            throw new TDBException("Node parsing interrupted");
+                    }
                     stream.finish();
                 }
                 monitor.finish();
@@ -319,9 +341,18 @@ public class ProcBuildNodeTableX {
 
         private final OutputStream outputData;
         private CacheSet<Node> cache = CacheFactory.createCacheSet(500_000);
+        // Per instance, so parallel parsers can each have their own stream.
+        private final Hash hash = new Hash(SystemTDB.LenNodeHash);
+        private final TSerializer serializer;
 
         NodeHashTmpStream(OutputStream outputFile) {
             this.outputData = outputFile;
+            try {
+                this.serializer = new TSerializer(new TCompactProtocol.Factory());
+            }
+            catch (TException e) {
+                throw new RiotThriftException(e);
+            }
         }
 
         @Override
@@ -340,16 +371,6 @@ public class ProcBuildNodeTableX {
             node(quad.getSubject());
             node(quad.getPredicate());
             node(quad.getObject());
-        }
-
-        static TSerializer serializer;
-        static {
-            try {
-                serializer = new TSerializer(new TCompactProtocol.Factory());
-            }
-            catch (TException e) {
-                throw new RiotThriftException(e);
-            }
         }
 
         private void node(Node node) {

@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.*;
 
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.lib.Timer;
@@ -108,14 +109,111 @@ public class ProcBuildIndexX
         FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName, Timer.timeStr(timeMillis), elapsedStr, rateStr);
     }
 
-    private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    /** Index names this class builds. */
+    public static final List<String> IndexNames = List.of("SPO", "POS", "OSP", "GSPO", "GPOS", "GOSP", "SPOG", "POSG", "OSPG");
+
+    /**
+     * Build several indexes at the same time, one thread and one sort process each,
+     * with one database connection. Each index is written by its own B+tree
+     * transaction (as when built alone), so the builds are independent.
+     * A percentage {@link BulkLoaderX#SortBufferSize} is shared between the sorts.
+     * If one build fails, the others are cancelled (which stops their sorts) and the
+     * first failure is thrown.
+     */
+    public static void exec(String location, List<String> indexNames, String sortProgram, String sortCompressProgram,
+                            int sortThreads, /*unused*/String sortIndexArgs, XLoaderFiles loaderFiles) {
+        if ( indexNames.size() == 1 ) {
+            exec(location, indexNames.get(0), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+            return;
+        }
+        for ( String name : indexNames ) {
+            if ( !IndexNames.contains(name) )
+                throw new TDBException("Index name '" + name + "' not recognized");
+        }
+        String bufferSize = BulkLoaderX.sortBufferSize(BulkLoaderX.SortBufferSize, indexNames.size());
+        String names = String.join(" ", indexNames);
+        FmtLog.info(BulkLoaderX.LOG_Index, "Build indexes %s in parallel (sort buffer %s each)", names, bufferSize);
+        String program = BulkLoaderX.sortProgram(sortProgram);
+        Timer timer = new Timer();
+        timer.startTimer();
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
-            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+            ExecutorService executor = Executors.newFixedThreadPool(indexNames.size(),
+                    Thread.ofPlatform().name("tdb2-xloader-index-", 0).factory());
+            try {
+                CompletionService<Object> completion = new ExecutorCompletionService<>(executor);
+                List<Future<Object>> futures = new ArrayList<>();
+                for ( String indexName : indexNames ) {
+                    futures.add(completion.submit(() -> {
+                        Timer t = new Timer();
+                        t.startTimer();
+                        FmtLog.info(BulkLoaderX.LOG_Index, "Build index %s", indexName);
+                        long items = buildIndex(dsg, indexName, program, sortCompressProgram, sortThreads, bufferSize, sortIndexArgs, loaderFiles);
+                        long millis = t.endTimer();
+                        FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName,
+                                    Timer.timeStr(millis), BulkLoaderX.milliToHMS(millis), BulkLoaderX.rateStr(items, millis));
+                        return null;
+                    }));
+                }
+                awaitAll(completion, futures);
+            } finally {
+                // Wait for every build to end before the dataset is expelled.
+                executor.shutdownNow();
+                awaitTermination(executor);
+            }
+        }
+        long millis = timer.endTimer();
+        FmtLog.info(BulkLoaderX.LOG_Index, "%s Indexes %s : %s seconds - %s", BulkLoaderX.StepMarker, names,
+                    Timer.timeStr(millis), BulkLoaderX.milliToHMS(millis));
+    }
+
+    /** Wait for all builds, in completion order; on the first failure cancel the rest and throw it. */
+    private static void awaitAll(CompletionService<Object> completion, List<Future<Object>> futures) {
+        for ( int i = 0 ; i < futures.size() ; i++ ) {
+            try {
+                completion.take().get();
+            } catch (InterruptedException ex) {
+                futures.forEach(f -> f.cancel(true));
+                Thread.currentThread().interrupt();
+                throw new TDBException("Interrupted while building indexes", ex);
+            } catch (ExecutionException ex) {
+                // Interrupting a build stops its sort process (SortProcess.close).
+                futures.forEach(f -> f.cancel(true));
+                Throwable cause = ex.getCause();
+                if ( cause instanceof RuntimeException runtime )
+                    throw runtime;
+                if ( cause instanceof Error error )
+                    throw error;
+                throw new TDBException("Index build failed", cause);
+            }
         }
     }
 
-    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    private static void awaitTermination(ExecutorService executor) {
+        boolean interrupted = Thread.interrupted();
+        try {
+            for ( ;; ) {
+                try {
+                    if ( executor.awaitTermination(1, TimeUnit.SECONDS) )
+                        return;
+                } catch (InterruptedException ex) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if ( interrupted )
+                Thread.currentThread().interrupt();
+        }
+    }
+
+    private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+        DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, BulkLoaderX.SortBufferSize, sortIndexArgs, loaderFiles);
+        }
+    }
+
+    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, XLoaderFiles loaderFiles) {
         long tickPoint = BulkLoaderX.DataTick;
         int superTick = BulkLoaderX.DataSuperTick;
         String K1 = "--key=1,1";
@@ -125,23 +223,23 @@ public class ProcBuildIndexX
 
         switch (indexName) {
             case "SPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "SPO", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "SPO", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3));
             case "POS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "POS", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "POS", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K1));
             case "OSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "OSP", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K1, K2));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "OSP", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K1, K2));
             case "GSPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GSPO", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3, K4));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GSPO", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3, K4));
             case "GPOS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GPOS", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K3, K4, K2));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GPOS", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K3, K4, K2));
             case "GOSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GOSP", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K4, K2, K3));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GOSP", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K4, K2, K3));
             case "SPOG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "SPOG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K4, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "SPOG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K4, K1));
             case "POSG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "POSG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K4, K2, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "POSG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K4, K2, K1));
             case "OSPG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "OSPG", sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K4, K2, K3, K1));
+                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "OSPG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K4, K2, K3, K1));
             default :
                 throw new TDBException("Index name '" + indexName + "' not recognized");
         }
@@ -161,7 +259,7 @@ public class ProcBuildIndexX
     }
 
     private static long sort_build_index(Logger LOG, String datafile, DatasetGraph dsg, String indexName,
-                                         String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, long tickPoint, int superTick,
+                                         String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, long tickPoint, int superTick,
                                          String TMPDIR,
                                          List<String>sortKeyArgs) {
         if ( isEmpty(datafile) )
@@ -171,7 +269,7 @@ public class ProcBuildIndexX
         List<String> sortCmd = new ArrayList<>(Arrays.asList(
                 sortProgram,
                 "--temporary-directory="+TMPDIR,
-                "--buffer-size=50%",
+                "--buffer-size="+sortBufferSize,
                 "--parallel="+sortThreads,
                 "--unique"
         ));

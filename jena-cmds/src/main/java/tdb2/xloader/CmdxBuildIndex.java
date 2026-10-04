@@ -21,6 +21,9 @@
 
 package tdb2.xloader;
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.jena.atlas.lib.FileOps;
 import org.apache.jena.cmd.CmdException;
 import org.apache.jena.tdb2.xloader.ProcBuildIndexX;
@@ -39,10 +42,11 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
     protected void setCmdArgs() {
         super.add(argLocation,      "--loc=", "Database location");
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
-        super.add(argIndex,         "--index=", "Index name");
+        super.add(argIndex,         "--index=", "Index name, or a comma-separated list of names to build in parallel");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
         super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
         super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
+        super.add(argSortBuffer,    "--sort-buffer=", "Size for sort's --buffer-size (default: 50%); a percentage is shared between indexes built in parallel");
         //super.add(argSortIndexArgs, "--sortIndexArgs=", "Specialised argument for the sort for the indexes");
     }
 
@@ -62,6 +66,10 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
             throw new CmdException("Required : --loc");
         if ( indexName == null )
             throw new CmdException("Required : --index");
+        for ( String name : indexNames() ) {
+            if ( !ProcBuildIndexX.IndexNames.contains(name) )
+                throw new CmdException("--index :: Unknown index name: "+name);
+        }
     }
 
     @Override
@@ -82,6 +90,10 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
 
         if ( tmpdir == null )
             tmpdir = location;
-        ProcBuildIndexX.exec(location, indexName, sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+        ProcBuildIndexX.exec(location, indexNames(), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+    }
+
+    private List<String> indexNames() {
+        return Arrays.stream(indexName.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
     }
 }

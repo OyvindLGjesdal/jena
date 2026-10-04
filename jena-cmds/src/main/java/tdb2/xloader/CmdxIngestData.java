@@ -57,6 +57,8 @@ public class CmdxIngestData extends AbstractCmdxLoad {
         super.add(argTmpdir,     "--tmpdir=",  "Temporary directory (defaults to --loc)");
         super.add(argWorkfileGzipLevel,  "--workfile-gzip-level=", "Gzip level for the triples/quads workfiles: 0-9, or -1 for the Java default (default: 1)");
         super.add(argWorkfileGzipBuffer, "--workfile-gzip-buffer=", "Gzip output buffer size in bytes for the workfiles (default: 131072)");
+        super.add(argParseThreads,  "--parse-threads=", "Threads parsing N-Triples/N-Quads input and finding node ids (default: 1)");
+        super.add(argIngestThreads, "--ingest-threads=", "Threads for this step instead of --parse-threads (default: the --parse-threads value)");
 //        super.add(argTriplesOut, "--triples=", "Triples temporary file");
 //        super.add(argQuadsOut,   "--quads=",   "Quads temporary file");
     }

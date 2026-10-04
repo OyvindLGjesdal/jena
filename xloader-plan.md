@@ -800,6 +800,67 @@ flag with an incubator module; SWAR needs nothing special. Once tokens are scann
 bulk, the search method matters little; decompression and the parser/node creation
 (about 5.6 s) are what remain.
 
+### Term repetition: a byte-keyed term cache (2026-10-03, measured; see the prototype below)
+
+The node stage's `CacheSet<Node>` (500,000) only skips hashing and writing: every term
+is still tokenized, checked and turned into a `Node` first. A cache keyed on the
+token's raw bytes, before Node creation, would skip that too. Repetition on
+`lexemes-20M.nt.gz` (token text, one shared LRU of 500,000 as in `NodeHashTmpStream`;
+scratchpad `TermRepeats.java`):
+
+| Position | Same as previous line | LRU hits | Distinct | Avg chars |
+|---|---|---|---|---|
+| subject | 81.6% | 99.4% | 2,828,398 | 56.1 |
+| predicate | 33.4% | 100.0% | 1,684 | 49.5 |
+| object | 9.3% | 76.1% | 4,764,373 | 48.1 |
+| all | | 91.8% | | |
+
+Subjects hit more often than they repeat: statement nodes appear as objects first.
+So about 92% of term occurrences could skip tokenizing into a String, checking, Node
+creation and hashing; ingest could cache bytes to NodeId the same way (it is also
+parse-bound). Equal token text always means the same node in N-Triples (no prefixes or
+base; blank node labels within one parse); different escapes of the same term only
+cause extra misses. Check the hit rate on full lexemes and a truthy prefix: the
+distinct-term count grows with the data.
+
+### Alternative N-Triples front end with a term cache: prototype (2026-10-03, parked)
+
+Not a change to xloader now: an alternative parser for N-Triples/N-Quads input, either
+as an optional fast path (off by default, RIOT for everything else) or as part of a
+separate loader design. `TestXLoaderTermCache` (jena-benchmarks-xloader-jmh) on
+`lexemes-20M.nt.gz`, 3 passes each (`TestXLoaderTermCache_20261003013135.json`):
+
+| Benchmark | Mean |
+|---|---|
+| `nodeTableAsync` (now: `AsyncParser` + `NodeHashTmpStream`, two threads) | 20.90 s |
+| `termCache` (one thread: byte scan, 2^20-slot byte-keyed cache, RIOT tokenizer + profile on a miss) | 16.05 s |
+| `termCacheIri` (as `termCache`; missed IRIs without `\` skip the tokenizer) | 15.27 s |
+
+Hit rate 91.8% (55.1 M of 60 M terms); 4.67 M nodes written; setup checks that the
+node hashes equal today's (blank nodes excluded). The 4.9 M misses now dominate (about
+11-12 s: profile, hash, Thrift, hex); scanning and lookups about 4 s. Next if resumed:
+miss handling on a second thread (bound by the misses, about 11 s), then cheaper misses.
+
+Equivalence: a hit is safe because an N-Triples term's meaning depends only on its text
+(no prefixes or base; a blank node label is one node within a parse). Not yet
+equivalent in the prototype, and needed before any use:
+- statement grammar: the scanner does not check what LangNTriples checks (subject IRI
+  or blank node, predicate IRI, three terms then `.`, quads);
+- `termCacheIri` skips the tokenizer's IRI character checks (for example a space); with
+  N-Triples checking off the profile does not repeat them, so that shortcut is unsafe;
+- the parser profile must be the one RDFParser builds for the load (checking, error
+  handler); the prototype uses `RiotLib.profile` (not verified to match);
+- diagnostics: a repeated bad term warns once instead of every time; error positions
+  need the scanner's line numbers;
+- RDF 1.2: triple terms `<<( s p o )>>` (object position only, nested; `LangNTuple`)
+  are mis-scanned as IRIs. Either cache the whole triple term as one key (its meaning
+  also depends only on its text) and parse it with RIOT on a miss, or fall back to RIOT
+  for statements containing `<<`. Base-direction language tags (`@en--ltr`) already
+  work. Check how Jena treats `VERSION "1.2"` in N-Triples and match it. The W3C RDF 1.2
+  N-Triples/N-Quads suites cover these cases.
+Verification would be differential: the W3C N-Triples/N-Quads test suites and real
+dumps through both paths, comparing nodes and errors.
+
 ### Parse only once: measured, declined for now (2026-10-03)
 
 Idea: the node stage also writes a hash file (per triple position the inline NodeId
@@ -826,6 +887,309 @@ entries for them are never found again; ingest allocates them a second time. The
 is correct, but each blank node leaves an unused entry in `nodes.dat` and the node
 B+tree. A fixed label seed shared by both parses of one load would avoid this (not
 checked how RIOT exposes it).
+
+### `--sort-buffer` and `--parallel-indexes` (2026-10-04, uncommitted)
+
+Implemented items 1 and 2 below. `--sort-buffer=SIZE` sets sort's `--buffer-size` for
+every sort (default `50%`). `--parallel-indexes` (off by default) builds the triple
+indexes together, then the quad indexes, in one index step: one JVM, one thread and
+one sort per index (separate JVMs would conflict on TDB2's process lock; each index
+already has its own B+tree transaction). A percentage buffer is shared between the
+sorts running together (50% -> 16% each); a fixed size applies to each. If one build
+fails, the others are cancelled and their sorts killed. Tests: `parallelIndexes`,
+`sortBufferSizeApplies`, `sortBufferSizeRules`, `parallelIndexFailureStopsOtherSorts`.
+
+Lexemes, as `async-uusort1024M-pigz1-t8` (15:11) plus `--parallel-indexes`
+(`build/parallel`, run `20261003T234548Z-6388f88d`, `--threads 8` per sort):
+
+| | Sequential (15:11 run) | Parallel |
+|---|---|---|
+| SPO / POS / OSP (each) | 1:29 / 2:15 / 2:01 | 2:53 / 3:32 / 3:16 |
+| Index stages, wall clock | 5:43 | 3:32 |
+| Total | 15:11 | 12:51 (-15%) |
+
+Each index is slower alone (load average about 28 on 12 cores: 24 sort threads plus
+pigz), but the overlap saves 2:11. CPU 3,015 s in 771 s (3.9 cores on average).
+`--threads 4` (`20261003T235932Z-d802f532`): indexes 3:40 (2:39 / 3:40 / 3:10),
+total 12:56; the same as `--threads 8` within noise, so sort threads are not the
+limit with three sorts at once. `--threads 4` with `--sort-compress-args='-1 -p 4'`
+(`20261004T001438Z-efaf1f29`):
+
+| Run | Threads | pigz | SPO / POS / OSP | Indexes (wall) | Total |
+|---|---|---|---|---|---|
+| sequential (`async-uusort1024M-pigz1-t8`) | 8 | `-1` | 1:29 / 2:15 / 2:01 | 5:43 | 15:11 |
+| parallel | 8 | `-1` | 2:53 / 3:32 / 3:16 | 3:32 | 12:51 |
+| parallel | 4 | `-1` | 2:39 / 3:40 / 3:10 | 3:40 | 12:56 |
+| parallel | 4 | `-1 -p 4` | 2:35 / 3:40 / 3:15 | 3:40 | 12:54 |
+
+Sort threads and pigz threads make no difference once the three sorts overlap; the
+limit is elsewhere (disk, or the Java side decompressing the workfile and reading the
+sorted output). Default `--threads` is fine with `--parallel-indexes`. For truthy: peak tmp
+space rises (three sets of spills at once) and three merges share disk bandwidth;
+likely good on fast local disks, possibly worse on slow volumes. Measure on a truthy
+prefix. Note: `compare.py` per-index columns overlap in parallel runs; use the total.
+
+### Shared blank node seed (2026-10-04, uncommitted; plan item 4)
+
+The node table step creates a random seed for the load and writes it to
+`TMPDIR/blank-node-seed.txt` (`BlankNodeSeed`); ingest reads it. Each input file gets
+its own seed derived from the load seed and the file's position in the input list
+(`UUID.nameUUIDFromBytes(seed + "/" + index)`), used with
+`LabelToNode.createScopeByDocumentHash`, so both steps (and all parallel chunks) make
+the same blank node for a label in a file, while equal labels in different files stay
+different nodes (one document each). Without the seed file, ingest behaves as before.
+Correctness: the loaded data is the same up to blank node identities, which were random
+before too; what goes away are unused node table entries and ingest allocations.
+Tests: `blankNodesFoundByIngest` (also with 4 parse threads): 20 blank nodes in the node
+table for 20 in the data; `ingestWithoutSeedFile`: 40 (20 unused), as before.
+
+### Parallel ingest (2026-10-04, uncommitted)
+
+`--parse-threads=N` now also applies to ingest (`ParallelIngest`, on the generic
+`ParallelParser`, which `ParallelNodeParser` now uses too): the calling thread holds the
+write transaction; each worker parses chunks, finds node ids in its own read transaction
+(inline values directly, else hash lookup in the node B+tree without `NodeTableNative`'s
+lock, with a per-worker cache of 10M/N entries), writes rows to buffers and appends
+them to the workfiles under a lock. Missing nodes go to the writer thread
+(`getAllocateNodeId`), which returns the id; workers cache it. Rows and counts as
+`IngestData` (default-graph quads written as triples, counted as quads).
+Tests: `parallelIngestTriples` (isomorphic, with and without the seed file),
+`parallelIngestQuads` (named and default graph, exact), `parallelIngestParseError`
+(line 321 in the whole input).
+
+Lexemes, as the 10:19 run but with parallel ingest (`build/pingest`, run `20261004T100320Z-44f3d594`):
+node table 3:25, **ingest 2:41** (161 s, 1.42 M/s, against 3:36), indexes about 3:30,
+**total 9:37** (-62% against baseline-t8). Counts identical.
+
+Where ingest's time goes (not the 2.5x the JMH suggested):
+- not decompression: `rapidgzip -d -c -P 4 lexemes.nt.gz` alone: 33.0 GB in 15.6 s
+  (2.1 GB/s), ten times what ingest consumes; so a rapidgzip index would not help;
+- not the shared workfile gzip stream: Java gzip level 1 (128 KiB buffer) compresses
+  the whole 11.7 GB workfile on one thread in 22.5 s (520 MB/s), 14% of ingest.
+Next suspects: garbage collection with six parsers in `-Xmx4G` (allocation rate six
+times higher), smaller per-worker caches, or the reader thread copying chunks.
+
+Measured (2026-10-04): the ingest step alone (`CmdxIngestData`, as the launcher runs it),
+against the complete node table of that run, `XLOADER_DECOMPRESS=rapidgzip -d -c -P 4`,
+`-Xlog:gc`, one configuration after another (scratchpad `ingest-matrix/run.sh`):
+
+| # | Java | Heap, GC | Threads | Ingest | CPU | Peak RSS | GC pauses |
+|---|---|---|---|---|---|---|---|
+| 1 | 21 | 4G, G1 (as before) | 6 | 155.8 s | 1,304 s | 5.8 GB | 750, 49.5 s |
+| 2 | 21 | 8G, G1 | 6 | 119.1 s | 906 s | 10.1 GB | 391, 21.3 s |
+| 3 | 21 | 4G, G1 | 4 | 162.4 s | 1,215 s | 5.9 GB | 700, 48.3 s |
+| 4 | 21 | 4G, G1 | 8 | 164.7 s | 1,506 s | 5.9 GB | 775, 51.1 s |
+| 5 | 21 | 8G, ParallelGC | 6 | 100.1 s | 623 s | 10.1 GB | 155, 10.8 s |
+| 6 | 25 | 8G, G1, compact headers | 6 | 108.7 s | 805 s | 10.2 GB | 251, 12.9 s |
+| 7 | 25 | 8G, ParallelGC, compact headers | 6 | **96.2 s** | 603 s | 10.0 GB | 135, 7.8 s |
+
+Garbage collection was the limit: with a 4G heap a third of the time was GC pauses
+(G1 stops all workers), and thread count made no difference. 8G helps, ParallelGC more
+(throughput collector, fewer and shorter pauses, half the CPU), Java 25 with compact
+headers a little more. Ingest on one thread was 216 s: 2.2x with the best setting.
+Recommendation with `--parse-threads`: `JVM_ARGS="-Xmx8G -XX:+UseParallelGC"` on 32 GB
+(about a quarter of RAM; `JVM_ARGS` applies to every step, so with GNU sort lower
+`--sort-buffer`), plus `-XX:+UseCompactObjectHeaders` on Java 25. For truthy, the heap
+competes with the page cache for the node table, so not more than that.
+
+### Full load with the JVM recommendation (2026-10-04)
+
+Run `20261004T105838Z-b1f7532e`, label `uusort1024M-pigz1-t8-parallel-pt6-j25par8g` (run labels name the
+settings that differ from the default: sorter, compressor, threads, index mode, parse
+threads, JVM). `build/final` (all current changes, `XLOADER_DECOMPRESS` removed; the
+folder name is not a statement that the work is final). uu-sort 1024M segments, pigz -1,
+`--threads 8`, `--parallel-indexes`, `--parse-threads=6`, Corretto 25.0.3 with
+`-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders`, Java gzip for the input.
+
+| Stage | baseline-t8 | 9:37 run (Java 21, G1, 4G) | This run |
+|---|---|---|---|
+| Node table | 7:51 | 3:25 | 3:16 (parse 87.8 s, 2.61 M/s) |
+| Ingest | 4:16 | 2:41 | **1:33** |
+| SPO / POS / OSP | 3:27 / 5:45 / 4:00 | 2:55 / 3:30 / 3:12 (parallel) | 2:44 / 3:23 / 3:06 (parallel) |
+| Total | 25:23 | 9:37 | **8:15 (-67%)** |
+
+Counts identical. CPU 3,196 s in 495 s (6.5 cores on average). The index stages (about
+3:23 wall) and the node table (term index about 100 s, single-threaded) are now the
+largest parts.
+
+### Comparison with tdb2.tdbloader (2026-10-04)
+
+`tdb2.tdbloader --loader=MODE` from the same distribution (`build/final`), out of the
+box: no `JVM_ARGS` (Java's default heap, a quarter of RAM = 8 GB, G1), Corretto 21.0.12,
+lexemes, under `caffeinate -i`, one after another (scratchpad `tdbloader-modes.sh`;
+results in `runs/tdbloader/`). `tdbloader` has no thread option: each mode has a fixed
+plan (`LoaderPlans`). `sequential` and `basic` were not run (expected to take hours);
+`light` (in the command's help, not in the documentation) was not run either.
+
+| Loader | Time | CPU | Peak RSS | Triples | Database |
+|---|---|---|---|---|---|
+| `tdb2.tdbloader --loader=parallel` | 44:49 | 1,251 s | 14.9 GB | 229,010,967 | 35 GB |
+| `tdb2.tdbloader --loader=phased` (default) | 47:50 | 1,217 s | 14.9 GB | 229,010,967 | 35 GB |
+| `tdb2.xloader`, unchanged (`baseline-t8`) | 25:23 | | | 229,010,967 | 20 GB |
+| `tdb2.xloader`, this branch (8:15 run) | 8:15 | 3,196 s | | 229,010,967 | 20 GB |
+
+- `parallel` inserts every triple into SPO, POS and OSP at once (one thread per index):
+  157 k triples/s on average for the first 145 M, then 91 k/s once the trees outgrow the
+  page cache (batches down to 39 k/s).
+- `phased` loads the data into SPO only (6:51, about 0.56 M/s: SPO inserts are almost
+  local, the input being grouped by subject), then builds POS and OSP from SPO. That
+  second phase starts at about 1.9 M/s and falls to batches of 30-60 k/s after about
+  50 M triples: inserts in POS and OSP order land at random places in the trees.
+- Both write through ordinary transactions into B+trees built by insertion, which leaves
+  blocks partly empty: 35 GB against 20 GB from xloader, which sorts and packs each tree
+  bottom-up. Already at 229 M triples on 32 GB, random inserts are the limit; at
+  billions of triples the gap to xloader should grow (not measured).
+
+### Correctness check of the parallel paths (2026-10-04)
+
+Order-independent fingerprints (scratchpad `diag/CheckDb.java`, read only): every triple
+without blank nodes as MD5 of its N-Triples line, summed and XORed; blank-node triples
+compared by graph isomorphism; each of SPO, POS, OSP read in full and fingerprinted by
+NodeId tuples; the node table's non-blank nodes fingerprinted. About 41 minutes per
+database. The 8:15 run (`20261004T105838Z-b1f7532e`) against `baseline-t8`
+(`20260930T074510Z-651f55ca`, unchanged code from main):
+
+| | baseline-t8 (main) | 8:15 run |
+|---|---|---|
+| Triples without blank nodes | 229,009,514 | same count and fingerprint |
+| Triples with blank nodes | 1,453 | 1,453, isomorphic |
+| Nodes (not blank) | 51,144,369 | same count and fingerprint |
+| Blank nodes in node table | 2,906 (1,453 unused) | 1,453 (all used) |
+| SPO / POS / OSP consistent | yes | yes |
+
+The parallel paths load the same data as main; only the unused blank node entries are
+gone (the shared seed). Blank nodes in Wikidata: 89,760 in the first billion lines of
+truthy (one per "unknown value"), 1,453 triples in lexemes.
+
+### Parallel lookups for ingest: JMH (2026-10-04)
+
+`TestXLoaderIngest.resolveCachedParallel` (hash file in fixed 17-byte records split
+between threads; each thread has its own read transaction and a cache of 10M/threads
+entries), `lexemes-20M.nt.gz`, 3 passes each (`TestXLoaderIngest_20261004112454.json`):
+
+| Benchmark | Mean |
+|---|---|
+| `ingest` (as now: parse + lookups) | 20.25 s |
+| `resolveCached` (lookups only, one thread) | 10.16 s |
+| `resolveCachedParallel`, 1 / 2 / 4 / 8 threads | 9.99 / 5.71 / **3.52** / 4.42 s |
+
+Concurrent read transactions work and scale to 2.8x at 4 threads; 8 is slower (smaller
+per-thread caches or contention in the B+tree block managers; not investigated).
+With parallel parsing (node stage: 2.5x) ingest might drop from about 20 s to 6-8 s per
+20 M lines, lexemes ingest from 3:36 to roughly 1:20-1:30 (estimate). Next: implement
+(workers parse chunks, look up in their own read transactions, write row batches; misses
+to the writer thread); `XLOADER_JMH_INCLUDE` selects benchmarks by method name.
+
+### Parallel parsing in the node table stage (2026-10-04, uncommitted)
+
+`--parse-threads=N` (launcher and `CmdxBuildNodeTable`, default 1 = as before):
+`ParallelNodeParser` reads the decompressed input (Java gzip or `XLOADER_DECOMPRESS`)
+on the calling thread, cuts 4 MB chunks at line ends, and N workers parse each chunk
+with RIOT (N-Triples/N-Quads only; other syntaxes as before). Each worker has its own
+`NodeHashTmpStream` (now with its own `Hash` and Thrift serializer instead of shared
+static ones) and appends a chunk's sort lines to the sort input under a lock. Blank
+nodes: one seeded label policy per file (`LabelToNode.createScopeByDocumentHash(seed)`)
+for all chunks. Parse errors report the line in the whole input. Correctness: the
+node stage only pre-populates the node table; ingest is unchanged and still decides
+every triple (any node missed would be allocated there). Tests: `TestParallelNodeParser`
+(7) and `TestXLoader.parallelParseLoad` (isomorphic to an in-memory parse).
+
+Launcher bug found on the way: `-*threads=*` (for `--threads=N`) also matched
+`--parse-threads=6` and set sort threads; the `--parse-threads` patterns now come first.
+
+Lexemes, best configuration plus `--parse-threads=6` (`build/pparse`, run
+`20261004T011146Z-7d5a73e5`):
+
+| | parallel + rapidgzip | + `--parse-threads=6` |
+|---|---|---|
+| Parse (nodes) | 229.3 s (1.00 M/s) | 90.0 s (2.55 M/s) |
+| Node table | 5:32 | 3:13 |
+| Ingest | 3:34 | 3:36 |
+| Indexes (wall) | 3:25 | about 3:28 |
+| Total | 12:33 | 10:19 (-59% against baseline-t8, 25:23) |
+
+Counts identical (229,010,967 triples, 51,145,822 terms). 2.5x with 6 workers, not 6x:
+the next limit is the reader thread, the lock on the sort input, or sort itself (to
+check). Next: shared blank node seed for both stages, then parallel lookups in ingest
+(read transactions per worker, misses to the writer).
+
+### `XLOADER_DECOMPRESS` and the truthy prefix (2026-10-04; the option is removed again)
+
+**Removed (2026-10-04):** with parallel ingest and the best JVM setting (Java 25,
+`-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders`, 6 threads), ingest alone took
+93.6 s with rapidgzip and 93.7 s with Java's own gzip; Java's single-thread inflate keeps
+up (rapidgzip alone 2.1 GB/s, Java about 1.1 GB/s, ingest needs about 0.35 GB/s). The
+option, its launcher check, the harness `--decompress` and their tests are gone;
+`InputFile` only opens files as RIOT does. rapidgzip stays useful outside xloader, for
+cutting prefixes. The record below is kept for the measurements.
+
+
+`XLOADER_DECOMPRESS` (environment variable, unset by default): a program and arguments
+that decompress `.gz` input, run with the file name last (`InputFile`); the node table
+and ingest steps parse its output instead of decompressing in Java. The launcher checks
+it on a small test file and logs it; the harness option `--decompress` sets and records
+it. Failures of the program fail the load with its stderr. Tests: `externalDecompress`,
+`externalDecompressFailureFails`, `externalDecompressApplies`. Also fixed in the
+harness: `--sort-compress` is now passed to launchers that support it, so the
+launcher checks `SORT_COMPRESS_ARGS` against the real program (it checked gzip, which
+rejected `-p 4`).
+
+Lexemes, best parallel configuration plus `--decompress='rapidgzip -d -c -P 4'`
+(rapidgzip 0.16.0, `build/decompress`, run `20261004T004337Z-7602e029`): parse (nodes)
+229.3 s (229.1-234.0 s in the three parallel runs), node table 5:32, ingest 3:34
+(1.07 M/s against 3:40-3:41), indexes 3:25, total 12:33 (-2% against 12:51). Within
+or near noise: decompression in the parser thread costs less in the pipeline than the
+2.5 s per 20 M lines measured alone. Worth it only with parallel parsing (then also a
+rapidgzip index: `--export-index` in the node stage, `--import-index` in ingest).
+
+Truthy prefix: the first 1,000,000,000 lines cut with
+`rapidgzip -d -c -P 8 | head -n 1000000000 | pigz -1` in 4:21; 12.0 GB
+(`downloads/wikidata-20260926-truthy-BETA-1b.nt.gz`), pinned as `truthy-1b`.
+
+### Further xloader improvements (2026-10-03, proposed)
+
+Within xloader, keeping Jena's parser and the loader's design. Measured basis: the
+fastest run (`async-uusort1024M-pigz1-t8`, 15:11) used 2,906 CPU-seconds in 912 s,
+3.2 of 12 cores on average; most remaining gain is in idle cores. Rejected or parked:
+validate once (no gain), the Vector API (no gain over SWAR), parse once (hash file too
+large for truthy), JDK 25 options (no gain), the byte-keyed term cache (too many cases
+for equivalence; see the prototype).
+
+1. **Build SPO, POS and OSP at the same time** (largest expected gain). Now sequential:
+   1:29 + 2:14 + 2:00. Each reads the same workfile with its own sort; none uses the
+   whole machine. Running them in parallel might approach the slowest one (guess:
+   saving about 3 minutes of 15). Needs: the launcher starting the three index
+   processes together (check how the stages commit, as they share one database
+   directory); sort memory shared (`--sort-buffer`, item 2; uutils 1024M segments
+   already fit); peak tmp use rises (three sets of spills). Off by default, for example
+   `--parallel-indexes`.
+2. **`--sort-buffer=SIZE`** for all sorts (default `50%`), optionally
+   `--sort-buffer-nodes`. Replaces the uutils wrapper; needed for 1.
+3. **Parallel parsing with Jena's own parser** (idea 6, the safe form). Split the
+   decompressed input at line ends; each chunk parsed by RIOT's N-Triples/N-Quads
+   parser, so no equivalence argument is needed (one statement per line). Node stage:
+   order irrelevant, hashing can be spread too. Ingest: chunks in order; the node table
+   lookups then limit (measure with JMH). Needs item 4.
+4. **A fixed blank node label seed per load.** Each parse labels blank nodes with a new
+   random seed (`LabelToNode.createScopeByDocumentHash()`), so the node stage's entries
+   for blank nodes are never found again and ingest allocates them a second time.
+   RIOT has the seeded form (`createScopeByDocumentHash(UUID seed)`, "if repeated runs
+   must give identical allocations") and `RDFParserBuilder.labelToNode(...)`. The
+   launcher would create one seed per load and pass it to both stages. Each input file
+   needs its own seed derived from it (for example from the load seed and the file's
+   position), so equal labels in two files stay different blank nodes, as now.
+5. **Faster term indexing in the node stage** (about 100 s, 445 k terms/s). The sorted
+   node output is read by `hexRead`, one `input.read()` per byte, each through
+   `SortProcess`'s cancellation check. Read blocks and decode hex in bulk; same output.
+   Measure first (JMH reading records from a sorted file).
+6. **Cheaper hex output in the node stage** (parser idea 2). Hidden behind the parse
+   since `AsyncParser`; matters once item 3 makes the consumer the limit.
+7. **Practical:** a disk space estimate before loading (truthy); document the
+   measured best settings in the launcher help and the harness README; report the
+   Ubuntu uutils issue and the `AsyncParser` interrupt issue.
+
+Suggested order: 2 then 1 (small changes, large expected gain, one lexemes run each);
+4; 5 with a JMH benchmark first; 3 as the larger piece once 4 is in.
 
 ## Slow OpenStack volumes (notes, 2026-09-29)
 
@@ -947,6 +1311,14 @@ Hypotheses and candidate factors, not measured unless stated.
     (`-XX:+UseCompactObjectHeaders`, product in 25, off by default) may gain a few
     percent in the node-table and ingest stages. Compare JDK 25 with and without it;
     keep one JDK fixed across a series. `brew install --cask corretto@25`.
+
+    **Result (2026-10-03): minimal change; not pursued.** Corretto 25.0.3 with
+    `-Xmx4G -XX:+UseCompactObjectHeaders -XX:+UseParallelGC`, otherwise as
+    `async-uusort1024M-pigz1-t8` (Corretto 21.0.12, G1, 15:11); run
+    `20261002T230631Z-d9ffb054`, stopped during ingest: parse 237.0 s (against
+    239.5 s), node table 5:40 (against 5:39), ingest at 1.02 M triples/s on average
+    (about the same as 3:44). The index sorts run outside Java. The runs of JDK 25
+    alone and with compact headers alone were not made.
 
 ### Scaling to truthy (hypotheses)
 
@@ -1169,15 +1541,23 @@ has only one run per configuration, report that limitation explicitly.
 
 ## Immediate next steps
 
-1. Done: uu-sort load (1024M wrapper, pigz, 8 threads), 17:11, counts exact.
-2. Done: GNU sort with pigz and `--threads 8`, 22:32 (rerun under `caffeinate`).
-   Free disk space first before further runs (46 GB free after it).
-3. Sort-only compressor test (factor 10).
-4. Repeats of `baseline`, `current-pigz` and the best sort setup; then
-   `baseline-pigz`.
-5. Profile the parser with JFR; then the parser changes ("Parser speed ideas").
-6. `check_sort.py` for parsort and acefsm/rust_sort; the whole-line sort variants.
-7. Harness: `compare`, cleanup and `--xloader-arg`; then the workfile gzip and
-   uncompressed-workfile experiments.
-8. Mount the external SSD; test a truthy prefix before the full truthy baseline.
-   For OpenStack, see "Slow OpenStack volumes".
+Updated 2026-10-04. Best lexemes load so far: 8:15 (see "Full load with the JVM
+recommendation"). Done since the first list: uu-sort, pigz, `--threads`, `compare.py`,
+`--xloader-arg`, the `AsyncParser` node stage, `--sort-compress-nodes`,
+`--sort-buffer`, `--parallel-indexes`, parallel parsing in the node table and ingest
+steps, the shared blank node seed, the JVM recommendation; `XLOADER_DECOMPRESS` tried and
+removed.
+
+1. Free disk space (about 215 GB of old lexemes run databases; command in the
+   session notes: keep `651f55ca`, `44f3d594` and the newest run).
+2. Truthy 1B prefix (`truthy-1b`, cut and pinned) with the best configuration plus
+   `--sort-compress-nodes`; needs about 150-180 GB free. Measures ingest once the node
+   table no longer fits in memory, and space per triple, before a full truthy load.
+3. Correctness check of the parallel paths on lexemes: compare the 8:15 run's database
+   with a single-thread run's (sorted N-Quads dump and the node table's nodes).
+4. Next speed targets: the index stages (about 3:23 wall) and the single-threaded term
+   index in the node table step (about 100 s, `hexRead` byte by byte).
+   Done: comparison with `tdb2.tdbloader` (`parallel` 44:49, `phased` 47:50).
+5. Open from the first list: sort-only compressor test; repeats of baseline runs;
+   JFR profile; `check_sort.py`; OpenStack (see "Slow OpenStack volumes").
+6. Report upstream: the Ubuntu uutils sort issue, the `AsyncParser` interrupt issue.

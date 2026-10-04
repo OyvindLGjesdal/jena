@@ -1,0 +1,79 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ *   SPDX-License-Identifier: Apache-2.0
+ */
+package org.apache.jena.tdb2.xloader;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongConsumer;
+
+import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.system.StreamRDF;
+
+/**
+ * The node table step on several threads ({@link ParallelParser}): each worker writes
+ * the sort lines for a chunk ({@link ProcBuildNodeTableX.NodeHashTmpStream}, with its
+ * own node cache) to a buffer, then appends the whole buffer to the sort input under a
+ * lock. The order of nodes does not matter to the sort.
+ */
+final class ParallelNodeParser {
+
+    private ParallelNodeParser() {}
+
+    /**
+     * Parse all of {@code input} (decompressed N-Triples or N-Quads) and write the node
+     * table sort lines to {@code output}.
+     * @param seed      blank node label seed for this file (see {@link BlankNodeSeed})
+     * @param progress  called with the number of triples or quads in each parsed chunk
+     * @return the number of triples or quads
+     */
+    static long parse(InputStream input, Lang lang, String baseIRI, UUID seed, OutputStream output,
+                      int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress) {
+        return ParallelParser.parse(input, lang, baseIRI, seed, threads, chunkSize, cancelled, progress,
+                                    () -> new NodeWorker(output), null);
+    }
+
+    private static final class NodeWorker implements ParallelParser.Worker {
+        private final OutputStream output;
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(1 << 20);
+        private final StreamRDF nodes = new ProcBuildNodeTableX.NodeHashTmpStream(buffer);
+
+        NodeWorker(OutputStream output) {
+            this.output = output;
+        }
+
+        @Override
+        public StreamRDF stream() {
+            return nodes;
+        }
+
+        @Override
+        public void endChunk() throws IOException {
+            synchronized (output) {
+                buffer.writeTo(output);
+            }
+            buffer.reset();
+        }
+    }
+}

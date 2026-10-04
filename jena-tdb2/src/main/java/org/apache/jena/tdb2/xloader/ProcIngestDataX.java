@@ -24,6 +24,7 @@ package org.apache.jena.tdb2.xloader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.atlas.io.IO;
@@ -31,6 +32,7 @@ import org.apache.jena.atlas.json.JSON;
 import org.apache.jena.atlas.json.JsonObject;
 import org.apache.jena.atlas.lib.BitsLong;
 import org.apache.jena.atlas.lib.DateTimeUtils;
+import org.apache.jena.atlas.lib.IRILib;
 import org.apache.jena.atlas.lib.Pair;
 import org.apache.jena.atlas.lib.Timer;
 import org.apache.jena.atlas.logging.FmtLog;
@@ -38,6 +40,8 @@ import org.apache.jena.dboe.base.file.Location;
 import org.apache.jena.dboe.sys.Names;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
+import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFParserBuilder;
 import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.sparql.core.DatasetGraph;
@@ -94,7 +98,7 @@ public class ProcIngestDataX {
                 // committing, including when opening the second output or parsing fails.
                 try ( OutputStream triples = IO.ensureBuffered(IO.openOutputFile(loaderFiles.triplesFile, gzipLevel, gzipBufferSize));
                       OutputStream quads = IO.ensureBuffered(IO.openOutputFile(loaderFiles.quadsFile, gzipLevel, gzipBufferSize)) ) {
-                    counts = build(dsg, monitor, triples, quads, datafiles);
+                    counts = build(dsg, monitor, triples, quads, datafiles, BlankNodeSeed.read(loaderFiles));
                 } catch (IOException ex) {
                     throw new RuntimeIOException(ex);
                 }
@@ -140,7 +144,7 @@ public class ProcIngestDataX {
 
     private static Pair<Long, Long> build(DatasetGraph dsg, ProgressMonitor monitor,
                               OutputStream outputTriples, OutputStream outputQuads,
-                              List<String> datafiles) {
+                              List<String> datafiles, UUID blankNodeSeed) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
         IngestData sink = new IngestData(dsgtdb, monitor, outputTriples, outputQuads, false);
         Timer timer = new Timer();
@@ -148,7 +152,44 @@ public class ProcIngestDataX {
         // [BULK] XXX Better :: Start monitor on first item from parser.
         monitor.start();
         sink.startBulk();
-        AsyncParser.asyncParse(datafiles, sink);
+        long parallelTriples = 0;
+        long parallelQuads = 0;
+        if ( BulkLoaderX.ingestThreads() > 1 ) {
+            // N-Triples and N-Quads files on several threads; other files as below, one at a time.
+            for ( int i = 0 ; i < datafiles.size() ; i++ ) {
+                String datafile = datafiles.get(i);
+                Lang lang = InputFile.lang(datafile);
+                try ( InputFile input = InputFile.open(datafile) ) {
+                    if ( Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang) ) {
+                        // Without a seed from the node table step, still one seed for all chunks of the file.
+                        UUID seed = ( blankNodeSeed != null ) ? BlankNodeSeed.fileSeed(blankNodeSeed, i) : UUID.randomUUID();
+                        ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, input.stream(), lang, IRILib.filenameToIRI(datafile), seed,
+                                outputTriples, outputQuads, BulkLoaderX.ingestThreads(), BulkLoaderX.ParseChunkSize, () -> false,
+                                n -> { synchronized (monitor) { for ( long t = 0 ; t < n ; t++ ) monitor.tick(); } });
+                        parallelTriples += counts.triples();
+                        parallelQuads += counts.quads();
+                    } else {
+                        RDFParserBuilder parser = input.parser();
+                        if ( blankNodeSeed != null )
+                            parser.labelToNode(BlankNodeSeed.labelToNode(blankNodeSeed, i));
+                        AsyncParser.asyncParseSources(List.of(parser), sink);
+                    }
+                }
+            }
+        } else if ( blankNodeSeed == null ) {
+            // No seed from the node table step: as before, each parse labels blank nodes itself.
+            AsyncParser.asyncParse(datafiles, sink);
+        } else {
+            // One file at a time, with blank node labels from the node table step's seed for the file.
+            for ( int i = 0 ; i < datafiles.size() ; i++ ) {
+                try ( InputFile input = InputFile.open(datafiles.get(i)) ) {
+                    RDFParserBuilder parser = input.parser();
+                    if ( blankNodeSeed != null )
+                        parser.labelToNode(BlankNodeSeed.labelToNode(blankNodeSeed, i));
+                    AsyncParser.asyncParseSources(List.of(parser), sink);
+                }
+            }
+        }
 //        for( String filename : datafiles) {
 //            if ( datafiles.size() > 0 )
 //                cmdLog.info("Load: "+filename+" -- "+DateTimeUtils.nowAsString());
@@ -156,8 +197,8 @@ public class ProcIngestDataX {
 //        }
         sink.finishBulk();
 
-        long cTriple = sink.tripleCount();
-        long cQuad = sink.quadCount();
+        long cTriple = sink.tripleCount() + parallelTriples;
+        long cQuad = sink.quadCount() + parallelQuads;
 
         // ---- Stats
 
@@ -251,7 +292,7 @@ public class ProcIngestDataX {
         }
 
         // --> From NodeIdFactory
-        private static long encode(NodeId nodeId) {
+        static long encode(NodeId nodeId) {
             long x = nodeId.getPtrLocation(); // Should be "getValue"
             switch (nodeId.type()) {
                 case PTR :
