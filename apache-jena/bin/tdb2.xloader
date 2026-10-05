@@ -20,6 +20,7 @@
 ##   JENA_CP
 ##   JENA_HOME
 ##   JVM_ARGS
+##   JVM_ARGS_INGEST
 ##   SORT_COMPRESS_ARGS
 
 ## Programs used:
@@ -157,7 +158,7 @@ function printUsage() {
 $(basename $0) TDB2 Bulk Loader
 
 Usage: ${TDB_CMD} --loc <Directory> [--tmpdir=DIR] [--threads=N] [--sort=PROGRAM] [--sort-compress=PROGRAM] \
-       [--sort-compress-nodes] [--sort-buffer=SIZE] [--parallel-indexes] [--parse-threads=N] [--ingest-threads=N] \
+       [--sort-compress-nodes] [--sort-buffer=SIZE] [--parallel-indexes] [--parse-threads=N] [--ingest-threads=N] [--term-threads=N] [--preload-node-table] [--node-table-in-memory] \
        [--workfile-gzip-level=N] [--workfile-gzip-buffer=BYTES] FILE ...
 
 Bulk loader for TDB2.
@@ -209,6 +210,26 @@ See https://jena.apache.org/documentation/tdb/tdb-xloader.html
     many more threads than cores (for example 32 or 64 on an NVMe SSD) keep
     more reads in flight. Default: the --parse-threads value.
 
+--term-threads=N
+    Threads decoding the sorted node lines in the node table step's term
+    index, after the node sort (default 1). The terms are written in order
+    on one thread; decoding (hex and a check of each term) is the costly
+    part.
+
+--preload-node-table
+    Before ingest, read the node table's B+tree (nodes.dat, nodes.idn) once,
+    start to end, so the page cache holds as much of it as fits. Ingest's
+    lookups go to random places in it; filling the cache by one sequential
+    read is much faster than through random reads. Useful when the node
+    table is larger than memory. Off by default.
+
+--node-table-in-memory
+    With --ingest-threads above 1: ingest first reads the node table's
+    B+tree once and holds its hash to NodeId mapping in memory, compressed
+    to about 5-6 bytes a term (about 9 GB for 1.6 billion terms), so its
+    lookups need no disk reads. The ingest step's heap must hold it (see
+    JVM_ARGS_INGEST). Blank nodes still use the B+tree. Off by default.
+
 --workfile-gzip-level=N, --workfile-gzip-buffer=BYTES
     Gzip settings for the triples/quads workfiles written by the ingest step
     and read by each index build. Defaults: level 1 (fastest), 131072 bytes.
@@ -229,6 +250,12 @@ JVM_ARGS
     This defaults to "-Xmx4G"
     Do not set to all available RAM.
     Increasing is only necessary for large numbers of long literals.
+
+JVM_ARGS_INGEST
+    Arguments for the JVM of the ingest step only, in place of JVM_ARGS.
+    Unset by default (ingest uses JVM_ARGS). Ingest looks up every node in
+    the memory-mapped node table: a smaller heap leaves more memory for the
+    operating system's page cache.
 
 SORT_COMPRESS_ARGS
     Arguments for the program that compresses sort's temporary files
@@ -339,6 +366,9 @@ SORT_BUFFER=""
 PARALLEL_INDEXES=""
 PARSE_THREADS=""
 INGEST_THREADS=""
+TERM_THREADS=""
+PRELOAD_NODE_TABLE=()
+NODE_TABLE_IN_MEMORY=()
 
 while [ $# -gt 0 ]
 do
@@ -379,6 +409,15 @@ do
 	    ;;
 	## Number of sort threads
 	## Before the --threads patterns: -*threads=* would also match these.
+	--term-threads|-term-threads)
+	    shift
+	    TERM_THREADS="$1"
+	    shift
+	    ;;
+	--term-threads=*|-term-threads=*)
+	    TERM_THREADS=${ARG#*=}
+	    shift
+	    ;;
 	--ingest-threads|-ingest-threads)
 	    shift
 	    INGEST_THREADS="$1"
@@ -439,6 +478,14 @@ do
 	    ;;
 	--sort-buffer=*|-sort-buffer=*)
 	    SORT_BUFFER=${ARG#*=}
+	    shift
+	    ;;
+	--preload-node-table|-preload-node-table)
+	    PRELOAD_NODE_TABLE=(--preload-node-table)
+	    shift
+	    ;;
+	--node-table-in-memory|-node-table-in-memory)
+	    NODE_TABLE_IN_MEMORY=(--node-table-in-memory)
 	    shift
 	    ;;
 	--parallel-indexes|-parallel-indexes)
@@ -525,6 +572,13 @@ PARSE_THREADS_ARGS=()
 if [[ -n $PARSE_THREADS ]] ; then
     [[ $PARSE_THREADS =~ ^[1-9][0-9]*$ ]] || abort 1 "Bad value for --parse-threads (a positive number): $PARSE_THREADS"
     PARSE_THREADS_ARGS=("--parse-threads=$PARSE_THREADS")
+fi
+
+## Optional decoder threads for the node table step's term index.
+TERM_THREADS_ARGS=()
+if [[ -n $TERM_THREADS ]] ; then
+    [[ $TERM_THREADS =~ ^[1-9][0-9]*$ ]] || abort 1 "Bad value for --term-threads (a positive number): $TERM_THREADS"
+    TERM_THREADS_ARGS=("--term-threads=$TERM_THREADS")
 fi
 
 ## Optional thread count for the ingest step only.
@@ -632,6 +686,15 @@ fi
 if [[ -n $INGEST_THREADS ]] ; then
     info "  Ingest threads: $INGEST_THREADS (ingest step, N-Triples/N-Quads)"
 fi
+if [[ -n $TERM_THREADS ]] ; then
+    info "  Term threads: $TERM_THREADS (term index decoding)"
+fi
+if [[ ${#PRELOAD_NODE_TABLE[@]} -gt 0 ]] ; then
+    info "  Ingest:   preload node table"
+fi
+if [[ ${#NODE_TABLE_IN_MEMORY[@]} -gt 0 ]] ; then
+    info "  Ingest:   node table in memory"
+fi
 if [[ ${#SORT_COMPRESS_NODES[@]} -gt 0 ]] ; then
     info "  Node table sort: compressed temporary files"
 fi
@@ -642,6 +705,9 @@ fi
 ## Large heap not required.
 ## Max use is in the digest phase for the enlarged Node to Node id cache.
 JVM_ARGS="${JVM_ARGS:--Xmx4G}"
+if [[ -n ${JVM_ARGS_INGEST:-} ]] ; then
+    info "  Ingest JVM: $JVM_ARGS_INGEST (JVM_ARGS_INGEST)"
+fi
 
 ## Unique string used to mark where steps end and where the key information is to be found.
 STEP_END_MARKER="=-=-=-=-=-=-=-="
@@ -656,7 +722,7 @@ if [ "$SYSTEM" == "TDB2" ]; then
     info
     T="$(now)"
     info "Load node table"
-    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_COMPRESS_NODES[@]}" "${SORT_BUFFER_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" $DATAFILES
+    exec_java $PKG.CmdxBuildNodeTable --loc $LOC --tmpdir "$TMPDIR" --threads $SORT_THREADS --sort "$SORT" "${SORT_COMPRESS_PROGRAM[@]}" "${SORT_COMPRESS_NODES[@]}" "${SORT_BUFFER_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" "${TERM_THREADS_ARGS[@]}" $DATAFILES
     TIME_NODE_TABLE=$(($(now)-$T))
     info "$STEP_END_MARKER"
 fi
@@ -665,8 +731,11 @@ fi
 info
 info "Ingest data"
 T="$(now)"
-exec_java $PKG.CmdxIngestData --loc $LOC --tmpdir "$TMPDIR" "${WORKFILE_GZIP_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" "${INGEST_THREADS_ARGS[@]}" --triples "$TMPDIR/triples.tmp" --quads "$TMPDIR/quads.tmp" $DATAFILES
+JVM_ARGS_STEPS="$JVM_ARGS"
+JVM_ARGS="${JVM_ARGS_INGEST:-$JVM_ARGS}"
+exec_java $PKG.CmdxIngestData --loc $LOC --tmpdir "$TMPDIR" "${WORKFILE_GZIP_ARGS[@]}" "${PARSE_THREADS_ARGS[@]}" "${INGEST_THREADS_ARGS[@]}" "${PRELOAD_NODE_TABLE[@]}" "${NODE_TABLE_IN_MEMORY[@]}" --triples "$TMPDIR/triples.tmp" --quads "$TMPDIR/quads.tmp" $DATAFILES
 TIME_INGEST=$(($(now)-$T))
+JVM_ARGS="$JVM_ARGS_STEPS"
 info "$STEP_END_MARKER"
 
 ## ======== Indexes

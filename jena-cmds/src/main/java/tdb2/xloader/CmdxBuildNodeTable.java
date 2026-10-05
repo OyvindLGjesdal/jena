@@ -46,6 +46,7 @@ public class CmdxBuildNodeTable extends AbstractCmdxLoad {
         super.add(argSortCompressNodes, "--sort-compress-nodes", "Compress the node table sort's temporary files too (default: only the index sorts)");
         super.add(argSortBuffer,    "--sort-buffer=", "Size for sort's --buffer-size (default: 50%)");
         super.add(argParseThreads,  "--parse-threads=", "Threads parsing N-Triples/N-Quads input (default: 1)");
+        super.add(argTermThreads,   "--term-threads=", "Threads decoding the sorted nodes for the term index (default: 1)");
         //super.add(argSortNodeTableArgs, "--sortNodeTableArgs=", "Specialised argument for the sort for the node table");
     }
 

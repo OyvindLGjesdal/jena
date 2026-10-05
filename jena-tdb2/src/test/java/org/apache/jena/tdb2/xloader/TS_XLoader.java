@@ -25,5 +25,5 @@ import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.Suite;
 
 @Suite
-@SelectClasses({TestSortProcess.class, TestXLoader.class})
+@SelectClasses({TestSortProcess.class, TestXLoader.class, TestParallelNodeParser.class, TestSortedNodeRecords.class})
 public class TS_XLoader {}

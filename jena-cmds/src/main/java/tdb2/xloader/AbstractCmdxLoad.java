@@ -59,6 +59,9 @@ abstract class AbstractCmdxLoad extends CmdMain {
     protected static ArgDecl argSortBuffer   = new ArgDecl(true, "sort-buffer", "sortBuffer", "sortbuffer");
     protected static ArgDecl argParseThreads = new ArgDecl(true, "parse-threads", "parseThreads", "parsethreads");
     protected static ArgDecl argIngestThreads = new ArgDecl(true, "ingest-threads", "ingestThreads", "ingestthreads");
+    protected static ArgDecl argPreloadNodeTable = new ArgDecl(false, "preload-node-table");
+    protected static ArgDecl argNodeTableInMemory = new ArgDecl(false, "node-table-in-memory");
+    protected static ArgDecl argTermThreads  = new ArgDecl(true, "term-threads", "termThreads", "termthreads");
 
 //    // If this is put back, note there are two different sorts - one for the node table and several for the indexes.
 //    protected static ArgDecl argSortNodeTableArgs   = new ArgDecl(true, "sortNodeTableArgs");
@@ -145,6 +148,16 @@ abstract class AbstractCmdxLoad extends CmdMain {
             // Each xloader step runs in its own JVM.
             BulkLoaderX.ParseThreads = threads;
         }
+        if ( super.contains(argTermThreads) ) {
+            int threads = intArg(argTermThreads, "--term-threads");
+            if ( threads < 1 || threads > 256 )
+                throw new CmdException("--term-threads :: Must be 1 to 256: "+threads);
+            BulkLoaderX.TermThreads = threads;
+        }
+        if ( super.contains(argPreloadNodeTable) )
+            BulkLoaderX.PreloadNodeTable = true;
+        if ( super.contains(argNodeTableInMemory) )
+            BulkLoaderX.NodeTableInMemory = true;
         if ( super.contains(argIngestThreads) ) {
             int threads = intArg(argIngestThreads, "--ingest-threads");
             if ( threads < 1 || threads > 1024 )

@@ -1040,6 +1040,179 @@ plan (`LoaderPlans`). `sequential` and `basic` were not run (expected to take ho
   bottom-up. Already at 229 M triples on 32 GB, random inserts are the limit; at
   billions of triples the gap to xloader should grow (not measured).
 
+### Second full truthy run (2026-10-04, in progress)
+
+Run `runs/truthy/20261004T173618Z-b18cd538` on the SSD, build `terms-pipeline`, settings
+as the first run plus `--ingest-threads=32 --preload-node-table`.
+
+- Node parse 60:30 (2.28 M triples/s; first run 59:14); spill merge about 9.5 min.
+- Term index 24:18 at 1.10 M terms/s (first run 49:41): the faster term index works at
+  full scale. Node table step 1:34:03 in total (first run 1:58:15).
+- Preload: 38.8 GB in 11.3 s.
+- **Ingest with 32 threads: 71 k/s falling to 42 k/s**, 86% of CPU in the kernel, 5% in
+  user code, the SSD reading only about 77 MB/s. 26 of 32 workers were in B+tree page
+  access on the mapped `nodes.dat` (`RecordBufferPage` creation): macOS's page-fault
+  handling for one mapped file does not scale to 32 faulting threads. Stopped at 10 M
+  triples.
+- Resumed at ingest (node table kept) with `--ingest-threads=8`, by
+  `resume.sh` in the run folder: a launcher copy that skips the node table step and the
+  existing-database check, same environment as the harness. Ingest at about 250 k/s
+  (peaks 318 k/s), kernel CPU 18%. Steps from here are timed by the launcher log
+  (`loader-resume.log`), not the harness.
+- Thread sweep (`sweep.sh` in the run folder): each setting restarted at ingest with the
+  preload, average rate at 20 M triples:
+
+  | `--ingest-threads` | avg at 20 M |
+  |---|---|
+  | 3 | 138 k/s |
+  | 8 | 254 k/s |
+  | **12** | **299 k/s** |
+  | 16 | 207 k/s |
+  | 24 | 48 k/s |
+  | 32 | about 55 k/s (stopped at 10 M) |
+
+  The roof is around 12 on this machine (M2 Pro, 12 cores, 32 GB): fewer threads leave
+  too few page reads in flight; more make the kernel's page-fault handling for the one
+  mapped file the limit (kernel CPU 18% at 8, 25% at 12, 86% at 32). Linux may differ.
+- Heap test (`heap.sh`), 12 threads, average at 50 M: 8 GB, 4 GB, 2.5 GB with a 5 M
+  cache. New in build `ingest-heap`: `JVM_ARGS_INGEST` in the launcher (the ingest
+  step's JVM arguments in place of `JVM_ARGS`) and the system property
+  `jena.xloader.ingest.cacheSize` (parallel ingest's cache, default 10 M entries).
+  Ingest's live heap is mostly that cache: at 15 M triples the old generation held about
+  2 GB and was still growing. Each GB less heap is about 2.6% more of `nodes.dat` in the
+  page cache.
+
+  | Ingest heap | cache | avg at 50 M |
+  |---|---|---|
+  | 8 GB | 10 M | 289 k/s |
+  | 4 GB | 10 M | 285 k/s |
+  | **2.5 GB** | **5 M** | **347 k/s** (+20%) |
+
+  The heap alone made no difference, the smaller cache did: probably the cost of a large
+  Caffeine cache (maintenance, a heap of long-lived small objects for the GC) rather than
+  more page cache. Not yet tested: 1-2 M entries. Ingest continues with 2.5 GB / 5 M
+  from 21:45 (about 6.5 h at this rate).
+- **Node table in memory (`--node-table-in-memory`, build `compact-table`)**: the idea
+  below, implemented (`CompactNodeTable`, `EliasFano`). Truthy: 1,609,180,945 terms in
+  8,305 MB, built in 124-126 s from the B+tree (after the preload). With 12 threads, a
+  1 M cache and the table, ingest ran at **2.9 M triples/s** (avg 2.92 M at 905 M
+  triples), against 347 k/s at best without it; CPU 60% user, 5% kernel. Needs the old
+  generation to hold the table: `-Xmx13G` (ParallelGC's default 1/3 young) left the old
+  generation full and gave about 3.5 full GCs a second; `-Xmx12G -Xmn1536M` (old 10.5 GB)
+  was normal (young GCs, 2 full). Stopped at 905 M for the main comparison below.
+- Resumed 22:27 with the table (`-Xmx12G -Xmn1536M`, 12 threads, 1 M cache): table built
+  in 127 s; **ingest of all 8,261,251,250 triples in 45:40 (2,739.5 s), 3.02 M
+  triples/s**, steady at about 3.0 M/s from 200 M on. Workfile `triples.tmp.gz` 57 GB.
+  Old generation full again but harmless: about 3 full GCs per 30 s, 1.5% of the time;
+  `-Xmn1G` or a slightly larger heap would give it more room.
+- SPO index build from 23:15:34 (sequential, uu-sort 1024M, pigz -1, 8 threads): spill
+  files of 10.5 M rows, 70-87 MB compressed (about 8 bytes a row); 3.6 billion rows
+  sorted in 13.5 min (4.5 M rows/s), so the run phase about 30 min, about 785 spill
+  files, 60-70 GB (not the 170 GB estimated). Estimated SPO done about 00:25-00:35,
+  all three indexes about 03:30-04:30. Run continues from `resume.sh`; step times in
+  `loader-resume.log`.
+- Estimated full run with these settings: node table 1:34 + ingest about 0:48 + indexes
+  about 4:15, so about 6:40 (the first truthy run was heading for 15 h or more; main's
+  ingest alone about 2 days).
+- **main's ingest on truthy** (build `baseline`, same JVM: Java 25, 8 GB, ParallelGC),
+  on an APFS clone of this run's database (node table from the branch, same format),
+  cold page cache, no preload: 34 k rising to 60 k per batch, **48.6 k triples/s on
+  average at 10 M**, one thread at 0.4 cores. About 2 days for truthy's ingest: the slow
+  ingest at this scale is in main, not from the branch's changes.
+- Idea behind the table (from before it was implemented): a compact in-memory hash -> NodeId table. The node
+  table step gives NodeIds in hash order (terms written sorted by hash, NodeId = offset),
+  so both sequences are sorted and compress well (Elias-Fano style): about 5-6 bytes per
+  term, about 9 GB for truthy instead of 39 GB of B+tree leaves. Built by ingest at
+  startup from one sequential read of `nodes.dat` (like the preload), checking the
+  NodeIds increase; B+tree only for what the table lacks. Benchmark first on lexemes.
+
+### Term index decoder threads (2026-10-04, uncommitted; not yet measured)
+
+`--term-threads=N` (default 1, the behaviour before). In the second truthy run the term
+index ran at 1.11 M terms/s with Java at about 1.3 cores: the single decoding thread
+(hex, Thrift check) was the limit. `SortedNodeRecords` now has a reader thread cutting
+1 MB blocks at line ends and numbering them, N decoder threads, and the iterating
+thread taking decoded blocks strictly in order (the B+tree is packed in hash order).
+At most 4N blocks are in flight. Errors are the same as with one decoder (tested with
+1 and 4). Expected: perhaps 2-3x, until the writer or the sort's final merge limits.
+To measure after the truthy run: `TestXLoaderTermIndex` variants `pipeline`,
+`pipeline2`, `pipeline4` on the 20M lines.
+
+### Sort merge passes (2026-10-04, notes; not pursued)
+
+uu-sort's `--buffer-size` is the segment size (one spill file per segment); the number
+of files merged at once is `--batch-size` (default not shown in the help; this run
+suggests 64). Truthy node sort, 1024M segments: about 100 GB of compressed spills, so
+roughly 600 files; one intermediate pass merged them into 9 files of about 9.3 GB
+(about 9 minutes), then the final pass streamed into the term index. Doubling the
+segment size would still leave more files than the batch size, so the intermediate pass
+would remain. Skipping it needs files <= batch size, for example 4096M segments (sort
+memory about 11.6 GB) with `--batch-size=160` (about 150 decompressors at once in the
+final pass). Saves about 9 minutes on the node sort, perhaps 10-20 per index sort;
+judged not worth the complexity for now. Would need `UU_SORT_BATCH` in
+`tools/uu-sort-xloader`.
+
+### Faster term index (2026-10-04, uncommitted; plan item 5)
+
+The term index step (node table stage, after the sort) took 49:41 on one thread for
+truthy's 1.61 G terms, at a constant 540 k terms/s. It read the sorted node lines one
+byte at a time (`hexRead`, two `input.read()` per byte through `SortProcess`'s
+cancellation check). Now `SortedNodeRecords`, in two stages: a reader thread reads 1 MB
+blocks, decodes hex through a table and checks each term with `ThriftConvert`
+(about 10% of the step; kept: without it a corrupt term would only show when read back
+by a query); the thread packing the B+tree appends to the object file. Same records and
+object file. Behaviour change on bad input only: an empty line is now an error (before,
+it silently ended the term index). Tests: `TestSortedNodeRecords` (6).
+
+`TestXLoaderTermIndex` (jena-benchmarks-xloader-jmh), `lexemes-20M.nt.gz`, 4.65 M terms
+(`TestXLoaderTermIndex_20261004191541.json`):
+
+| Variant | Time | Terms/s |
+|---|---|---|
+| `before` (previous reader) | 9.51 s | 489 k |
+| `bulk` (one thread) | 4.97 s | 936 k |
+| `bulkNoCheck` | 4.53 s | 1.03 M |
+| `pipeline` (now in xloader) | 4.18 s | 1.11 M (2.3x) |
+
+The reader stage is the limit; next, if wanted: several decoder threads with results
+handed on in order. For truthy, about 50 min down to roughly 22 (estimate). Not yet
+measured in a load (also shows whether `sort`'s final merge keeps up).
+
+Also new (2026-10-04): the ingest workers share one Caffeine cache (10M entries in
+total) instead of one each (`ParallelIngest.SharedCache`; system property
+`jena.xloader.ingest.sharedCache=false` for the old behaviour). Caffeine is
+`CacheFactory.createCache`'s implementation, as for TDB2's node table cache; Jena moved
+from Guava's cache to Caffeine in 2023 (GH-1913).
+
+### Full truthy run (2026-10-04, cancelled during ingest)
+
+Run `/Volumes/SamsungSSD/xloader-benchmark/runs/truthy/20261004T142631Z-b47c71ba`, label
+`uusort1024M-pigz1-t8-pt6-j25par8g-cnodes`: `build/final`, database on the external SSD
+(USB4, 40 Gb/s, 3.3 GB/s sequential write), tmp on the internal disk, sequential
+indexes, `--parse-threads=6`, `--sort-compress-nodes`, Java 25 `-Xmx8G` ParallelGC.
+
+- Node table: 1:58:15. Parse 59:14 for **8,261,251,250 triples** (2.32 M/s throughout);
+  node sort merge about 9 min (tmp peak about 101 GB compressed); term index 49:41 for
+  **1,609,180,945 terms** (540 k terms/s, constant: sequential writes, single thread).
+  Node table files: `nodes-data.obj` 61.9 GB, `nodes.dat` 38.7 GB.
+- Ingest (from 18:24:48): about 200 k triples/s with 6 threads. Workers mostly waiting
+  on page faults in the memory-mapped `nodes.dat` (Java about 1.1 cores, `kernel_task`
+  about 1.0; jstack: `MappedByteBuffer.limit`), which is larger than the page cache.
+  At 18:45, after closing Chrome, `nodes.dat` was read once by hand
+  (`dd ... of=/dev/null`, 10.4 s at 3.7 GB/s): about 313 k triples/s since (batches up
+  to 1.46 M/s). So this run is warmed up by hand from 18:45.
+- Cancelled at 18:54 after 405 M of 8.26 G triples in ingest (about 228 k triples/s on
+  average; the preload's effect faded as other parts of `nodes.dat` evicted it). At
+  that rate ingest alone would have taken 10 hours or more. The run is recorded as
+  `failed` (stopped by hand: the harness, started in the background, ignored SIGINT;
+  the ingest JVM was stopped with SIGTERM).
+- Next truthy run: `--ingest-threads` 32 or more and `--preload-node-table`, or a
+  machine where the node B+tree fits in the page cache.
+- New options from this (now tested: `ingestThreadsOverride`, `preloadNodeTable`): `--ingest-threads=N` (ingest only; default the `--parse-threads` value;
+  more reads in flight when lookups wait on disk) and `--preload-node-table` (ingest
+  reads `nodes.dat`/`nodes.idn` once before starting). Both off by default. On machines
+  with 64-128 GB RAM the node B+tree (about 39 GB here) fits in the page cache.
+
 ### Correctness check of the parallel paths (2026-10-04)
 
 Order-independent fingerprints (scratchpad `diag/CheckDb.java`, read only): every triple

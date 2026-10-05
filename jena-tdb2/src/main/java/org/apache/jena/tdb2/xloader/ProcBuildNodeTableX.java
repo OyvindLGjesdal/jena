@@ -205,23 +205,25 @@ public class ProcBuildNodeTableX {
                             "Index", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
                     dsg.executeWrite(() -> {
                         BinaryDataFile objectFile = nodeTable.getData();
-                        Iterator<Record> rIter = records(BulkLoaderX.LOG_Terms, input, objectFile);
-                        rIter = new ProgressIterator<>(rIter, monitor);
-                        BPlusTree bpt1 = (BPlusTree)nodeTable.getIndex();
-                        BPlusTreeParams bptParams = bpt1.getParams();
-                        RecordFactory factory = new RecordFactory(SystemTDB.LenNodeHash, NodeId.SIZE);
-                        // Wait for sort to produce output before starting the build timer.
-                        rIter.hasNext();
-                        monitor.start();
-                        timer.startTimer();
-                        BPlusTree bpt2 = BPlusTreeRewriter.packIntoBPlusTree(rIter,
-                                bptParams, factory, blkState,
-                                bpt1.getNodeManager().getBlockMgr(), bpt1.getRecordsMgr().getBlockMgr());
-                        // EOF may be caused by a failed parser or sort: do not commit it.
-                        checkSuccess.run();
-                        bpt2.sync();
-                        objectFile.sync();
-                        monitor.finish();
+                        SortedNodeRecords records = records(BulkLoaderX.LOG_Terms, input, objectFile);
+                        try ( records ) {
+                            Iterator<Record> rIter = new ProgressIterator<>(records, monitor);
+                            BPlusTree bpt1 = (BPlusTree)nodeTable.getIndex();
+                            BPlusTreeParams bptParams = bpt1.getParams();
+                            RecordFactory factory = new RecordFactory(SystemTDB.LenNodeHash, NodeId.SIZE);
+                            // Wait for sort to produce output before starting the build timer.
+                            rIter.hasNext();
+                            monitor.start();
+                            timer.startTimer();
+                            BPlusTree bpt2 = BPlusTreeRewriter.packIntoBPlusTree(rIter,
+                                    bptParams, factory, blkState,
+                                    bpt1.getNodeManager().getBlockMgr(), bpt1.getRecordsMgr().getBlockMgr());
+                            // EOF may be caused by a failed parser or sort: do not commit it.
+                            checkSuccess.run();
+                            bpt2.sync();
+                            objectFile.sync();
+                            monitor.finish();
+                        }
                     });
                     long elapsed = timer.endTimer();
                     long count = monitor.getTicks();
@@ -234,75 +236,9 @@ public class ProcBuildNodeTableX {
         }
     }
 
-    private static Iterator<Record> records(Logger logger, InputStream input, BinaryDataFile objectFile) {
-        return new IteratorNodeTableRecords(logger, input, objectFile);
-    }
-
-    private static class IteratorNodeTableRecords extends IteratorSlotted<Record> {
-        private final static RecordFactory factory = new RecordFactory(SystemTDB.LenNodeHash,  NodeId.SIZE);
-        private final byte[] bHash = new byte[SystemTDB.LenNodeHash];
-        private final byte[] bbNodeId = new byte[NodeId.SIZE];
-        private final RDF_Term term = new RDF_Term();
-        private final Logger logger;
-        private final InputStream input;
-        private final BinaryDataFile objectFile;
-
-        IteratorNodeTableRecords(Logger logger, InputStream input, BinaryDataFile objectFile) {
-            this.logger = logger;
-            this.input = input;
-            this.objectFile = objectFile;
-        }
-
-        long count = 0;
-        @Override
-        protected Record moveToNext() {
-            return calc();
-        }
-
-        @Override
-        protected boolean hasMore() {
-            return true;
-        }
-
-        // One line of file encoded data to record.
-        private Record calc() {
-            count++;
-            try {
-                // read hash.
-                for ( int i = 0 ; i < 16 ; i++ ) {
-                    int x = hexRead(input);
-                    if ( x < 0 ) {
-                        if ( i == 0 )
-                            return null;
-                        throw new IOException("Incomplete node hash from sort");
-                    }
-                    bHash[i] = (byte)(x&0xFF);
-                }
-                if ( input.read() != ' ' )
-                    throw new IOException("Missing separator after node hash");
-                byte[] key = bHash;
-
-                ByteArrayOutputStream bout = new ByteArrayOutputStream();
-                // Read de-hexer
-                for(;;) {
-                    int v = hexRead(input);
-                    if ( v < 0 )
-                        break;
-                    bout.write(v);
-                }
-                byte[] thrift = bout.toByteArray();
-                ThriftConvert.termFromBytes(term, thrift);
-                // write to nodes.dat -> NodeId
-                long x = objectFile.length();
-                NodeId nodeId = NodeIdFactory.createPtr(x);
-                objectFile.write(thrift);
-                Bytes.setLong(nodeId.getPtrLocation(), bbNodeId);
-                Record r = factory.create(key, bbNodeId);
-                return r;
-            } catch (IOException ex) {
-                throw new TDBException("Failed to read sorted node records", ex);
-            }
-        }
+    /** The node table records from the sorted node lines ({@code hash thrift}, in hex). Package-private for benchmarks. */
+    /*package*/ static SortedNodeRecords records(Logger logger, InputStream input, BinaryDataFile objectFile) {
+        return new SortedNodeRecords(input, objectFile, BulkLoaderX.TermThreads);
     }
 
     public static int hexRead(InputStream input) throws IOException {

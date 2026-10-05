@@ -133,10 +133,32 @@ public class BulkLoaderX {
      */
     public static int IngestThreads = 0;
 
+    /**
+     * Whether ingest first reads the node table's B+tree files once, start to end, so
+     * the page cache holds as much of them as fits before the random lookups begin.
+     * Useful when the node table is larger than memory; off by default.
+     */
+    public static boolean PreloadNodeTable = false;
+
+    /**
+     * Whether parallel ingest ({@link #ingestThreads()} above 1) holds the node table's
+     * hash to NodeId mapping in memory ({@link CompactNodeTable}), built at the start of
+     * ingest by one sequential read of the B+tree, about 5-6 bytes a term. Lookups then
+     * need no disk access; blank nodes and anything not found still use the B+tree.
+     * Needs a heap that holds the table. Off by default.
+     */
+    public static boolean NodeTableInMemory = false;
+
     /** The thread count for the ingest step. */
     static int ingestThreads() {
         return IngestThreads > 0 ? IngestThreads : ParseThreads;
     }
+
+    /**
+     * Threads decoding the sorted node lines in the node table step's term index
+     * ({@link SortedNodeRecords}); 1 (the default) is one decoder thread.
+     */
+    public static int TermThreads = 1;
 
     /** Size of the input chunks for {@link #ParseThreads} above 1. */
     public static int ParseChunkSize = 4 * 1024 * 1024;

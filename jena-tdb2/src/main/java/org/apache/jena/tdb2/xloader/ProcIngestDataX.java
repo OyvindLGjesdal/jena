@@ -23,6 +23,8 @@ package org.apache.jena.tdb2.xloader;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +39,7 @@ import org.apache.jena.atlas.lib.Pair;
 import org.apache.jena.atlas.lib.Timer;
 import org.apache.jena.atlas.logging.FmtLog;
 import org.apache.jena.dboe.base.file.Location;
+import org.apache.jena.dboe.index.Index;
 import org.apache.jena.dboe.sys.Names;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
@@ -55,6 +58,7 @@ import org.apache.jena.tdb2.solver.stats.StatsCollectorNodeId;
 import org.apache.jena.tdb2.store.DatasetGraphTDB;
 import org.apache.jena.tdb2.store.NodeId;
 import org.apache.jena.tdb2.store.nodetable.NodeTable;
+import org.apache.jena.tdb2.store.nodetable.NodeTableTRDF;
 import org.apache.jena.tdb2.store.nodetupletable.NodeTupleTable;
 import org.apache.jena.tdb2.store.value.DoubleNode62;
 import org.apache.jena.tdb2.sys.DatabaseConnection;
@@ -90,6 +94,8 @@ public class ProcIngestDataX {
         FmtLog.info(BulkLoaderX.LOG_Data, "Ingest data");
         DatasetGraph dsg = getDatasetGraph(location);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+            if ( BulkLoaderX.PreloadNodeTable )
+                preloadNodeTable(TDBInternal.getDatasetGraphTDB(dsg).getLocation());
             ProgressMonitor monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Data,
                     "Data", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
             dsg.executeWrite(() -> {
@@ -98,7 +104,8 @@ public class ProcIngestDataX {
                 // committing, including when opening the second output or parsing fails.
                 try ( OutputStream triples = IO.ensureBuffered(IO.openOutputFile(loaderFiles.triplesFile, gzipLevel, gzipBufferSize));
                       OutputStream quads = IO.ensureBuffered(IO.openOutputFile(loaderFiles.quadsFile, gzipLevel, gzipBufferSize)) ) {
-                    counts = build(dsg, monitor, triples, quads, datafiles, BlankNodeSeed.read(loaderFiles));
+                    CompactNodeTable table = BulkLoaderX.NodeTableInMemory ? compactNodeTable(dsg) : null;
+                    counts = build(dsg, monitor, triples, quads, datafiles, BlankNodeSeed.read(loaderFiles), table);
                 } catch (IOException ex) {
                     throw new RuntimeIOException(ex);
                 }
@@ -118,6 +125,34 @@ public class ProcIngestDataX {
                 } catch (IOException ex) { IO.exception(ex); }
             });
         }
+    }
+
+    /**
+     * Read the node table's B+tree files (hash to NodeId) once, sequentially, so the page
+     * cache holds as much of them as fits before ingest's lookups, which go to random
+     * places in them. Much faster than the cache filling through random page faults.
+     */
+    private static void preloadNodeTable(Location storage) {
+        Timer timer = new Timer();
+        timer.startTimer();
+        long bytes = 0;
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(8 * 1024 * 1024);
+        for ( String ext : List.of(Names.extBptTree, Names.extBptRecords) ) {
+            java.nio.file.Path path = java.nio.file.Path.of(storage.getPath(Names.nodeTableBaseName, ext));
+            if ( !java.nio.file.Files.isRegularFile(path) )
+                continue;
+            try ( java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(path) ) {
+                int n;
+                while ( (n = channel.read(buffer)) != -1 ) {
+                    bytes += n;
+                    buffer.clear();
+                }
+            } catch (IOException ex) {
+                throw new RuntimeIOException(ex);
+            }
+        }
+        long millis = timer.endTimer();
+        FmtLog.info(BulkLoaderX.LOG_Data, "Preload node table: %,d bytes in %s seconds", bytes, Timer.timeStr(millis));
     }
 
     private static DatasetGraph getDatasetGraph(String location) {
@@ -142,9 +177,49 @@ public class ProcIngestDataX {
         return dsg;
     }
 
+    /**
+     * The node table's hash to NodeId mapping in memory, from one pass over the B+tree in
+     * the current transaction; null if ingest is not parallel or the node table was not
+     * built in hash order.
+     */
+    private static CompactNodeTable compactNodeTable(DatasetGraph dsg) {
+        if ( BulkLoaderX.ingestThreads() <= 1 ) {
+            FmtLog.warn(BulkLoaderX.LOG_Data, "Node table in memory: only for parallel ingest (ingest threads above 1); not used");
+            return null;
+        }
+        DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
+        NodeTableTRDF nodeTable = (NodeTableTRDF)dsgtdb.getTripleTable().getNodeTupleTable().getNodeTable().baseNodeTable();
+        Index index = nodeTable.getIndex();
+        Location location = dsgtdb.getLocation();
+        long maxRecords;
+        if ( location.isMem() )
+            maxRecords = index.size();
+        else {
+            // The records file holds at most its size in records.
+            Path records = Path.of(location.getPath(Names.nodeTableBaseName, Names.extBptRecords));
+            try {
+                maxRecords = Files.size(records) / index.getRecordFactory().recordLength();
+            } catch (IOException ex) {
+                throw new RuntimeIOException(ex);
+            }
+        }
+        Timer timer = new Timer();
+        timer.startTimer();
+        try {
+            CompactNodeTable table = CompactNodeTable.build(index.iterator(), maxRecords, nodeTable.getData().length());
+            long millis = timer.endTimer();
+            FmtLog.info(BulkLoaderX.LOG_Data, "Node table in memory: %,d terms, %,d MB, %s seconds",
+                        table.size(), table.bytes() / (1024 * 1024), Timer.timeStr(millis));
+            return table;
+        } catch (CompactNodeTable.NotApplicable ex) {
+            FmtLog.warn(BulkLoaderX.LOG_Data, "Node table in memory: not used: %s", ex.getMessage());
+            return null;
+        }
+    }
+
     private static Pair<Long, Long> build(DatasetGraph dsg, ProgressMonitor monitor,
                               OutputStream outputTriples, OutputStream outputQuads,
-                              List<String> datafiles, UUID blankNodeSeed) {
+                              List<String> datafiles, UUID blankNodeSeed, CompactNodeTable table) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
         IngestData sink = new IngestData(dsgtdb, monitor, outputTriples, outputQuads, false);
         Timer timer = new Timer();
@@ -163,7 +238,7 @@ public class ProcIngestDataX {
                     if ( Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang) ) {
                         // Without a seed from the node table step, still one seed for all chunks of the file.
                         UUID seed = ( blankNodeSeed != null ) ? BlankNodeSeed.fileSeed(blankNodeSeed, i) : UUID.randomUUID();
-                        ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, input.stream(), lang, IRILib.filenameToIRI(datafile), seed,
+                        ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, table, input.stream(), lang, IRILib.filenameToIRI(datafile), seed,
                                 outputTriples, outputQuads, BulkLoaderX.ingestThreads(), BulkLoaderX.ParseChunkSize, () -> false,
                                 n -> { synchronized (monitor) { for ( long t = 0 ; t < n ; t++ ) monitor.tick(); } });
                         parallelTriples += counts.triples();

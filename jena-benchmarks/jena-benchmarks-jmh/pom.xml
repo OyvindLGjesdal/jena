@@ -132,6 +132,9 @@
                     <release>${java.version}</release>
                     <compilerArgs>
                       <arg>-proc:full</arg>
+                      <!-- For the incubating Vector API in riot.tokens.VectorByteFinder -->
+                      <arg>--add-modules</arg>
+                      <arg>jdk.incubator.vector</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

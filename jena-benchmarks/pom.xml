@@ -52,6 +52,7 @@
   <modules>
     <module>jena-benchmarks-jmh</module>
     <module>jena-benchmarks-shadedJena560</module>
+    <module>jena-benchmarks-xloader-jmh</module>
   </modules>
 
   <properties>
