@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -96,9 +97,12 @@ final class ParallelParser {
     static long parse(InputStream input, Lang lang, String baseIRI, UUID seed,
                       int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress,
                       Supplier<Worker> workers, Owner owner) {
-        // Enough queued chunks to keep the workers busy, without holding a chunk per
-        // worker in the queue when there are many workers (each chunk is ChunkSize bytes).
-        BlockingQueue<Chunk> queue = new ArrayBlockingQueue<>(Math.min(2 * threads, threads + 16));
+        // Two queued chunks per worker, at most 16: enough for a worker to find its next
+        // chunk ready. One reader feeds all the workers, so a longer queue would not keep
+        // them busier, only hold more memory (chunkSize bytes a chunk, plus one per worker).
+        BlockingQueue<Chunk> queue = new ArrayBlockingQueue<>(Math.min(2 * threads, 16));
+        // Chunk buffers the workers have finished with, for the reader to reuse.
+        Queue<byte[]> free = new ConcurrentLinkedQueue<>();
         Map<Long, Long> chunkLines = new ConcurrentHashMap<>();
         AtomicReference<Throwable> failure = new AtomicReference<>();
         LongAdder count = new LongAdder();
@@ -110,7 +114,7 @@ final class ParallelParser {
             for ( int i = 0 ; i < threads ; i++ ) {
                 pool.submit(() -> {
                     try {
-                        work(queue, lang, baseIRI, seed, workers, cancelled, progress, chunkLines, count);
+                        work(queue, free, chunkSize, lang, baseIRI, seed, workers, cancelled, progress, chunkLines, count);
                     } catch (Throwable th) {
                         failure.compareAndSet(null, th);
                     } finally {
@@ -121,7 +125,7 @@ final class ParallelParser {
             }
             // Daemon: after a failure it is not waited for; it stops at its next read.
             reader = Thread.ofPlatform().name("tdb2-xloader-read").daemon().start(() -> {
-                read(input, chunkSize, queue, failure, cancelled);
+                read(input, chunkSize, queue, free, failure, cancelled);
                 if ( failure.get() == null ) {
                     // Normal end: each worker stops at an END marker.
                     for ( int i = 0 ; i < threads ; i++ )
@@ -156,10 +160,16 @@ final class ParallelParser {
         return count.sum();
     }
 
-    /** Read the input and queue chunks that end at a line end. */
-    private static void read(InputStream input, int chunkSize, BlockingQueue<Chunk> queue,
+    /**
+     * Read the input and queue chunks that end at a line end. A chunk is the buffer it was
+     * read into, not a copy, and the workers give back chunkSize buffers they have parsed
+     * ({@code free}), so buffers are only allocated until there are enough in use. With
+     * G1, a 4 MB array is a humongous object (heaps up to 16 GB): allocating one per chunk
+     * cost 20% of ingest time with a 4 GB heap.
+     */
+    private static void read(InputStream input, int chunkSize, BlockingQueue<Chunk> queue, Queue<byte[]> free,
                              AtomicReference<Throwable> failure, BooleanSupplier cancelled) {
-        byte[] buf = new byte[chunkSize];
+        byte[] buf = buffer(free, chunkSize);
         int filled = 0;
         long offset = 0;
         long seq = 0;
@@ -172,26 +182,37 @@ final class ParallelParser {
                 if ( filled < buf.length ) {
                     // End of input: the rest, which may not end with a newline.
                     if ( filled > 0 )
-                        putUnlessFailed(queue, new Chunk(seq++, offset, Arrays.copyOf(buf, filled), filled), failure);
+                        putUnlessFailed(queue, new Chunk(seq++, offset, buf, filled), failure);
                     return;
                 }
                 int cut = lastNewline(buf, filled) + 1;
                 if ( cut == 0 ) {
                     // A line longer than the buffer: read more of it.
-                    buf = Arrays.copyOf(buf, buf.length * 2);
+                    buf = Arrays.copyOf(buf, BulkLoaderX.growBuffer(buf.length, "Line at byte offset " + offset));
                     continue;
                 }
-                if ( !putUnlessFailed(queue, new Chunk(seq++, offset, Arrays.copyOf(buf, cut), cut), failure) )
+                // The part of a line after the cut starts the next buffer, which is chunkSize
+                // again after a long line: later chunks are not as large as that line.
+                int rest = filled - cut;
+                byte[] next = ( rest <= chunkSize ) ? buffer(free, chunkSize) : new byte[buf.length];
+                System.arraycopy(buf, cut, next, 0, rest);
+                if ( !putUnlessFailed(queue, new Chunk(seq++, offset, buf, cut), failure) )
                     return;
                 offset += cut;
-                System.arraycopy(buf, cut, buf, 0, filled - cut);
-                filled -= cut;
+                filled = rest;
+                buf = next;
             }
         } catch (IOException ex) {
             failure.compareAndSet(null, new TDBException("Failed to read input", ex));
         } catch (Throwable th) {
             failure.compareAndSet(null, th);
         }
+    }
+
+    /** A chunkSize buffer: one a worker has finished with, or a new one. */
+    private static byte[] buffer(Queue<byte[]> free, int chunkSize) {
+        byte[] b = free.poll();
+        return ( b != null ) ? b : new byte[chunkSize];
     }
 
     private static int lastNewline(byte[] buf, int end) {
@@ -215,7 +236,7 @@ final class ParallelParser {
         }
     }
 
-    private static void work(BlockingQueue<Chunk> queue, Lang lang, String baseIRI, UUID seed,
+    private static void work(BlockingQueue<Chunk> queue, Queue<byte[]> free, int chunkSize, Lang lang, String baseIRI, UUID seed,
                              Supplier<Worker> workers, BooleanSupplier cancelled, LongConsumer progress,
                              Map<Long, Long> chunkLines, LongAdder count) throws IOException, InterruptedException {
         Worker worker = workers.get();
@@ -243,6 +264,9 @@ final class ParallelParser {
                 } catch (RiotParseException ex) {
                     throw new ChunkParseException(chunk.seq(), ex);
                 }
+                // Parsed: the reader may reuse the buffer (not one grown for a long line).
+                if ( chunk.bytes().length == chunkSize )
+                    free.offer(chunk.bytes());
                 worker.endChunk();
                 count.add(statements[0]);
                 progress.accept(statements[0]);

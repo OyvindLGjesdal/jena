@@ -259,8 +259,7 @@ public class ProcIngestDataX {
             for ( int i = 0 ; i < datafiles.size() ; i++ ) {
                 try ( InputFile input = InputFile.open(datafiles.get(i)) ) {
                     RDFParserBuilder parser = input.parser();
-                    if ( blankNodeSeed != null )
-                        parser.labelToNode(BlankNodeSeed.labelToNode(blankNodeSeed, i));
+                    parser.labelToNode(BlankNodeSeed.labelToNode(blankNodeSeed, i));
                     AsyncParser.asyncParseSources(List.of(parser), sink);
                 }
             }

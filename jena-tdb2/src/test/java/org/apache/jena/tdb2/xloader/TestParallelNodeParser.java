@@ -26,9 +26,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
@@ -159,6 +163,41 @@ public class TestParallelNodeParser {
         Result actual = parallel(data, Lang.NTRIPLES, 3, 64);
         assertEquals(expected.count(), actual.count());
         assertEquals(withoutBlankNodes(expected.lines()), withoutBlankNodes(actual.lines()));
+    }
+
+    @Test
+    public void sharedOrPerWorkerCache() {
+        String data = data(5_000, 40);
+        Set<String> expected = withoutBlankNodes(sequential(data, Lang.NTRIPLES).lines());
+        boolean saved = ParallelNodeParser.SharedCache;
+        try {
+            for ( boolean shared : new boolean[] {true, false} ) {
+                ParallelNodeParser.SharedCache = shared;
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                LongAdder lines = new LongAdder();
+                ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
+                                         "file:///test", java.util.UUID.randomUUID(), out, 4, 256, () -> false, n -> {}, lines);
+                assertEquals(out.toString(StandardCharsets.UTF_8).lines().count(), lines.sum(), "Lines counted, shared=" + shared);
+                assertEquals(expected, withoutBlankNodes(lines(out)), "shared=" + shared);
+            }
+        } finally {
+            ParallelNodeParser.SharedCache = saved;
+        }
+    }
+
+    @Test
+    public void chunksAfterLongLineAreChunkSize() {
+        // A line much longer than the chunk, then short lines of 26 bytes: a 256 byte
+        // chunk holds at most 9 of them. Only the chunk with the long line is larger.
+        String shortLine = "<urn:s> <urn:p> <urn:o> .\n";
+        String data = "<urn:s> <urn:p> \"" + "x".repeat(100_000) + "\" .\n" + shortLine.repeat(10_000);
+        List<Long> perChunk = Collections.synchronizedList(new ArrayList<>());
+        long count = ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
+                                              "file:///test", java.util.UUID.randomUUID(), new ByteArrayOutputStream(), 2, 256,
+                                              () -> false, perChunk::add);
+        assertEquals(10_001, count);
+        long large = perChunk.stream().filter(n -> n > 256 / shortLine.length()).count();
+        assertEquals(1, large, "Chunks larger than the chunk size");
     }
 
     @Test

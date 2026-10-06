@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.iterator.IteratorSlotted;
@@ -153,7 +154,8 @@ public class ProcBuildNodeTableX {
             long indexed = sort.run(output -> {
                 ProgressMonitorOutput monitor = ProgressMonitorOutput.create(BulkLoaderX.LOG_Nodes,
                         "Nodes", BulkLoaderX.DataTick, BulkLoaderX.DataSuperTick);
-                StreamRDF worker = new NodeHashTmpStream(output);
+                NodeHashTmpStream worker = new NodeHashTmpStream(output);
+                LongAdder parallelLines = new LongAdder();
                 ProgressStreamRDF stream = new ProgressStreamRDF(worker, monitor);
                 monitor.start();
                 String label = monitor.getLabel();
@@ -172,7 +174,8 @@ public class ProcBuildNodeTableX {
                             ParallelNodeParser.parse(input.stream(), lang, IRILib.filenameToIRI(datafile),
                                                      BlankNodeSeed.fileSeed(loadSeed, fileIndex), output,
                                                      BulkLoaderX.ParseThreads, BulkLoaderX.ParseChunkSize, sort::isCancelled,
-                                                     n -> { synchronized (monitor) { for ( long i = 0 ; i < n ; i++ ) monitor.tick(); } });
+                                                     n -> { synchronized (monitor) { for ( long i = 0 ; i < n ; i++ ) monitor.tick(); } },
+                                                     parallelLines);
                         }
                         continue;
                     }
@@ -196,6 +199,8 @@ public class ProcBuildNodeTableX {
                 FmtLog.info(BulkLoaderX.LOG_Nodes, "%s Parse (nodes): %s seconds : %,d triples/quads %s TPS",
                             BulkLoaderX.StageMarker, Timer.timeStr(monitor.getTime()), count,
                             BulkLoaderX.rateStr(count, monitor.getTime()));
+                // Nodes not found in the node cache; the duplicates among them are left to sort.
+                FmtLog.info(BulkLoaderX.LOG_Nodes, "Node lines to sort: %,d", worker.lines() + parallelLines.sum());
             }, (input, checkSuccess) -> {
                 Timer timer = new Timer();
                 FileSet fileSet = new FileSet(dsgtdb.getLocation(), Names.nodeTableBaseName);
@@ -263,26 +268,29 @@ public class ProcBuildNodeTableX {
         output.write(ch2);
     }
 
-
-    static byte[] hashNode(Node node) {
-        NodeLib.setHash(hash, node);
-        return hash.getBytes();
-    }
-
-    private static Hash hash = new Hash(SystemTDB.LenNodeHash);
-
     //Cache needed to reduce duplicates
     /** Write the intermediate sort file */
     static class NodeHashTmpStream implements StreamRDF {
 
+        /** Nodes in the cache of recently written nodes. */
+        static final int CacheSize = 500_000;
+
         private final OutputStream outputData;
-        private CacheSet<Node> cache = CacheFactory.createCacheSet(500_000);
+        // Skips writing a node seen recently; sort --unique removes the duplicates it misses.
+        private final CacheSet<Node> cache;
         // Per instance, so parallel parsers can each have their own stream.
         private final Hash hash = new Hash(SystemTDB.LenNodeHash);
         private final TSerializer serializer;
+        private long lines = 0;
 
         NodeHashTmpStream(OutputStream outputFile) {
+            this(outputFile, CacheFactory.createCacheSet(CacheSize));
+        }
+
+        /** With a given cache, which may be shared by several streams on different threads. */
+        NodeHashTmpStream(OutputStream outputFile, CacheSet<Node> cache) {
             this.outputData = outputFile;
+            this.cache = cache;
             try {
                 this.serializer = new TSerializer(new TCompactProtocol.Factory());
             }
@@ -328,9 +336,15 @@ public class ProcBuildNodeTableX {
                 outputData.write(' ');
                 write(outputData, tBytes);
                 outputData.write('\n');
+                lines++;
             } catch (TException | IOException ex) {
                 throw new TDBException("Failed to write node to sort", ex);
             }
+        }
+
+        /** Lines written for the sort: the nodes not found in the cache. */
+        long lines() {
+            return lines;
         }
 
         private static void write(OutputStream outputData, byte[] bytes) throws IOException {

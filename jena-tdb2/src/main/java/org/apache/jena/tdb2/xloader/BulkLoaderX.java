@@ -163,6 +163,21 @@ public class BulkLoaderX {
     /** Size of the input chunks for {@link #ParseThreads} above 1. */
     public static int ParseChunkSize = 4 * 1024 * 1024;
 
+    /** The largest byte array to allocate: the JVM limit is a little below {@code Integer.MAX_VALUE}. */
+    /*package*/ static final int MaxArraySize = Integer.MAX_VALUE - 8;
+
+    /**
+     * The next size for a buffer that has to hold a whole line: double it, up to
+     * {@link #MaxArraySize}.
+     * @param what  the line, for the error message
+     * @throws TDBException if the buffer is already {@link #MaxArraySize}
+     */
+    /*package*/ static int growBuffer(int size, String what) {
+        if ( size >= MaxArraySize )
+            throw new TDBException(String.format("%s is longer than %,d bytes", what, MaxArraySize));
+        return (int)Math.min(2L * size, MaxArraySize);
+    }
+
     /**
      * Default sort program, found on the PATH.
      * It must accept the GNU sort(1) options used by xloader.
@@ -225,6 +240,8 @@ public class BulkLoaderX {
         return true;
     }
 
+    /** @deprecated No longer used by xloader. Start a {@link Thread} directly. */
+    @Deprecated(forRemoval = true)
     public static Thread async(Runnable action, String threadName) {
         Objects.requireNonNull(action);
         Objects.requireNonNull(threadName);
@@ -233,6 +250,8 @@ public class BulkLoaderX {
         return thread;
     }
 
+    /** @deprecated No longer used by xloader. Use {@link Thread#join()}. */
+    @Deprecated(forRemoval = true)
     public static void waitFor(Thread thread) {
         try { thread.join(); }
         catch (InterruptedException e) {

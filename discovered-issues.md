@@ -134,3 +134,77 @@ Happy to submit a PR if we agree on the approach.
 ### Are you interested in making a pull request?
 
 Yes
+
+## 4. tdb2.xloader: default-graph N-Quads/TriG statements are counted as quads, so the triple indexes are skipped
+
+Reproduction (JUnit): `jena-tdb2/src/test/java/org/apache/jena/tdb2/xloader/TestXLoaderLoadInfo.java`.
+
+### Version
+
+6.2.0 / main
+
+### What happened?
+
+When the input is N-Quads or TriG only, `tdb2.xloader` loads the named graphs but leaves the default graph empty.
+
+The ingest step (`ProcIngestDataX.IngestData.quad`) writes a statement in the default graph to the triples workfile, which is right, but counts it as a quad (`countQuads++` before the default-graph test). N-Quads lines without a graph, and TriG default-graph blocks, reach the parser's `StreamRDF` as `quad()` with `Quad.defaultGraphNodeGenerated`, so with no N-Triples or Turtle input, `load.json` says `"triples":0` although `triples.tmp` has rows.
+
+`tdb2.xloader` reads `load.json` to skip empty phases:
+
+```sh
+TRIPLES="$(jq .triples < $INFO)"
+if [[ $TRIPLES -eq 0 ]] ; then
+    TRIPLES_IDX=""
+fi
+```
+
+So SPO, POS and OSP are never built, and the default-graph data is not in the database. The load finishes without an error and reports `Triples loaded = 0`. The quads count also includes the default-graph statements, so the quad indexes are built even when there are no named graphs.
+
+Reproduce:
+
+```sh
+printf '%s\n' \
+  '<urn:s> <urn:p> <urn:o1> .' \
+  '<urn:s> <urn:p> <urn:o2> .' \
+  '<urn:s> <urn:p> <urn:o3> <urn:g> .' > data.nq
+tdb2.xloader --loc DB data.nq
+tdb2.tdbquery --loc DB 'SELECT (COUNT(*) AS ?n) { ?s ?p ?o }'               # 0, expected 2
+tdb2.tdbquery --loc DB 'SELECT (COUNT(*) AS ?n) { GRAPH ?g { ?s ?p ?o } }'  # 1
+```
+
+`TestXLoaderLoadInfo` runs the ingest step on the same data: the triples workfile has 2 rows and the quads workfile 1, but `load.json` has `"triples":0` and `"quads":3`.
+
+Loads that include any N-Triples or Turtle file are not affected, since `triple()` counts those and the count is then non-zero; the count is still wrong.
+
+Suggested fix: in `IngestData.quad`, count the statement as a triple when it goes to the triples workfile (graph is null after the default-graph test) and as a quad otherwise, so the counts match the workfile rows. Add the test above to `TS_XLoader`.
+
+Happy to submit a PR if we agree on the approach.
+
+### Are you interested in making a pull request?
+
+Yes
+
+## 5. tdb2.xloader: unused `ProcBuildNodeTableX.hashNode` with a shared static `Hash`
+
+### Version
+
+6.2.0 / main
+
+### What happened?
+
+Code cleanup; nothing user-visible.
+
+`ProcBuildNodeTableX.hashNode(Node)` (package-private, `ProcBuildNodeTableX.java:373`) has no callers anywhere in the repository. It hashes into a shared static `Hash` (line 378) and returns `hash.getBytes()`, which is that `Hash`'s internal array. So:
+
+- it is not thread-safe: two threads calling it at once would corrupt each other's hash;
+- even on one thread, each call overwrites the bytes returned by the previous call.
+
+Neither can happen today, since nothing calls it. The static `Hash` has one other user, `NodeHashTmpStream.node()`, which is correct: the node table step hashes on one thread, and `node()` writes the bytes to the sort input before hashing the next node. It is still a trap for anyone who calls `hashNode`, or who runs `NodeHashTmpStream` on several threads, for example to parse in parallel.
+
+Suggested fix: delete `hashNode`. Give `NodeHashTmpStream` its own `Hash` instead of the static one, and delete the static. Neither is public API.
+
+Happy to submit a PR if we agree on the approach.
+
+### Are you interested in making a pull request?
+
+Yes

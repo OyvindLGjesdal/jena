@@ -107,19 +107,53 @@ final class SortProcess implements AutoCloseable {
             }
         });
         // Observe failures in completion order, including when another worker is
-        // blocked on a pipe. close() kills the child before joining the workers.
+        // blocked on a pipe, but report sort's own failure if it has one.
+        // close() kills the child before joining the workers.
         for ( int i = 0; i < 4; i++ ) {
             try {
                 await(completed.take());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw new TDBException("Interrupted while running sort", ex);
+            } catch (RuntimeException ex) {
+                throw sortFailureOr(ex, sorted);
             }
         }
         @SuppressWarnings("unchecked")
         T result = (T)await(consumed);
         return result;
     }
+
+    /**
+     * The failure to report: sort's own failure, with {@code failure} suppressed, if
+     * sort has failed too. When sort exits with an error (for example, rejecting an
+     * option), the producer sees a broken pipe, which can complete before sort's exit
+     * code and stderr are read.
+     */
+    private RuntimeException sortFailureOr(RuntimeException failure, Future<Object> sorted) {
+        if ( cancelled )
+            return failure;
+        try {
+            // If sort caused the failure, it has exited or is exiting. If it is still
+            // running, the failure is elsewhere: close() stops it.
+            if ( !process.waitFor(SortExitWaitMillis, TimeUnit.MILLISECONDS) || process.exitValue() == 0 )
+                return failure;
+            sorted.get(SortExitWaitMillis, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException ex) {
+            if ( ex.getCause() instanceof RuntimeException sortFailure && sortFailure != failure ) {
+                sortFailure.addSuppressed(failure);
+                return sortFailure;
+            }
+        } catch (TimeoutException ex) {
+            // stderr is still open: report the failure as seen.
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        return failure;
+    }
+
+    /** How long a failed pipeline waits for sort's exit code and stderr. */
+    private static final long SortExitWaitMillis = 1000;
 
     /** True once {@link #close()} has started stopping the pipeline. */
     boolean isCancelled() {

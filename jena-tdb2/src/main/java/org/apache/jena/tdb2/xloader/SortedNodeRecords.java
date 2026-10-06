@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.concurrent.*;
 
 import org.apache.jena.atlas.lib.Bytes;
@@ -46,7 +47,8 @@ import org.apache.jena.tdb2.sys.SystemTDB;
  * one node per line), in stages:
  * <ol>
  * <li>A reader thread reads the input in blocks of about 1 MB, cut at line ends, and
- * numbers them.</li>
+ * numbers them. A block is the buffer it was read into; decoders give buffers back
+ * for reuse (a 1 MB array is a humongous object for G1 below an 8 GB heap).</li>
  * <li>{@code decoders} threads decode whole blocks: hex through a table, and a check of
  * each term with {@link ThriftConvert#termFromBytes}.</li>
  * <li>The thread iterating (the one packing the B+tree, in the write transaction) takes
@@ -85,6 +87,8 @@ final class SortedNodeRecords implements Iterator<Record>, AutoCloseable {
     // Blocks read but not yet taken by the iterating thread: bounds memory.
     private final Semaphore inFlight;
     private final BlockingQueue<Block> blocks;
+    // Block buffers the decoders have finished with, for the reader to reuse.
+    private final Queue<byte[]> free = new ConcurrentLinkedQueue<>();
     private final ConcurrentHashMap<Long, Batch> decoded = new ConcurrentHashMap<>();
     private final Object signal = new Object();
     private final List<Thread> threads = new ArrayList<>();
@@ -198,7 +202,7 @@ final class SortedNodeRecords implements Iterator<Record>, AutoCloseable {
 
     private void read(InputStream input) {
         try {
-            byte[] buf = new byte[BlockSize];
+            byte[] buf = buffer();
             int filled = 0;
             long seq = 0;
             for ( ;; ) {
@@ -209,7 +213,7 @@ final class SortedNodeRecords implements Iterator<Record>, AutoCloseable {
                         if ( filled == buf.length )
                             buf = Arrays.copyOf(buf, buf.length + 1);
                         buf[filled++] = '\n';
-                        if ( !put(new Block(seq++, Arrays.copyOf(buf, filled), filled)) )
+                        if ( !put(new Block(seq++, buf, filled)) )
                             return;
                     }
                     blockCount = seq;
@@ -224,21 +228,32 @@ final class SortedNodeRecords implements Iterator<Record>, AutoCloseable {
                 int cut = lastNewline(buf, filled) + 1;
                 if ( cut == 0 ) {
                     if ( filled == buf.length )
-                        buf = Arrays.copyOf(buf, buf.length * 2);
+                        buf = Arrays.copyOf(buf, BulkLoaderX.growBuffer(buf.length, "Sorted node record"));
                     continue;
                 }
                 if ( filled < buf.length / 2 && cut < filled )
                     continue;   // Read more before cutting a small block.
-                if ( !put(new Block(seq++, Arrays.copyOf(buf, cut), cut)) )
+                // The part of a line after the cut starts the next buffer, which is BlockSize
+                // again after a long line: later blocks are not as large as that line.
+                int rest = filled - cut;
+                byte[] next = ( rest <= BlockSize ) ? buffer() : new byte[buf.length];
+                System.arraycopy(buf, cut, next, 0, rest);
+                if ( !put(new Block(seq++, buf, cut)) )
                     return;
-                System.arraycopy(buf, cut, buf, 0, filled - cut);
-                filled -= cut;
+                filled = rest;
+                buf = next;
             }
         } catch (IOException ex) {
             fail(new TDBException("Failed to read sorted node records", ex));
         } catch (Throwable th) {
             fail(th);
         }
+    }
+
+    /** A BlockSize buffer: one a decoder has finished with, or a new one. */
+    private byte[] buffer() {
+        byte[] b = free.poll();
+        return ( b != null ) ? b : new byte[BlockSize];
     }
 
     private static int lastNewline(byte[] buf, int end) {
@@ -321,6 +336,9 @@ final class SortedNodeRecords implements Iterator<Record>, AutoCloseable {
                     terms.add(t);
                     pos = eol + 1;
                 }
+                // Decoded: the reader may reuse the buffer (not one grown for a long line).
+                if ( buf.length == BlockSize )
+                    free.offer(buf);
                 Batch b = new Batch(keys.toArray(new byte[0][]), terms.toArray(new byte[0][]), keys.size());
                 decoded.put(block.seq(), b);
                 synchronized (signal) {

@@ -201,6 +201,31 @@ public class TestSortProcess {
     }
 
     @Test
+    public void sortFailureReportedOverBrokenPipe() {
+        assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+            AtomicBoolean committed = new AtomicBoolean();
+            TDBException ex = assertThrows(TDBException.class, () -> {
+                try ( SortProcess sort = new SortProcess(command("reject")) ) {
+                    sort.run(output -> {
+                        byte[] bytes = new byte[65536];
+                        for ( ;; )
+                            output.write(bytes);
+                    }, (input, check) -> {
+                        input.readAllBytes();
+                        check.run();
+                        committed.set(true);
+                        return null;
+                    });
+                }
+            });
+            assertTrue(ex.getMessage().contains("Sort RC = 2"), ex.getMessage());
+            assertTrue(ex.getMessage().contains("sort: invalid option"), ex.getMessage());
+            assertEquals(1, ex.getSuppressed().length, "The broken pipe is kept as suppressed");
+            assertFalse(committed.get());
+        });
+    }
+
+    @Test
     public void interruptionStopsChildAndRestoresInterrupt() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         AtomicLong pid = new AtomicLong();
@@ -243,6 +268,14 @@ public class TestSortProcess {
                     System.err.print("sort diagnostic\n");
                     System.err.print("x".repeat(256 * 1024));
                     System.exit(7);
+                }
+                case "reject" -> {
+                    // Like sort rejecting an option: the producer's writes fail with a
+                    // broken pipe before sort reports and exits.
+                    System.in.close();
+                    Thread.sleep(200);
+                    System.err.print("sort: invalid option\n");
+                    System.exit(2);
                 }
                 case "wait" -> {
                     System.out.println(ProcessHandle.current().pid());

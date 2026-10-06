@@ -79,15 +79,34 @@ public class TestSortedNodeRecords {
         recordsAndObjectFile(4);
     }
 
-    private void recordsAndObjectFile(int decoders) throws Exception {
+    @Test
+    public void recordLongerThanBlock() throws Exception {
+        // A node like a large GeoSPARQL literal: its line is several blocks long, and
+        // the blocks after it are read as usual.
         List<Node> nodes = new ArrayList<>();
-        for ( int i = 0 ; i < 25_000 ; i++ )
+        nodes.add(NodeFactory.createLiteralString("x".repeat(1_500_000)));
+        nodes.addAll(uris(25_000));
+        recordsAndObjectFile(nodes, 1);
+        recordsAndObjectFile(nodes, 4);
+    }
+
+    private static List<Node> uris(int count) {
+        List<Node> nodes = new ArrayList<>();
+        for ( int i = 0 ; i < count ; i++ )
             nodes.add(NodeFactory.createURI("urn:s" + i + "/" + "x".repeat(40)));
+        return nodes;
+    }
+
+    private void recordsAndObjectFile(int decoders) throws Exception {
+        recordsAndObjectFile(uris(25_000), decoders);
+    }
+
+    private void recordsAndObjectFile(List<Node> nodes, int decoders) throws Exception {
         String text = lines(nodes);
         BinaryDataFile objectFile = mem();
         List<Record> records = read(text, objectFile, decoders);
         // urn:p and urn:o as well, written once each.
-        assertEquals(25_002, records.size());
+        assertEquals(nodes.size() + 2, records.size());
         String[] l = text.split("\n");
         long offset = 0;
         for ( int i = 0 ; i < records.size() ; i++ ) {

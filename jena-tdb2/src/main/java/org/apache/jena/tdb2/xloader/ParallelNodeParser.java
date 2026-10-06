@@ -25,19 +25,34 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
 
+import org.apache.jena.atlas.lib.CacheFactory;
+import org.apache.jena.atlas.lib.CacheSet;
+import org.apache.jena.graph.Node;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.system.StreamRDF;
 
 /**
  * The node table step on several threads ({@link ParallelParser}): each worker writes
- * the sort lines for a chunk ({@link ProcBuildNodeTableX.NodeHashTmpStream}, with its
- * own node cache) to a buffer, then appends the whole buffer to the sort input under a
- * lock. The order of nodes does not matter to the sort.
+ * the sort lines for a chunk ({@link ProcBuildNodeTableX.NodeHashTmpStream}, with a node
+ * cache shared by the workers, see {@link #SharedCache}) to a buffer, then appends the
+ * whole buffer to the sort input under a lock. The order of nodes does not matter to
+ * the sort.
  */
 final class ParallelNodeParser {
+
+    /**
+     * One node cache shared by all workers (a concurrent Caffeine cache), so memory does
+     * not grow with the number of workers, and a node one worker has written is skipped by
+     * the others. Two workers may both miss a node and both write it: sort --unique
+     * removes the duplicate. The system property
+     * {@code jena.xloader.nodes.sharedCache=false} gives each worker its own cache of the
+     * same size instead (for comparison).
+     */
+    static boolean SharedCache = !"false".equals(System.getProperty("jena.xloader.nodes.sharedCache"));
 
     private ParallelNodeParser() {}
 
@@ -50,17 +65,29 @@ final class ParallelNodeParser {
      */
     static long parse(InputStream input, Lang lang, String baseIRI, UUID seed, OutputStream output,
                       int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress) {
+        return parse(input, lang, baseIRI, seed, output, threads, chunkSize, cancelled, progress, new LongAdder());
+    }
+
+    /** As above, adding the number of lines written for the sort to {@code lines}. */
+    static long parse(InputStream input, Lang lang, String baseIRI, UUID seed, OutputStream output,
+                      int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress, LongAdder lines) {
+        CacheSet<Node> shared = SharedCache ? CacheFactory.createCacheSet(ProcBuildNodeTableX.NodeHashTmpStream.CacheSize) : null;
         return ParallelParser.parse(input, lang, baseIRI, seed, threads, chunkSize, cancelled, progress,
-                                    () -> new NodeWorker(output), null);
+                                    () -> new NodeWorker(output, shared != null ? shared
+                                            : CacheFactory.createCacheSet(ProcBuildNodeTableX.NodeHashTmpStream.CacheSize), lines),
+                                    null);
     }
 
     private static final class NodeWorker implements ParallelParser.Worker {
         private final OutputStream output;
         private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(1 << 20);
-        private final StreamRDF nodes = new ProcBuildNodeTableX.NodeHashTmpStream(buffer);
+        private final ProcBuildNodeTableX.NodeHashTmpStream nodes;
+        private final LongAdder lines;
 
-        NodeWorker(OutputStream output) {
+        NodeWorker(OutputStream output, CacheSet<Node> cache, LongAdder lines) {
             this.output = output;
+            this.nodes = new ProcBuildNodeTableX.NodeHashTmpStream(buffer, cache);
+            this.lines = lines;
         }
 
         @Override
@@ -74,6 +101,11 @@ final class ParallelNodeParser {
                 buffer.writeTo(output);
             }
             buffer.reset();
+        }
+
+        @Override
+        public void close() {
+            lines.add(nodes.lines());
         }
     }
 }

@@ -249,6 +249,15 @@ public class TestXLoader {
     }
 
     @Test
+    public void growBufferStopsAtArrayLimit() {
+        assertEquals(8 << 20, BulkLoaderX.growBuffer(4 << 20, "Line"));
+        // Doubling 1 GiB would overflow int.
+        assertEquals(BulkLoaderX.MaxArraySize, BulkLoaderX.growBuffer(1 << 30, "Line"));
+        TDBException ex = assertThrows(TDBException.class, () -> BulkLoaderX.growBuffer(BulkLoaderX.MaxArraySize, "Line at byte offset 42"));
+        assertTrue(ex.getMessage().startsWith("Line at byte offset 42 is longer than"), ex.getMessage());
+    }
+
+    @Test
     public void parallelIndexFailureStopsOtherSorts() throws Exception {
         requireSort();
         assumeTrue(Files.isExecutable(Path.of("/bin/sh")), "/bin/sh required for the sort wrapper");

@@ -28,8 +28,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 
 import org.apache.jena.atlas.io.IO;
@@ -117,6 +119,8 @@ public class ProcBuildIndexX
      * with one database connection. Each index is written by its own B+tree
      * transaction (as when built alone), so the builds are independent.
      * A percentage {@link BulkLoaderX#SortBufferSize} is shared between the sorts.
+     * A compressed workfile is decompressed once for all its sorts
+     * ({@link SharedWorkfileReader}).
      * If one build fails, the others are cancelled (which stops their sorts) and the
      * first failure is thrown.
      */
@@ -137,7 +141,19 @@ public class ProcBuildIndexX
         Timer timer = new Timer();
         timer.startTimer();
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
-        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
+        Map<String, SharedWorkfileReader> readers = new HashMap<>();
+        try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg);
+              BulkLoaderX.Cleanup closeReaders = () -> readers.values().forEach(SharedWorkfileReader::close) ) {
+            if ( BulkLoaderX.CompressDataFiles ) {
+                // Every build runs at the same time (one thread each), so every sort reads its queue.
+                Map<String, Integer> sorts = new HashMap<>();
+                for ( String indexName : indexNames )
+                    sorts.merge(workfile(indexName, loaderFiles), 1, Integer::sum);
+                sorts.forEach((datafile, n) -> {
+                    if ( n > 1 && !isEmpty(datafile) )
+                        readers.put(datafile, new SharedWorkfileReader(datafile, n));
+                });
+            }
             ExecutorService executor = Executors.newFixedThreadPool(indexNames.size(),
                     Thread.ofPlatform().name("tdb2-xloader-index-", 0).factory());
             try {
@@ -148,7 +164,8 @@ public class ProcBuildIndexX
                         Timer t = new Timer();
                         t.startTimer();
                         FmtLog.info(BulkLoaderX.LOG_Index, "Build index %s", indexName);
-                        long items = buildIndex(dsg, indexName, program, sortCompressProgram, sortThreads, bufferSize, sortIndexArgs, loaderFiles);
+                        long items = buildIndex(dsg, indexName, program, sortCompressProgram, sortThreads, bufferSize, sortIndexArgs, loaderFiles,
+                                                readers.get(workfile(indexName, loaderFiles)));
                         long millis = t.endTimer();
                         FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName,
                                     Timer.timeStr(millis), BulkLoaderX.milliToHMS(millis), BulkLoaderX.rateStr(items, millis));
@@ -209,11 +226,18 @@ public class ProcBuildIndexX
     private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
-            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, BulkLoaderX.SortBufferSize, sortIndexArgs, loaderFiles);
+            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, BulkLoaderX.SortBufferSize, sortIndexArgs, loaderFiles, null);
         }
     }
 
-    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    /** The workfile an index is built from: triples for a triple index, else quads. */
+    private static String workfile(String indexName, XLoaderFiles loaderFiles) {
+        return indexName.length() == 3 ? loaderFiles.triplesFile : loaderFiles.quadsFile;
+    }
+
+    /** Build one index; {@code reader}, if not null, is the shared reader of its workfile. */
+    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, XLoaderFiles loaderFiles,
+                                   SharedWorkfileReader reader) {
         long tickPoint = BulkLoaderX.DataTick;
         int superTick = BulkLoaderX.DataSuperTick;
         String K1 = "--key=1,1";
@@ -221,28 +245,20 @@ public class ProcBuildIndexX
         String K3 = "--key=3,3";
         String K4 = "--key=4,4";
 
-        switch (indexName) {
-            case "SPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "SPO", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3));
-            case "POS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "POS", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K1));
-            case "OSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.triplesFile, dsg, "OSP", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K1, K2));
-            case "GSPO" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GSPO", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K2, K3, K4));
-            case "GPOS" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GPOS", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K3, K4, K2));
-            case "GOSP" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "GOSP", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K1, K4, K2, K3));
-            case "SPOG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "SPOG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K2, K3, K4, K1));
-            case "POSG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "POSG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K3, K4, K2, K1));
-            case "OSPG" :
-                return sort_build_index(BulkLoaderX.LOG_Index, loaderFiles.quadsFile, dsg, "OSPG", sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs, tickPoint, superTick, loaderFiles.TMPDIR, List.of(K4, K2, K3, K1));
-            default :
-                throw new TDBException("Index name '" + indexName + "' not recognized");
-        }
+        List<String> keys = switch (indexName) {
+            case "SPO" -> List.of(K1, K2, K3);
+            case "POS" -> List.of(K2, K3, K1);
+            case "OSP" -> List.of(K3, K1, K2);
+            case "GSPO" -> List.of(K1, K2, K3, K4);
+            case "GPOS" -> List.of(K1, K3, K4, K2);
+            case "GOSP" -> List.of(K1, K4, K2, K3);
+            case "SPOG" -> List.of(K2, K3, K4, K1);
+            case "POSG" -> List.of(K3, K4, K2, K1);
+            case "OSPG" -> List.of(K4, K2, K3, K1);
+            default -> throw new TDBException("Index name '" + indexName + "' not recognized");
+        };
+        return sort_build_index(BulkLoaderX.LOG_Index, workfile(indexName, loaderFiles), dsg, indexName, sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs,
+                                tickPoint, superTick, loaderFiles.TMPDIR, keys, reader);
     }
 
     private static boolean isEmpty(String datafile) {
@@ -261,7 +277,7 @@ public class ProcBuildIndexX
     private static long sort_build_index(Logger LOG, String datafile, DatasetGraph dsg, String indexName,
                                          String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, long tickPoint, int superTick,
                                          String TMPDIR,
-                                         List<String>sortKeyArgs) {
+                                         List<String>sortKeyArgs, SharedWorkfileReader reader) {
         if ( isEmpty(datafile) )
             return 0;
         if ( sortThreads <= 0 )
@@ -279,15 +295,16 @@ public class ProcBuildIndexX
         if ( !BulkLoaderX.CompressDataFiles )
             sortCmd.add(datafile);
 
-        try ( SortProcess sort = new SortProcess(sortCmd) ) {
-            return sort.run(output -> {
-                if ( BulkLoaderX.CompressDataFiles ) {
-                    try ( InputStream inData = IO.openFile(datafile) ) {
-                        inData.transferTo(output);
-                    }
+        SortProcess.Producer producer = ( reader != null ) ? reader.producer() : output -> {
+            if ( BulkLoaderX.CompressDataFiles ) {
+                try ( InputStream inData = IO.openFile(datafile) ) {
+                    inData.transferTo(output);
                 }
-                // SortProcess closes stdin, including when it is unused.
-            }, (input, checkSuccess) -> indexBuilder(dsg, input, indexName, checkSuccess));
+            }
+            // SortProcess closes stdin, including when it is unused.
+        };
+        try ( SortProcess sort = new SortProcess(sortCmd) ) {
+            return sort.run(producer, (input, checkSuccess) -> indexBuilder(dsg, input, indexName, checkSuccess));
         }
     }
 
