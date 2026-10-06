@@ -242,10 +242,19 @@ public class TestXLoader {
         assertEquals("8%", BulkLoaderX.sortBufferSize("50%", 6));
         assertEquals("1%", BulkLoaderX.sortBufferSize("2%", 3));
         assertEquals("1024M", BulkLoaderX.sortBufferSize("1024M", 3));
-        for ( String ok : List.of("50%", "4G", "1024M", "512k", "100000", "2T") )
+        for ( String ok : List.of("50%", "1%", "100%", "4G", "1024M", "512k", "100000", "2T") )
             assertTrue(BulkLoaderX.isSortBufferSize(ok), ok);
-        for ( String bad : List.of("", "0", "50%%", "-1G", "4GB", "1.5G", "half") )
+        for ( String bad : List.of("", "0", "0%", "101%", "99999999999%", "50%%", "-1G", "4GB", "1.5G", "half") )
             assertFalse(BulkLoaderX.isSortBufferSize(bad), bad);
+    }
+
+    @Test
+    public void parallelIndexNamesChecked() throws Exception {
+        // Before the database is opened.
+        XLoaderFiles files = files();
+        assertThrows(TDBException.class, () -> ProcBuildIndexX.exec(database(), List.of(), "sort", null, 2, null, files));
+        assertThrows(TDBException.class, () -> ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "SPO"), "sort", null, 2, null, files));
+        assertFalse(Files.exists(Path.of(database())));
     }
 
     @Test
@@ -485,6 +494,30 @@ public class TestXLoader {
     }
 
     @Test
+    public void ingestCacheSizePropertyBad() throws Exception {
+        // A TDBException when ingest starts, before the database is opened.
+        String property = "jena.xloader.ingest.cacheSize";
+        String value = System.getProperty(property);
+        int threads = BulkLoaderX.IngestThreads;
+        try {
+            System.setProperty(property, "5M");
+            BulkLoaderX.IngestThreads = 4;
+            XLoaderFiles files = files();
+            Path input = rdf("<urn:s> <urn:p> <urn:o> .\n", "nt");
+            TDBException ex = assertThrows(TDBException.class, () ->
+                ProcIngestDataX.exec(database(), files, List.of(input.toString()), false));
+            assertTrue(ex.getMessage().contains(property), ex.getMessage());
+            assertFalse(Files.exists(Path.of(database())));
+        } finally {
+            if ( value == null )
+                System.clearProperty(property);
+            else
+                System.setProperty(property, value);
+            BulkLoaderX.IngestThreads = threads;
+        }
+    }
+
+    @Test
     public void parallelIngestSmallCache() throws Exception {
         // A cache far smaller than the number of nodes: most lookups go to the node table.
         int size = ParallelIngest.CacheSize;
@@ -612,7 +645,9 @@ public class TestXLoader {
             XLoaderFiles files = files();
             loadParallel(files, List.of(input.toString()), 4, false,
                          List.of("SPO", "POS", "OSP", "GSPO", "GPOS", "GOSP", "SPOG", "POSG", "OSPG"));
-            assertTrue(loadInfo(files).contains("\"quads\":1000"), loadInfo(files));
+            // The default graph counts as triples, so the triple indexes are built.
+            assertTrue(loadInfo(files).contains("\"triples\":250"), loadInfo(files));
+            assertTrue(loadInfo(files).contains("\"quads\":750"), loadInfo(files));
             DatasetGraph expected = org.apache.jena.sparql.core.DatasetGraphFactory.create();
             org.apache.jena.riot.RDFParser.source(input.toString()).parse(expected);
             var dsg = DatabaseMgr.connectDatasetGraph(database());

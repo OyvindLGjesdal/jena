@@ -38,13 +38,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Reproduces "tdb2.xloader: default-graph N-Quads are counted as quads, so the triple
- * indexes are skipped". Not in {@link TS_XLoader}: it fails until the issue is fixed.
- * Run it with {@code -Dtest=TestXLoaderLoadInfo}.
+ * "tdb2.xloader: default-graph N-Quads/TriG statements are counted as quads, so the
+ * triple indexes are skipped".
  * <p>
- * Ingest writes N-Quads statements in the default graph to the triples workfile but
- * counts them as quads, so load.json reports {@code "triples":0} for N-Quads input.
- * tdb2.xloader then builds none of SPO, POS, OSP, and the default graph is empty.
+ * Ingest writes statements in the default graph of N-Quads or TriG input to the triples
+ * workfile, and must count them as triples: when load.json reports {@code "triples":0},
+ * tdb2.xloader builds none of SPO, POS, OSP, and the default graph is empty.
  * The test uses the ingest step alone (ingest allocates the nodes itself), so it does
  * not need GNU sort, and it compiles against main.
  */
@@ -53,12 +52,27 @@ public class TestXLoaderLoadInfo {
 
     @Test
     public void defaultGraphNQuadsCountedAsTriples() throws Exception {
-        Path input = directory.resolve("data.nq");
-        Files.writeString(input, """
+        assertCounts("data.nq", """
                 <urn:s> <urn:p> <urn:o1> .
                 <urn:s> <urn:p> <urn:o2> .
                 <urn:s> <urn:p> <urn:o3> <urn:g> .
                 """);
+    }
+
+    @Test
+    public void defaultGraphTriGCountedAsTriples() throws Exception {
+        // LangTriG sends the default graph to the stream as quads.
+        assertCounts("data.trig", """
+                <urn:s> <urn:p> <urn:o1> .
+                { <urn:s> <urn:p> <urn:o2> }
+                <urn:g> { <urn:s> <urn:p> <urn:o3> }
+                """);
+    }
+
+    /** Ingest {@code data}: two statements in the default graph and one in a named graph. */
+    private void assertCounts(String filename, String data) throws Exception {
+        Path input = directory.resolve(filename);
+        Files.writeString(input, data);
         XLoaderFiles files = new XLoaderFiles(Files.createDirectory(directory.resolve("tmp")).toString());
         ProcIngestDataX.exec(directory.resolve("db").toString(), files, List.of(input.toString()), false);
 

@@ -92,6 +92,9 @@ public class ProcIngestDataX {
                             List<String> datafiles, boolean collectStats,
                             int gzipLevel, int gzipBufferSize) {
         FmtLog.info(BulkLoaderX.LOG_Data, "Ingest data");
+        // A bad jena.xloader.ingest.cacheSize fails now, not at the first N-Triples or N-Quads file.
+        if ( BulkLoaderX.ingestThreads() > 1 )
+            ParallelIngest.cacheSize();
         DatasetGraph dsg = getDatasetGraph(location);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
             if ( BulkLoaderX.PreloadNodeTable )
@@ -354,14 +357,19 @@ public class ProcIngestDataX {
 
         @Override
         public void quad(Quad quad) {
+            // As the TDB2 loader (DataBatcher): the default graph is triples, written to
+            // and counted with the triples workfile. tdb2.xloader skips the triple indexes
+            // when load.json has no triples.
+            // Union graph?!
+            if ( quad.isTriple() || quad.isDefaultGraph() ) {
+                triple(quad.asTriple());
+                return;
+            }
             countQuads++;
+            Node g = quad.getGraph();
             Node s = quad.getSubject();
             Node p = quad.getPredicate();
             Node o = quad.getObject();
-            Node g = null;
-            // Union graph?!
-            if ( !quad.isTriple() && !quad.isDefaultGraph() )
-                g = quad.getGraph();
             process(g, s, p, o);
         }
 

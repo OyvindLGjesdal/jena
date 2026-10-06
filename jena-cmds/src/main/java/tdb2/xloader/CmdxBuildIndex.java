@@ -22,7 +22,9 @@
 package tdb2.xloader;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.jena.atlas.lib.FileOps;
 import org.apache.jena.cmd.CmdException;
@@ -66,9 +68,16 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
             throw new CmdException("Required : --loc");
         if ( indexName == null )
             throw new CmdException("Required : --index");
-        for ( String name : indexNames() ) {
+        List<String> names = indexNames();
+        if ( names.isEmpty() )
+            throw new CmdException("--index :: No index name: "+indexName);
+        Set<String> seen = new HashSet<>();
+        for ( String name : names ) {
             if ( !ProcBuildIndexX.IndexNames.contains(name) )
                 throw new CmdException("--index :: Unknown index name: "+name);
+            // Two builds of one index at the same time would write the same files.
+            if ( !seen.add(name) )
+                throw new CmdException("--index :: Index name given more than once: "+name);
         }
     }
 

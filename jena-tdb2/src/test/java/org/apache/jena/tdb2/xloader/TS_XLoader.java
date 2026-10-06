@@ -26,5 +26,5 @@ import org.junit.platform.suite.api.Suite;
 
 @Suite
 @SelectClasses({TestSortProcess.class, TestXLoader.class, TestParallelNodeParser.class, TestSortedNodeRecords.class,
-                TestSharedWorkfileReader.class})
+                TestSharedWorkfileReader.class, TestXLoaderLoadInfo.class})
 public class TS_XLoader {}

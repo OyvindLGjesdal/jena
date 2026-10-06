@@ -89,8 +89,15 @@ final class ParallelIngest {
      * Node to NodeId cache entries in total (as ingest's cache), 10 million unless the
      * system property {@code jena.xloader.ingest.cacheSize} is set. A smaller cache allows
      * a smaller heap, leaving more memory for the page cache of the node table.
+     * 0 (the default): from the system property, read by {@link #cacheSize()}, so a bad
+     * value is a {@link TDBException}, not an error initializing this class.
      */
-    static int CacheSize = cacheSize(System.getProperty("jena.xloader.ingest.cacheSize"));
+    static int CacheSize = 0;
+
+    /** {@link #CacheSize}, or the system property; a bad property value throws {@link TDBException}. */
+    static int cacheSize() {
+        return CacheSize > 0 ? CacheSize : cacheSize(System.getProperty("jena.xloader.ingest.cacheSize"));
+    }
 
     static int cacheSize(String value) {
         if ( value == null || value.isBlank() )
@@ -128,9 +135,10 @@ final class ParallelIngest {
         LongAdder quads = new LongAdder();
         LongAdder tableFound = new LongAdder();
         LongAdder treeLookups = new LongAdder();
-        // Shared: one cache of CacheSize. Per worker: CacheSize shared out (at least 100,000 each).
-        Cache<Node, NodeId> shared = SharedCache ? CacheFactory.createCache(CacheSize) : null;
-        int cacheSize = Math.max(100_000, CacheSize / threads);
+        // Shared: one cache of cacheSize(). Per worker: cacheSize() shared out (at least 100,000 each).
+        int totalCacheSize = cacheSize();
+        Cache<Node, NodeId> shared = SharedCache ? CacheFactory.createCache(totalCacheSize) : null;
+        int cacheSize = Math.max(100_000, totalCacheSize / threads);
         ParallelParser.Owner owner = millis -> {
             for ( Allocation a = requests.poll(millis, TimeUnit.MILLISECONDS) ; a != null ; a = requests.poll() ) {
                 try {
@@ -202,10 +210,13 @@ final class ParallelIngest {
 
                 @Override
                 public void quad(Quad quad) {
+                    // As IngestData: the default graph is triples.
+                    if ( quad.isTriple() || quad.isDefaultGraph() ) {
+                        triple(quad.asTriple());
+                        return;
+                    }
                     chunkQuads++;
-                    // As IngestData: the default graph goes to the triples workfile.
-                    Node g = ( !quad.isTriple() && !quad.isDefaultGraph() ) ? quad.getGraph() : null;
-                    process(g, quad.getSubject(), quad.getPredicate(), quad.getObject());
+                    process(quad.getGraph(), quad.getSubject(), quad.getPredicate(), quad.getObject());
                 }
             };
         }

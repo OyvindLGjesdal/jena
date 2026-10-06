@@ -167,7 +167,7 @@ abstract class AbstractCmdxLoad extends CmdMain {
         if ( super.contains(argSortBuffer) ) {
             String bufferSize = super.getValue(argSortBuffer);
             if ( !BulkLoaderX.isSortBufferSize(bufferSize) )
-                throw new CmdException("--sort-buffer :: Expected a size such as 50%, 4G or 1024M: "+bufferSize);
+                throw new CmdException("--sort-buffer :: Expected a size such as 50%, 4G or 1024M (a percentage at most 100%): "+bufferSize);
             // Each xloader step runs in its own JVM.
             BulkLoaderX.SortBufferSize = bufferSize;
         }

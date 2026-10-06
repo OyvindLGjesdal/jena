@@ -29,9 +29,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
 import org.apache.jena.atlas.io.IO;
@@ -126,13 +128,19 @@ public class ProcBuildIndexX
      */
     public static void exec(String location, List<String> indexNames, String sortProgram, String sortCompressProgram,
                             int sortThreads, /*unused*/String sortIndexArgs, XLoaderFiles loaderFiles) {
+        if ( indexNames.isEmpty() )
+            throw new TDBException("No index to build");
         if ( indexNames.size() == 1 ) {
             exec(location, indexNames.get(0), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
             return;
         }
+        Set<String> seen = new HashSet<>();
         for ( String name : indexNames ) {
             if ( !IndexNames.contains(name) )
                 throw new TDBException("Index name '" + name + "' not recognized");
+            // Two builds of one index at the same time would write the same files.
+            if ( !seen.add(name) )
+                throw new TDBException("Index name '" + name + "' given more than once");
         }
         String bufferSize = BulkLoaderX.sortBufferSize(BulkLoaderX.SortBufferSize, indexNames.size());
         String names = String.join(" ", indexNames);

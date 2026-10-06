@@ -113,11 +113,12 @@ public class BulkLoaderX {
     }
 
     /**
-     * Whether a value is a size sort's {@code --buffer-size} accepts: a number,
-     * optionally followed by {@code %} or a unit suffix (b, K, M, G, T, P, E, Z, Y).
+     * Whether a value is a size sort's {@code --buffer-size} accepts: a percentage of
+     * memory from 1% to 100%, or a number optionally followed by a unit suffix
+     * (b, K, M, G, T, P, E, Z, Y).
      */
     public static boolean isSortBufferSize(String bufferSize) {
-        return bufferSize != null && bufferSize.matches("[1-9][0-9]*(%|[bKMGTPEZYkmgtpezy])?");
+        return bufferSize != null && bufferSize.matches("([1-9][0-9]?|100)%|[1-9][0-9]*[bKMGTPEZYkmgtpezy]?");
     }
 
     /**

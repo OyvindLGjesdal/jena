@@ -563,7 +563,7 @@ fi
 ## Optional sort buffer size; passed to the node table and index steps only if given.
 SORT_BUFFER_ARGS=()
 if [[ -n $SORT_BUFFER ]] ; then
-    [[ $SORT_BUFFER =~ ^[1-9][0-9]*(%|[bKMGTPEZYkmgtpezy])?$ ]] || abort 1 "Bad value for --sort-buffer (for example 50%, 4G, 1024M): $SORT_BUFFER"
+    [[ $SORT_BUFFER =~ ^([1-9][0-9]?|100)%$|^[1-9][0-9]*[bKMGTPEZYkmgtpezy]?$ ]] || abort 1 "Bad value for --sort-buffer (for example 50%, 4G, 1024M; a percentage at most 100%): $SORT_BUFFER"
     SORT_BUFFER_ARGS=("--sort-buffer=$SORT_BUFFER")
 fi
 
