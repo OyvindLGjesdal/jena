@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,8 +45,10 @@ public class TestSortedNodeRecords {
     private static String lines(List<Node> nodes) throws Exception {
         var out = new ByteArrayOutputStream();
         var stream = new ProcBuildNodeTableX.NodeHashTmpStream(out);
-        for ( Node n : nodes )
-            stream.triple(org.apache.jena.graph.Triple.create(n, NodeFactory.createURI("urn:p"), NodeFactory.createURI("urn:o")));
+        for ( Node n : nodes ) {
+            stream.triple(org.apache.jena.graph.Triple.create(n, NodeFactory.createURI("urn:p"),
+                    NodeFactory.createURI("urn:o")));
+        }
         stream.finish();
         return out.toString(StandardCharsets.US_ASCII);
     }
@@ -56,7 +59,8 @@ public class TestSortedNodeRecords {
 
     private static List<Record> read(String text, BinaryDataFile objectFile, int decoders) {
         List<Record> records = new ArrayList<>();
-        try ( SortedNodeRecords it = new SortedNodeRecords(new ByteArrayInputStream(text.getBytes(StandardCharsets.US_ASCII)), objectFile, decoders) ) {
+        try ( SortedNodeRecords it = new SortedNodeRecords(
+                new ByteArrayInputStream(text.getBytes(StandardCharsets.US_ASCII)), objectFile, decoders) ) {
             it.forEachRemaining(records::add);
         }
         return records;
@@ -163,7 +167,8 @@ public class TestSortedNodeRecords {
             for ( int i = 0 ; i < 200_000 ; i++ )
                 nodes.add(NodeFactory.createURI("urn:s" + i));
             String text = lines(nodes);
-            try ( SortedNodeRecords it = new SortedNodeRecords(new ByteArrayInputStream(text.getBytes(StandardCharsets.US_ASCII)), mem(), 4) ) {
+            try ( SortedNodeRecords it = new SortedNodeRecords(
+                    new ByteArrayInputStream(text.getBytes(StandardCharsets.US_ASCII)), mem(), 4) ) {
                 assertTrue(it.hasNext());
                 it.next();
             }
@@ -176,7 +181,8 @@ public class TestSortedNodeRecords {
     }
 
     private static boolean readerRunning() {
-        return Thread.getAllStackTraces().keySet().stream().anyMatch(t -> t.getName().startsWith("tdb2-xloader-terms") && t.isAlive());
+        return Thread.getAllStackTraces().keySet().stream()
+                .anyMatch(t -> t.getName().startsWith("tdb2-xloader-terms") && t.isAlive());
     }
 
     @Test

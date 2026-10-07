@@ -39,13 +39,13 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import org.apache.jena.atlas.iterator.Iter;
-import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.atlas.lib.FileOps;
 import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.riot.RiotException;
+import org.apache.jena.sparql.core.DatasetGraph;
 import org.apache.jena.sparql.core.Quad;
 import org.apache.jena.tdb2.DatabaseMgr;
 import org.apache.jena.tdb2.TDBException;
@@ -190,7 +190,8 @@ public class TestXLoader {
             ProcBuildNodeTableX.exec(database(), files, wrapper.toString(), sortCompressProgram, 2, null, inputs);
             ProcIngestDataX.exec(database(), files, inputs, false);
             if ( parallelIndexes ) {
-                ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "OSP"), wrapper.toString(), sortCompressProgram, 2, null, files);
+                ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "OSP"), wrapper.toString(),
+                        sortCompressProgram, 2, null, files);
             } else {
                 for ( String index : List.of("SPO", "POS", "OSP") )
                     ProcBuildIndexX.exec(database(), index, wrapper.toString(), sortCompressProgram, 2, null, files);
@@ -216,7 +217,9 @@ public class TestXLoader {
         // The default 50% is shared between the three index sorts.
         for ( String indexSort : invocations.subList(1, 4) )
             assertTrue(indexSort.contains(" --buffer-size=16% "), indexSort);
-        for ( String keys : List.of("--key=1,1 --key=2,2 --key=3,3", "--key=2,2 --key=3,3 --key=1,1", "--key=3,3 --key=1,1 --key=2,2") )
+        List<String> indexKeys = List.of("--key=1,1 --key=2,2 --key=3,3", "--key=2,2 --key=3,3 --key=1,1",
+                "--key=3,3 --key=1,1 --key=2,2");
+        for ( String keys : indexKeys )
             assertTrue(invocations.stream().anyMatch(x -> x.endsWith(keys)), keys);
     }
 
@@ -242,18 +245,36 @@ public class TestXLoader {
         assertEquals("8%", BulkLoaderX.sortBufferSize("50%", 6));
         assertEquals("1%", BulkLoaderX.sortBufferSize("2%", 3));
         assertEquals("1024M", BulkLoaderX.sortBufferSize("1024M", 3));
-        for ( String ok : List.of("50%", "1%", "100%", "4G", "1024M", "512k", "100000", "2T") )
-            assertTrue(BulkLoaderX.isSortBufferSize(ok), ok);
-        for ( String bad : List.of("", "0", "0%", "101%", "99999999999%", "50%%", "-1G", "4GB", "1.5G", "half") )
-            assertFalse(BulkLoaderX.isSortBufferSize(bad), bad);
+        // Not checked here: sort rejects a size it does not accept.
+        assertEquals("99999999999%", BulkLoaderX.sortBufferSize("99999999999%", 3));
+        assertEquals("2p", BulkLoaderX.sortBufferSize("2p", 3));
+    }
+
+    @Test
+    public void sortBufferSizeCheckedBySort() throws Exception {
+        // A size sort does not accept ends the node table step with sort's own message.
+        requireSort();
+        String saved = BulkLoaderX.SortBufferSize;
+        BulkLoaderX.SortBufferSize = "2p";
+        try {
+            XLoaderFiles files = files();
+            Path input = rdf("<urn:s> <urn:p> <urn:o> .\n", "nt");
+            RuntimeException ex = assertThrows(RuntimeException.class, () ->
+                    ProcBuildNodeTableX.exec(database(), files, null, null, 2, null, List.of(input.toString())));
+            assertTrue(ex.getMessage().contains("Sort RC") && ex.getMessage().contains("2p"), ex.getMessage());
+        } finally {
+            BulkLoaderX.SortBufferSize = saved;
+        }
     }
 
     @Test
     public void parallelIndexNamesChecked() throws Exception {
         // Before the database is opened.
         XLoaderFiles files = files();
-        assertThrows(TDBException.class, () -> ProcBuildIndexX.exec(database(), List.of(), "sort", null, 2, null, files));
-        assertThrows(TDBException.class, () -> ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "SPO"), "sort", null, 2, null, files));
+        assertThrows(TDBException.class, () ->
+                ProcBuildIndexX.exec(database(), List.of(), "sort", null, 2, null, files));
+        assertThrows(TDBException.class, () ->
+                ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "SPO"), "sort", null, 2, null, files));
         assertFalse(Files.exists(Path.of(database())));
     }
 
@@ -262,7 +283,8 @@ public class TestXLoader {
         assertEquals(8 << 20, BulkLoaderX.growBuffer(4 << 20, "Line"));
         // Doubling 1 GiB would overflow int.
         assertEquals(BulkLoaderX.MaxArraySize, BulkLoaderX.growBuffer(1 << 30, "Line"));
-        TDBException ex = assertThrows(TDBException.class, () -> BulkLoaderX.growBuffer(BulkLoaderX.MaxArraySize, "Line at byte offset 42"));
+        TDBException ex = assertThrows(TDBException.class, () ->
+                BulkLoaderX.growBuffer(BulkLoaderX.MaxArraySize, "Line at byte offset 42"));
         assertTrue(ex.getMessage().startsWith("Line at byte offset 42 is longer than"), ex.getMessage());
     }
 
@@ -288,12 +310,15 @@ public class TestXLoader {
         assertTrue(wrapper.toFile().setExecutable(true));
         assertTimeoutPreemptively(Duration.ofSeconds(20), () -> {
             TDBException ex = assertThrows(TDBException.class, () ->
-                ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "OSP"), wrapper.toString(), null, 2, null, files));
+                    ProcBuildIndexX.exec(database(), List.of("SPO", "POS", "OSP"), wrapper.toString(), null, 2,
+                            null, files));
             assertTrue(ex.getMessage().contains("Sort RC = 3"), ex.getMessage());
         });
         // The other two sorts were stopped, not left running.
-        for ( String pid : Files.readAllLines(started) )
-            assertFalse(ProcessHandle.of(Long.parseLong(pid.trim())).map(ProcessHandle::isAlive).orElse(false), "sort " + pid + " stopped");
+        for ( String pid : Files.readAllLines(started) ) {
+            assertFalse(ProcessHandle.of(Long.parseLong(pid.trim())).map(ProcessHandle::isAlive).orElse(false),
+                    "sort " + pid + " stopped");
+        }
         assertCanReopen();
     }
 
@@ -312,7 +337,8 @@ public class TestXLoader {
             XLoaderFiles files = files();
             StringBuilder sb = new StringBuilder();
             for ( int i = 0 ; i < 2_000 ; i++ ) {
-                sb.append("<urn:s").append(i / 4).append("> <urn:p").append(i % 3).append("> \"v").append(i).append("\"@en .\n");
+                sb.append("<urn:s").append(i / 4).append("> <urn:p").append(i % 3).append("> \"v").append(i)
+                        .append("\"@en .\n");
                 sb.append("_:b").append(i % 17).append(" <urn:q> <urn:o").append(i % 50).append("> .\n");
             }
             Path input = gzipRdf(sb.toString());
@@ -429,7 +455,8 @@ public class TestXLoader {
     }
 
     /** Run node table, ingest and index steps with the given parse threads (small chunks). */
-    private void loadParallel(XLoaderFiles files, List<String> inputs, int parseThreads, boolean deleteSeed, List<String> indexes) {
+    private void loadParallel(XLoaderFiles files, List<String> inputs, int parseThreads, boolean deleteSeed,
+            List<String> indexes) {
         int savedThreads = BulkLoaderX.ParseThreads;
         int savedChunk = BulkLoaderX.ParseChunkSize;
         BulkLoaderX.ParseThreads = parseThreads;
@@ -530,6 +557,22 @@ public class TestXLoader {
     }
 
     @Test
+    public void nodeTableInMemoryOnlyWhenUsed() {
+        // Only parallel ingest of N-Triples or N-Quads uses the table.
+        int threads = BulkLoaderX.IngestThreads;
+        try {
+            BulkLoaderX.IngestThreads = 4;
+            assertTrue(ProcIngestDataX.useCompactNodeTable(List.of("data.nt")));
+            assertTrue(ProcIngestDataX.useCompactNodeTable(List.of("data.ttl", "data.nq.gz")));
+            assertFalse(ProcIngestDataX.useCompactNodeTable(List.of("data.ttl", "data.trig.gz")));
+            BulkLoaderX.IngestThreads = 1;
+            assertFalse(ProcIngestDataX.useCompactNodeTable(List.of("data.nt")));
+        } finally {
+            BulkLoaderX.IngestThreads = threads;
+        }
+    }
+
+    @Test
     public void parallelIngestNodeTableInMemory() throws Exception {
         // The node table's mapping in memory, with a tiny cache so most lookups reach it;
         // with and without the seed file (blank nodes always use the B+tree).
@@ -566,8 +609,9 @@ public class TestXLoader {
                     throw new AssertionError(ex.getMessage());
                 }
                 assertEquals(n, table.size());
-                index.iterator().forEachRemaining(r -> assertEquals(org.apache.jena.atlas.lib.Bytes.getLong(r.getValue(), 0),
-                                                                    table.find(org.apache.jena.atlas.lib.Bytes.getLong(r.getKey(), 0))));
+                index.iterator().forEachRemaining(r -> assertEquals(
+                        org.apache.jena.atlas.lib.Bytes.getLong(r.getValue(), 0),
+                        table.find(org.apache.jena.atlas.lib.Bytes.getLong(r.getKey(), 0))));
             });
         }
     }
@@ -683,8 +727,9 @@ public class TestXLoader {
                 ProcBuildNodeTableX.exec(database(), files, 2, null, List.of(valid.toString()));
                 BulkLoaderX.ParseThreads = 4;
                 BulkLoaderX.ParseChunkSize = 256;
-                org.apache.jena.riot.RiotParseException ex = assertThrows(org.apache.jena.riot.RiotParseException.class, () ->
-                    ProcIngestDataX.exec(database(), files, List.of(input.toString()), false));
+                org.apache.jena.riot.RiotParseException ex =
+                        assertThrows(org.apache.jena.riot.RiotParseException.class, () ->
+                                ProcIngestDataX.exec(database(), files, List.of(input.toString()), false));
                 assertEquals(321, ex.getLine(), ex.getMessage());
             } finally {
                 BulkLoaderX.ParseThreads = savedThreads;
@@ -721,7 +766,8 @@ public class TestXLoader {
                 data.append("<urn:s").append(i).append("> <urn:p> \"").append(i).append("\" .\n");
             Path input = rdf(data.toString(), "nt");
             assertThrows(RuntimeException.class, () ->
-                ProcBuildNodeTableX.exec(database(), files, failing.toString(), null, 2, null, List.of(input.toString())));
+                    ProcBuildNodeTableX.exec(database(), files, failing.toString(), null, 2, null,
+                            List.of(input.toString())));
             // AsyncParser stops its thread but does not wait for it when the caller
             // has been interrupted, so the thread may end just after the stage.
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
@@ -835,7 +881,8 @@ public class TestXLoader {
     private void assertCanReopen() {
         var dsg = DatabaseMgr.connectDatasetGraph(database());
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
-            dsg.executeWrite(() -> dsg.add(Quad.create(Quad.defaultGraphNodeGenerated, uri("check"), uri("p"), uri("o"))));
+            dsg.executeWrite(() ->
+                    dsg.add(Quad.create(Quad.defaultGraphNodeGenerated, uri("check"), uri("p"), uri("o"))));
         }
     }
 

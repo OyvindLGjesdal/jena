@@ -136,8 +136,10 @@ abstract class AbstractCmdxLoad extends CmdMain {
         }
         if ( super.contains(argWorkfileGzipLevel) ) {
             workfileGzipLevel = intArg(argWorkfileGzipLevel, "--workfile-gzip-level");
-            if ( workfileGzipLevel < -1 || workfileGzipLevel > 9 )
-                throw new CmdException("--workfile-gzip-level :: Must be -1 (Java default) or 0 to 9: "+workfileGzipLevel);
+            if ( workfileGzipLevel < -1 || workfileGzipLevel > 9 ) {
+                throw new CmdException("--workfile-gzip-level :: Must be -1 (Java default) or 0 to 9: "
+                        +workfileGzipLevel);
+            }
         }
         if ( super.contains(argSortCompressNodes) )
             sortCompressNodes = true;
@@ -166,15 +168,17 @@ abstract class AbstractCmdxLoad extends CmdMain {
         }
         if ( super.contains(argSortBuffer) ) {
             String bufferSize = super.getValue(argSortBuffer);
-            if ( !BulkLoaderX.isSortBufferSize(bufferSize) )
-                throw new CmdException("--sort-buffer :: Expected a size such as 50%, 4G or 1024M (a percentage at most 100%): "+bufferSize);
-            // Each xloader step runs in its own JVM.
+            if ( bufferSize == null || bufferSize.isBlank() )
+                throw new CmdException("--sort-buffer :: No size given");
+            // Checked by sort itself. Each xloader step runs in its own JVM.
             BulkLoaderX.SortBufferSize = bufferSize;
         }
         if ( super.contains(argWorkfileGzipBuffer) ) {
             workfileGzipBufferSize = intArg(argWorkfileGzipBuffer, "--workfile-gzip-buffer");
-            if ( workfileGzipBufferSize <= 0 )
-                throw new CmdException("--workfile-gzip-buffer :: Must be a positive number of bytes: "+workfileGzipBufferSize);
+            if ( workfileGzipBufferSize <= 0 ) {
+                throw new CmdException("--workfile-gzip-buffer :: Must be a positive number of bytes: "
+                        +workfileGzipBufferSize);
+            }
         }
 
 //        sortNodeTableArgs = super.getValue(argSortNodeTableArgs);

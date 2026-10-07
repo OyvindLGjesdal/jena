@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.*;
@@ -106,8 +107,8 @@ public class TestXLoaderIngest {
     public void setup() throws IOException {
         datafile = XLoaderJmh.dataFile();
         String tmp = System.getenv("XLOADER_JMH_TMP");
-        work = Files.createTempDirectory(tmp == null || tmp.isBlank() ? Path.of(System.getProperty("java.io.tmpdir")) : Path.of(tmp),
-                                         "xloader-jmh-ingest");
+        Path tmpDir = ( tmp == null || tmp.isBlank() ) ? Path.of(System.getProperty("java.io.tmpdir")) : Path.of(tmp);
+        work = Files.createTempDirectory(tmpDir, "xloader-jmh-ingest");
         location = work.resolve("db").toString();
         FileOps.ensureDir(location);
         Path tmpdir = Files.createDirectory(work.resolve("tmp"));
@@ -120,9 +121,10 @@ public class TestXLoaderIngest {
         // anew; resolve cannot without the node, which is negligible for a few of them.
         connect();
         long missing = resolve(false);
-        if ( missing != blankPositions )
+        if ( missing != blankPositions ) {
             throw new IllegalStateException(missing + " hashes not found in the node table; expected "
                                             + blankPositions + " (blank nodes)");
+        }
     }
 
     /** A fresh connection per iteration, so the node table cache starts cold as in ingest. */
@@ -150,7 +152,8 @@ public class TestXLoaderIngest {
     @Benchmark
     public long ingest() {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
-        ProgressMonitor monitor = ProgressMonitorFactory.progressMonitor("Ingest", null, 0, 0);  // counts only, no output
+        // Counts only, no output.
+        ProgressMonitor monitor = ProgressMonitorFactory.progressMonitor("Ingest", null, 0, 0);
         OutputStream nul = OutputStream.nullOutputStream();
         dsg.begin(TxnType.WRITE);
         try {
@@ -182,7 +185,8 @@ public class TestXLoaderIngest {
         WriteRows rows = new WriteRows(OutputStream.nullOutputStream(), 3, 100_000);
         long missing = 0;
         dsg.begin(TxnType.READ);
-        try ( DataInputStream in = new DataInputStream(new BufferedInputStream(Files.newInputStream(hashFile), 1 << 20)) ) {
+        try ( DataInputStream in =
+                new DataInputStream(new BufferedInputStream(Files.newInputStream(hashFile), 1 << 20)) ) {
             byte[] key = new byte[SystemTDB.LenNodeHash];
             for ( ;; ) {
                 for ( int i = 0 ; i < 3 ; i++ ) {
@@ -305,7 +309,8 @@ public class TestXLoaderIngest {
     }
 
     private void writeHashFile() throws IOException {
-        try ( DataOutputStream out = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(hashFile), 1 << 20)) ) {
+        try ( DataOutputStream out =
+                new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(hashFile), 1 << 20)) ) {
             Hash hash = new Hash(SystemTDB.LenNodeHash);
             AsyncParser.asyncParse(datafile, new StreamRDFBase() {
                 @Override

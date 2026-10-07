@@ -88,7 +88,8 @@ public class TestXLoaderLoadInfo {
 
     /** Rows in a workfile, compressed or not. */
     private static long rows(String filename) throws IOException {
-        try ( BufferedReader reader = new BufferedReader(new InputStreamReader(IO.openFile(filename), StandardCharsets.US_ASCII)) ) {
+        try ( BufferedReader reader =
+                new BufferedReader(new InputStreamReader(IO.openFile(filename), StandardCharsets.US_ASCII)) ) {
             return reader.lines().filter(line -> !line.isEmpty()).count();
         }
     }

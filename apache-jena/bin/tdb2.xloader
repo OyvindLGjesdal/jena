@@ -27,7 +27,7 @@
 ## jq
 ## sort (or the program given by --sort)
 ## /usr/bin/gzip (or the program given by --sort-compress, for sort's temporary files)
-## xloader-sort-compress (next to this script; only when SORT_COMPRESS_ARGS is set)
+## xloader-sort-compress (in $JENA_HOME/bin; only when SORT_COMPRESS_ARGS is set)
 
 ## ======= Check environment
 
@@ -70,31 +70,7 @@ function testCompressProgram() {
 
 JAVA="${JAVA:-java}"
 
-COMPLETE="yes"
-## The sort program is checked after argument parsing (--sort).
-for F in jq gzip java
-do
-    testForProgram "$F"
-    if [[ $? -ne 0 ]] ; then
-	COMPLETE="no"
-    fi
-done
-
-## gzip must be /bin/gzip or /usr/bin/gzip
-
-testForProgram /bin/gzip || testForProgram /usr/bin/gzip
-if [[ $? -ne 0 ]]
-then
-    echo "gzip not installed in /bin/gzip or /usr/bin/gzip"
-    COMPLETE="no"
-fi
-
-if [[ $COMPLETE != "yes" ]] ; then
-    echo "One or more programs missing" 1>&2
-    exit 9
-fi
-
-unset COMPLETE
+## The programs are checked after argument parsing (--sort, --sort-compress).
 
 ## ======== Setup
 
@@ -212,6 +188,12 @@ See https://jena.apache.org/documentation/tdb/tdb-xloader.html
     node table is larger than memory, ingest waits on node lookups from disk;
     many more threads than cores (for example 32 or 64 on an NVMe SSD) keep
     more reads in flight. Default: the --parse-threads value.
+    Heap (see JVM_ARGS_INGEST): each thread holds about 7 MB (a 4 MB chunk of
+    input and its rows), plus up to 64 MB of chunks waiting: about 0.5 GB for
+    64 threads, 2 GB for 256, 7.5 GB for 1024. Add the node cache (10 million
+    entries by default, -Djena.xloader.ingest.cacheSize=N; 12 threads with 5
+    million ran in a 2.5 GB heap) and, with --node-table-in-memory, about 5-6
+    bytes per term (8.3 GB for 1.6 billion terms).
 
 --term-threads=N
     Threads decoding the sorted node lines in the node table step's term
@@ -266,7 +248,7 @@ SORT_COMPRESS_ARGS
     Later arguments win for most compressors, so values can be combined:
       export SORT_COMPRESS_ARGS="-1 \$SORT_COMPRESS_ARGS"
     sort cannot pass arguments itself; when this is set, xloader uses the
-    wrapper xloader-sort-compress next to this script.
+    wrapper xloader-sort-compress in \$JENA_HOME/bin.
 
 The temporary directory defaults to the datbase directory.
 
@@ -536,7 +518,41 @@ done
 if [[ -z $SORT ]] ; then
     abort 1 "No program given for --sort"
 fi
-testForProgram "$SORT" || abort 9 "Sort program not found: $SORT"
+
+## ======== Programs: the ones this load runs. All missing ones are reported, then exit.
+
+COMPLETE="yes"
+
+## The program sort uses to compress its temporary files: --sort-compress, or gzip
+## as the Java steps choose it (/usr/bin/gzip, else /bin/gzip; not from the PATH).
+if [[ -n $SORT_COMPRESS ]] ; then
+    COMPRESSOR_BINARY="$SORT_COMPRESS"
+elif [[ -x /usr/bin/gzip ]] ; then
+    COMPRESSOR_BINARY=/usr/bin/gzip
+elif [[ -x /bin/gzip ]] ; then
+    COMPRESSOR_BINARY=/bin/gzip
+else
+    COMPRESSOR_BINARY=
+    echo "gzip not installed in /bin/gzip or /usr/bin/gzip"
+    COMPLETE="no"
+fi
+
+## JAVA (default java), SORT (default sort, or --sort).
+for F in jq "$JAVA" "$SORT" ${COMPRESSOR_BINARY:+"$COMPRESSOR_BINARY"}
+do
+    testForProgram "$F"
+    if [[ $? -ne 0 ]] ; then
+	COMPLETE="no"
+    fi
+done
+
+if [[ $COMPLETE != "yes" ]] ; then
+    echo "One or more programs missing" 1>&2
+    exit 9
+fi
+
+unset COMPLETE
+
 testSortParallel "$SORT"
 
 ## Optional argument SORT_COMPRESS; passed to the Java steps only if given.
@@ -546,27 +562,35 @@ testSortParallel "$SORT"
 ## environment that sort passes on. Unset: no wrapper, behaviour unchanged.
 SORT_COMPRESS_PROGRAM=()
 if [[ -n ${SORT_COMPRESS_ARGS:-} ]] ; then
-    if [[ -z $SORT_COMPRESS ]] ; then
-        ## The default compressor, as the Java steps choose it.
-        if [[ -x /usr/bin/gzip ]] ; then SORT_COMPRESS=/usr/bin/gzip ; else SORT_COMPRESS=/bin/gzip ; fi
+    ## In JENA_HOME's bin; with only JENA_CP set, next to this script, following a
+    ## symlink to it as for JENA_HOME.
+    if [[ -n $JENA_HOME ]] ; then
+        SORT_COMPRESS_WRAPPER="$JENA_HOME/bin/xloader-sort-compress"
+    else
+        SCRIPT_FILE="${BASH_SOURCE[0]}"
+        if [[ -L $SCRIPT_FILE ]] ; then
+            LINK="$(resolveLink "$SCRIPT_FILE")"
+            case "$LINK" in
+                /*) SCRIPT_FILE="$LINK" ;;
+                *)  SCRIPT_FILE="$(dirname "$SCRIPT_FILE")/$LINK" ;;
+            esac
+        fi
+        SORT_COMPRESS_WRAPPER="$(cd "$(dirname "$SCRIPT_FILE")" && pwd)/xloader-sort-compress"
     fi
-    testForProgram "$SORT_COMPRESS" || abort 9 "Compress program not found: $SORT_COMPRESS"
-    SORT_COMPRESS_WRAPPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/xloader-sort-compress"
     [[ -x $SORT_COMPRESS_WRAPPER ]] || abort 9 "SORT_COMPRESS_ARGS is set but $SORT_COMPRESS_WRAPPER is missing or not executable"
-    export XLOADER_SORT_COMPRESS="$(type -p "$SORT_COMPRESS")"
+    export XLOADER_SORT_COMPRESS="$(type -p "$COMPRESSOR_BINARY")"
     export SORT_COMPRESS_ARGS
     testCompressProgram "$SORT_COMPRESS_WRAPPER" "'$XLOADER_SORT_COMPRESS $SORT_COMPRESS_ARGS' (SORT_COMPRESS_ARGS)"
     SORT_COMPRESS_PROGRAM=(--sort-compress "$SORT_COMPRESS_WRAPPER")
 elif [[ -n $SORT_COMPRESS ]] ; then
-    testForProgram "$SORT_COMPRESS" || abort 9 "Compress program not found: $SORT_COMPRESS"
     testCompressProgram "$SORT_COMPRESS"
     SORT_COMPRESS_PROGRAM=(--sort-compress "$SORT_COMPRESS")
 fi
 
 ## Optional sort buffer size; passed to the node table and index steps only if given.
 SORT_BUFFER_ARGS=()
+## sort checks the value (sorts differ: uutils sort takes no percentage).
 if [[ -n $SORT_BUFFER ]] ; then
-    [[ $SORT_BUFFER =~ ^([1-9][0-9]?|100)%$|^[1-9][0-9]*[bKMGTPEZYkmgtpezy]?$ ]] || abort 1 "Bad value for --sort-buffer (for example 50%, 4G, 1024M; a percentage at most 100%): $SORT_BUFFER"
     SORT_BUFFER_ARGS=("--sort-buffer=$SORT_BUFFER")
 fi
 

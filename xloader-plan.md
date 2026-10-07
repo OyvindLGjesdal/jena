@@ -1358,7 +1358,16 @@ share of the total for more than 6 workers. The total is 3,000,000 entries unles
 system property `jena.xloader.nodes.cacheSize` is set (the shared cache has the total).
 So `--parse-threads=6` is unchanged from the 7:21 run, and 32 threads hold 3 M entries,
 not 16 M. The node table step logs the sizes ("Node cache: ...") and checks the
-property before opening the database. Not yet built or measured.
+property before opening the database.
+
+Measured (2026-10-07), `3d930b8dea` (`build/node-cache`; the rebuild from the commit is
+identical), same settings, run `20261007T065315Z-4a3b09b1`, **on battery** (75%):
+log "Node cache: 500 000 entries for each of 6 workers"; parse (nodes) 86.2 s, term
+index 45.9 s, node table 2:14, 61.3 M node lines to sort (as per worker before), ingest
+1:53, SPO / POS / OSP 2:52 / 3:27 / 3:10, total 7:36, max RSS 15.0 GB; counts identical.
+The node table is as with per-worker caches on AC (2:10, not 2:20 shared). The index
+stages, which this change does not touch, were about 11 s slower than on AC; the
+battery run of 2026-10-06 was about 4 s slower there, so battery or noise.
 
 ### Further xloader improvements (2026-10-03, proposed)
 

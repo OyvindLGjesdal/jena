@@ -272,7 +272,10 @@ public class IO
 
     /** Gzip compression level used by {@link #openOutputFile(String)}. */
     public static final int GZIP_LEVEL_DEFAULT = Deflater.DEFAULT_COMPRESSION;
-    /** Gzip output buffer size used by {@link #openOutputFile(String)}; as {@link GZIPOutputStream#GZIPOutputStream(OutputStream)}. */
+    /**
+     * Gzip output buffer size used by {@link #openOutputFile(String)};
+     * as {@link GZIPOutputStream#GZIPOutputStream(OutputStream)}.
+     */
     public static final int GZIP_BUFSIZE_DEFAULT = 512;
 
     /** Open an input stream to a file; do not mask IOExceptions.
@@ -293,10 +296,12 @@ public class IO
      * @throws IOException for bad gzip encoded data
      * @throws IllegalArgumentException for an invalid gzip level or buffer size.
      */
-    static public OutputStream openOutputFileEx(String filename, int gzipLevel, int gzipBufferSize) throws FileNotFoundException,IOException
+    static public OutputStream openOutputFileEx(String filename, int gzipLevel, int gzipBufferSize)
+            throws FileNotFoundException,IOException
     {
         // Check before creating the file.
-        if ( gzipLevel != Deflater.DEFAULT_COMPRESSION && ( gzipLevel < Deflater.NO_COMPRESSION || gzipLevel > Deflater.BEST_COMPRESSION ) )
+        if ( gzipLevel != Deflater.DEFAULT_COMPRESSION
+                && ( gzipLevel < Deflater.NO_COMPRESSION || gzipLevel > Deflater.BEST_COMPRESSION ) )
             throw new IllegalArgumentException("Gzip level must be -1 (default) or 0 to 9: " + gzipLevel);
         if ( gzipBufferSize <= 0 )
             throw new IllegalArgumentException("Gzip buffer size must be positive: " + gzipBufferSize);

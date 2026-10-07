@@ -26,14 +26,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 import org.apache.jena.atlas.io.IO;
@@ -102,7 +95,8 @@ public class ProcBuildIndexX
         FmtLog.info(BulkLoaderX.LOG_Index, "Build index %s", indexName);
 
         timer.startTimer();
-        long items = ProcBuildIndexX.exec2(location, indexName, BulkLoaderX.sortProgram(sortProgram), sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+        long items = ProcBuildIndexX.exec2(location, indexName, BulkLoaderX.sortProgram(sortProgram),
+                sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
         long timeMillis = timer.endTimer();
 
         double xSec = timeMillis/1000.0;
@@ -114,7 +108,8 @@ public class ProcBuildIndexX
     }
 
     /** Index names this class builds. */
-    public static final List<String> IndexNames = List.of("SPO", "POS", "OSP", "GSPO", "GPOS", "GOSP", "SPOG", "POSG", "OSPG");
+    public static final List<String> IndexNames =
+            List.of("SPO", "POS", "OSP", "GSPO", "GPOS", "GOSP", "SPOG", "POSG", "OSPG");
 
     /**
      * Build several indexes at the same time, one thread and one sort process each,
@@ -131,7 +126,8 @@ public class ProcBuildIndexX
         if ( indexNames.isEmpty() )
             throw new TDBException("No index to build");
         if ( indexNames.size() == 1 ) {
-            exec(location, indexNames.get(0), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+            exec(location, indexNames.get(0), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs,
+                    loaderFiles);
             return;
         }
         Set<String> seen = new HashSet<>();
@@ -172,11 +168,12 @@ public class ProcBuildIndexX
                         Timer t = new Timer();
                         t.startTimer();
                         FmtLog.info(BulkLoaderX.LOG_Index, "Build index %s", indexName);
-                        long items = buildIndex(dsg, indexName, program, sortCompressProgram, sortThreads, bufferSize, sortIndexArgs, loaderFiles,
-                                                readers.get(workfile(indexName, loaderFiles)));
+                        long items = buildIndex(dsg, indexName, program, sortCompressProgram, sortThreads,
+                                bufferSize, sortIndexArgs, loaderFiles, readers.get(workfile(indexName, loaderFiles)));
                         long millis = t.endTimer();
-                        FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName,
-                                    Timer.timeStr(millis), BulkLoaderX.milliToHMS(millis), BulkLoaderX.rateStr(items, millis));
+                        FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS",
+                                BulkLoaderX.StepMarker, indexName, Timer.timeStr(millis),
+                                BulkLoaderX.milliToHMS(millis), BulkLoaderX.rateStr(items, millis));
                         return null;
                     }));
                 }
@@ -231,10 +228,12 @@ public class ProcBuildIndexX
         }
     }
 
-    private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
+    private static long exec2(String location, String indexName, String sortProgram, String sortCompressProgram,
+            int sortThreads, String sortIndexArgs, XLoaderFiles loaderFiles) {
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(location);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
-            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads, BulkLoaderX.SortBufferSize, sortIndexArgs, loaderFiles, null);
+            return buildIndex(dsg, indexName, sortProgram, sortCompressProgram, sortThreads,
+                    BulkLoaderX.SortBufferSize, sortIndexArgs, loaderFiles, null);
         }
     }
 
@@ -244,8 +243,9 @@ public class ProcBuildIndexX
     }
 
     /** Build one index; {@code reader}, if not null, is the shared reader of its workfile. */
-    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, XLoaderFiles loaderFiles,
-                                   SharedWorkfileReader reader) {
+    private static long buildIndex(DatasetGraph dsg, String indexName, String sortProgram,
+            String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs,
+            XLoaderFiles loaderFiles, SharedWorkfileReader reader) {
         long tickPoint = BulkLoaderX.DataTick;
         int superTick = BulkLoaderX.DataSuperTick;
         String K1 = "--key=1,1";
@@ -265,8 +265,9 @@ public class ProcBuildIndexX
             case "OSPG" -> List.of(K4, K2, K3, K1);
             default -> throw new TDBException("Index name '" + indexName + "' not recognized");
         };
-        return sort_build_index(BulkLoaderX.LOG_Index, workfile(indexName, loaderFiles), dsg, indexName, sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs,
-                                tickPoint, superTick, loaderFiles.TMPDIR, keys, reader);
+        return sort_build_index(BulkLoaderX.LOG_Index, workfile(indexName, loaderFiles), dsg, indexName,
+                sortProgram, sortCompressProgram, sortThreads, sortBufferSize, sortIndexArgs,
+                tickPoint, superTick, loaderFiles.TMPDIR, keys, reader);
     }
 
     private static boolean isEmpty(String datafile) {
@@ -283,9 +284,9 @@ public class ProcBuildIndexX
     }
 
     private static long sort_build_index(Logger LOG, String datafile, DatasetGraph dsg, String indexName,
-                                         String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize, String sortIndexArgs, long tickPoint, int superTick,
-                                         String TMPDIR,
-                                         List<String>sortKeyArgs, SharedWorkfileReader reader) {
+            String sortProgram, String sortCompressProgram, int sortThreads, String sortBufferSize,
+            String sortIndexArgs, long tickPoint, int superTick, String TMPDIR,
+            List<String>sortKeyArgs, SharedWorkfileReader reader) {
         if ( isEmpty(datafile) )
             return 0;
         if ( sortThreads <= 0 )

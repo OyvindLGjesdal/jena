@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.*;
@@ -83,8 +84,8 @@ public class TestXLoaderTermIndex {
     public void setup() throws Exception {
         String datafile = XLoaderJmh.dataFile();
         String tmp = System.getenv("XLOADER_JMH_TMP");
-        work = Files.createTempDirectory(tmp == null || tmp.isBlank() ? Path.of(System.getProperty("java.io.tmpdir")) : Path.of(tmp),
-                                         "xloader-jmh-terms");
+        Path tmpDir = ( tmp == null || tmp.isBlank() ) ? Path.of(System.getProperty("java.io.tmpdir")) : Path.of(tmp);
+        work = Files.createTempDirectory(tmpDir, "xloader-jmh-terms");
         Path unsorted = work.resolve("nodes-unsorted.txt");
         try ( OutputStream out = IO.ensureBuffered(Files.newOutputStream(unsorted)) ) {
             var stream = new ProcBuildNodeTableX.NodeHashTmpStream(out);
@@ -128,7 +129,8 @@ public class TestXLoaderTermIndex {
     /** Read all sorted lines with a variant; @return records, object file length and a digest of the records. */
     private String run(Variant v) throws Exception {
         Path objDir = Files.createTempDirectory(work, "obj");
-        BinaryDataFile objectFile = FileFactory.createBinaryDataFile(new FileSet(Location.create(objDir.toString()), "nodes-data"), "obj");
+        BinaryDataFile objectFile =
+                FileFactory.createBinaryDataFile(new FileSet(Location.create(objDir.toString()), "nodes-data"), "obj");
         objectFile.open();
         MessageDigest md = MessageDigest.getInstance("MD5");
         long count = 0;

@@ -61,10 +61,15 @@ public class CmdxLoader extends AbstractCmdxLoad {
         super.add(argLocation,      "--loc=", "Database location");
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
-        super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
-        super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
-        super.add(argWorkfileGzipLevel,  "--workfile-gzip-level=", "Gzip level for the triples/quads workfiles: 0-9, or -1 for the Java default (default: 1)");
-        super.add(argWorkfileGzipBuffer, "--workfile-gzip-buffer=", "Gzip output buffer size in bytes for the workfiles (default: 131072)");
+        super.add(argSortProgram,   "--sort=",
+                "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
+        super.add(argSortCompress,  "--sort-compress=",
+                "Program sort(1) uses to compress its temporary files (default: gzip);"
+                + " run with no arguments and with -d");
+        super.add(argWorkfileGzipLevel,  "--workfile-gzip-level=",
+                "Gzip level for the triples/quads workfiles: 0-9, or -1 for the Java default (default: 1)");
+        super.add(argWorkfileGzipBuffer, "--workfile-gzip-buffer=",
+                "Gzip output buffer size in bytes for the workfiles (default: 131072)");
     }
 
     @Override

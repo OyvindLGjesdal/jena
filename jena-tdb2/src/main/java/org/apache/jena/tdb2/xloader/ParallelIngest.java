@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.ByteArrayOutputStream;
@@ -25,11 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongConsumer;
@@ -118,9 +115,9 @@ final class ParallelIngest {
      * Must be called in a write transaction on {@code dsg}.
      * {@code table}, if not null, is the node table's hash to NodeId mapping in memory.
      */
-    static Counts ingest(DatasetGraph dsg, CompactNodeTable table, InputStream input, Lang lang, String baseIRI, UUID seed,
-                         OutputStream outputTriples, OutputStream outputQuads,
-                         int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress) {
+    static Counts ingest(DatasetGraph dsg, CompactNodeTable table, InputStream input, Lang lang,
+            String baseIRI, UUID seed, OutputStream outputTriples, OutputStream outputQuads,
+            int threads, int chunkSize, BooleanSupplier cancelled, LongConsumer progress) {
         NodeTable nodeTable = TDBInternal.getDatasetGraphTDB(dsg).getTripleTable().getNodeTupleTable().getNodeTable();
         Index index = ((NodeTableTRDF)nodeTable.baseNodeTable()).getIndex();
         BlockingQueue<Allocation> requests = new LinkedBlockingQueue<>();
@@ -143,13 +140,14 @@ final class ParallelIngest {
             }
         };
         ParallelParser.parse(input, lang, baseIRI, seed, threads, chunkSize, cancelled, progress,
-                             () -> new IngestWorker(dsg, index, table, requests,
-                                                    shared != null ? shared : CacheFactory.createCache(cacheSize),
-                                                    outputTriples, outputQuads, triples, quads, tableFound, treeLookups),
-                             owner);
-        if ( table != null )
+                () -> new IngestWorker(dsg, index, table, requests,
+                        shared != null ? shared : CacheFactory.createCache(cacheSize),
+                        outputTriples, outputQuads, triples, quads, tableFound, treeLookups),
+                owner);
+        if ( table != null ) {
             FmtLog.info(BulkLoaderX.LOG_Data, "Node table in memory: %,d found there, %,d looked up in the B+tree",
                         tableFound.sum(), treeLookups.sum());
+        }
         return new Counts(triples.sum(), quads.sum());
     }
 
@@ -177,9 +175,10 @@ final class ParallelIngest {
         private long chunkQuads = 0;
         private final StreamRDF stream;
 
-        IngestWorker(DatasetGraph dsg, Index index, CompactNodeTable table, BlockingQueue<Allocation> requests, Cache<Node, NodeId> cache,
-                     OutputStream outputTriples, OutputStream outputQuads, LongAdder triples, LongAdder quads,
-                     LongAdder tableFound, LongAdder treeLookups) {
+        IngestWorker(DatasetGraph dsg, Index index, CompactNodeTable table,
+                BlockingQueue<Allocation> requests, Cache<Node, NodeId> cache,
+                OutputStream outputTriples, OutputStream outputQuads, LongAdder triples, LongAdder quads,
+                LongAdder tableFound, LongAdder treeLookups) {
             this.dsg = dsg;
             this.index = index;
             this.table = table;

@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.ByteArrayInputStream;
@@ -114,7 +115,8 @@ final class ParallelParser {
             for ( int i = 0 ; i < threads ; i++ ) {
                 pool.submit(() -> {
                     try {
-                        work(queue, free, chunkSize, lang, baseIRI, seed, workers, cancelled, progress, chunkLines, count);
+                        work(queue, free, chunkSize, lang, baseIRI, seed, workers, cancelled, progress,
+                                chunkLines, count);
                     } catch (Throwable th) {
                         failure.compareAndSet(null, th);
                     } finally {
@@ -222,7 +224,8 @@ final class ParallelParser {
         return -1;
     }
 
-    private static boolean putUnlessFailed(BlockingQueue<Chunk> queue, Chunk chunk, AtomicReference<Throwable> failure) {
+    private static boolean putUnlessFailed(BlockingQueue<Chunk> queue, Chunk chunk,
+            AtomicReference<Throwable> failure) {
         try {
             while ( !queue.offer(chunk, 100, TimeUnit.MILLISECONDS) ) {
                 if ( failure.get() != null )
@@ -236,9 +239,10 @@ final class ParallelParser {
         }
     }
 
-    private static void work(BlockingQueue<Chunk> queue, Queue<byte[]> free, int chunkSize, Lang lang, String baseIRI, UUID seed,
-                             Supplier<Worker> workers, BooleanSupplier cancelled, LongConsumer progress,
-                             Map<Long, Long> chunkLines, LongAdder count) throws IOException, InterruptedException {
+    private static void work(BlockingQueue<Chunk> queue, Queue<byte[]> free, int chunkSize, Lang lang,
+            String baseIRI, UUID seed, Supplier<Worker> workers, BooleanSupplier cancelled,
+            LongConsumer progress, Map<Long, Long> chunkLines, LongAdder count)
+            throws IOException, InterruptedException {
         Worker worker = workers.get();
         try {
             long[] statements = new long[1];
@@ -294,9 +298,20 @@ final class ParallelParser {
         ErrorHandler base = ErrorHandlerFactory.getDefaultErrorHandler();
         String where = " (line within the chunk at byte offset " + offset + " of the input)";
         return new ErrorHandler() {
-            @Override public void warning(String message, long line, long col) { base.warning(message + where, line, col); }
-            @Override public void error(String message, long line, long col)   { throw new RiotParseException(message, line, col); }
-            @Override public void fatal(String message, long line, long col)   { throw new RiotParseException(message, line, col); }
+            @Override
+            public void warning(String message, long line, long col) {
+                base.warning(message + where, line, col);
+            }
+
+            @Override
+            public void error(String message, long line, long col) {
+                throw new RiotParseException(message, line, col);
+            }
+
+            @Override
+            public void fatal(String message, long line, long col) {
+                throw new RiotParseException(message, line, col);
+            }
         };
     }
 

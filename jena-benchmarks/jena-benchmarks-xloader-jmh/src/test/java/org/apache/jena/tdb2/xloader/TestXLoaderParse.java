@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.OutputStream;
@@ -28,13 +29,13 @@ import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 
 import org.apache.jena.atlas.io.IO;
+import org.apache.jena.graph.Triple;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RDFParserBuilder;
 import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFBase;
 import org.apache.jena.sparql.core.Quad;
-import org.apache.jena.graph.Triple;
 
 /**
  * The parse step of the xloader node table stage, without the external sort.

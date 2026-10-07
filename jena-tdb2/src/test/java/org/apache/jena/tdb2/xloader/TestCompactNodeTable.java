@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -174,7 +175,8 @@ public class TestCompactNodeTable {
     @Test
     public void tableFindsEveryRecord() throws Exception {
         List<Record> records = records(50_000, 2);
-        CompactNodeTable table = CompactNodeTable.build(records.iterator(), records.size() + 100, objectFileLength(records));
+        CompactNodeTable table =
+                CompactNodeTable.build(records.iterator(), records.size() + 100, objectFileLength(records));
         assertEquals(records.size(), table.size());
         for ( Record r : records )
             assertEquals(Bytes.getLong(r.getValue(), 0), table.find(Bytes.getLong(r.getKey(), 0)));

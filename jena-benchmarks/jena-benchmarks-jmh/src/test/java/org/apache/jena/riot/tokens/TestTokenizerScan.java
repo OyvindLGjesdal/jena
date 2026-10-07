@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.riot.tokens;
 
 import java.io.IOException;
@@ -175,7 +176,8 @@ public class TestTokenizerScan {
 
     /** SWAR: 8 bytes at a time with long arithmetic; no special JVM support needed. */
     static final class SwarByteFinder implements ByteFinder {
-        private static final VarHandle LONG = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+        private static final VarHandle LONG =
+                MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
         private static final long ONES = 0x0101010101010101L;
         private static final long HIGHS = 0x8080808080808080L;
 
@@ -581,7 +583,8 @@ public class TestTokenizerScan {
                 .shouldDoGC(true)
                 .jvmArgs("-Xmx4G", "--add-modules", "jdk.incubator.vector")
                 .resultFormat(ResultFormatType.JSON)
-                .result(TestTokenizerScan.class.getSimpleName() + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".json")
+                .result(TestTokenizerScan.class.getSimpleName() + "_"
+                        + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".json")
                 .build();
         new Runner(opt).run();
     }

@@ -102,23 +102,16 @@ public class BulkLoaderX {
     /**
      * The {@code --buffer-size} for each of {@code sorts} sorts running at the same time:
      * a percentage of memory is shared between them (at least 1%); an absolute size, which
-     * sort takes as a per-process size, is used by each.
+     * sort takes as a per-process size, is used by each. The value is not checked here:
+     * sort rejects one it does not accept (sorts differ, for example uutils sort takes
+     * no percentage), and the node table step's sort starts first.
      */
     /*package*/ static String sortBufferSize(String bufferSize, int sorts) {
-        if ( sorts > 1 && bufferSize.endsWith("%") ) {
+        if ( sorts > 1 && bufferSize.matches("[0-9]{1,9}%") ) {
             int percent = Integer.parseInt(bufferSize.substring(0, bufferSize.length() - 1));
             return Math.max(1, percent / sorts) + "%";
         }
         return bufferSize;
-    }
-
-    /**
-     * Whether a value is a size sort's {@code --buffer-size} accepts: a percentage of
-     * memory from 1% to 100%, or a number optionally followed by a unit suffix
-     * (b, K, M, G, T, P, E, Z, Y).
-     */
-    public static boolean isSortBufferSize(String bufferSize) {
-        return bufferSize != null && bufferSize.matches("([1-9][0-9]?|100)%|[1-9][0-9]*[bKMGTPEZYkmgtpezy]?");
     }
 
     /**

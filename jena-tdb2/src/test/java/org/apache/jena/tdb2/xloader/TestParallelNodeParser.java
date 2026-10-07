@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,19 +27,15 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
+import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotParseException;
 import org.apache.jena.riot.thrift.ThriftConvert;
-import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.tdb2.TDBException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TCompactProtocol;
@@ -51,11 +48,16 @@ public class TestParallelNodeParser {
         StringBuilder sb = new StringBuilder();
         for ( int i = 0 ; i < lines ; i++ ) {
             switch ( i % 5 ) {
-                case 0 -> sb.append("<urn:s").append(i / 10).append("> <urn:p").append(i % 7).append("> <urn:o").append(i).append("> .\n");
-                case 1 -> sb.append("<urn:s").append(i / 10).append("> <urn:label> \"label ").append(i).append("\"@en .\n");
-                case 2 -> sb.append("<urn:s").append(i / 10).append("> <urn:n> \"").append(i).append("\"^^<http://www.w3.org/2001/XMLSchema#integer> .\n");
-                case 3 -> sb.append("_:b").append(i % blankNodes).append(" <urn:p> \"esc\\\"aped \\u00E9 ").append(i).append("\" .\n");
-                default -> sb.append("<urn:s").append(i / 10).append("> <urn:unknown> _:b").append(i % blankNodes).append(" .\n");
+                case 0 -> sb.append("<urn:s").append(i / 10).append("> <urn:p").append(i % 7)
+                        .append("> <urn:o").append(i).append("> .\n");
+                case 1 -> sb.append("<urn:s").append(i / 10).append("> <urn:label> \"label ").append(i)
+                        .append("\"@en .\n");
+                case 2 -> sb.append("<urn:s").append(i / 10).append("> <urn:n> \"").append(i)
+                        .append("\"^^<http://www.w3.org/2001/XMLSchema#integer> .\n");
+                case 3 -> sb.append("_:b").append(i % blankNodes).append(" <urn:p> \"esc\\\"aped \\u00E9 ").append(i)
+                        .append("\" .\n");
+                default -> sb.append("<urn:s").append(i / 10).append("> <urn:unknown> _:b").append(i % blankNodes)
+                        .append(" .\n");
             }
         }
         return sb.toString();
@@ -87,7 +89,8 @@ public class TestParallelNodeParser {
 
     /** Distinct blank node labels in the data. */
     private static long labels(String data) {
-        return java.util.regex.Pattern.compile("_:b[0-9]+").matcher(data).results().map(m -> m.group()).distinct().count();
+        return java.util.regex.Pattern.compile("_:b[0-9]+").matcher(data).results()
+                .map(m -> m.group()).distinct().count();
     }
 
     private static Set<String> lines(ByteArrayOutputStream out) {
@@ -98,7 +101,8 @@ public class TestParallelNodeParser {
 
     private static String blankPrefix() {
         try {
-            byte[] b = new TSerializer(new TCompactProtocol.Factory()).serialize(ThriftConvert.convert(NodeFactory.createBlankNode(), false));
+            byte[] b = new TSerializer(new TCompactProtocol.Factory())
+                    .serialize(ThriftConvert.convert(NodeFactory.createBlankNode(), false));
             return String.format("%02X", b[0] & 0xFF);
         } catch (Exception ex) {
             throw new IllegalStateException(ex);
@@ -182,9 +186,11 @@ public class TestParallelNodeParser {
                     ParallelNodeParser.CacheSize = size;
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     LongAdder lines = new LongAdder();
-                    ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
-                                             "file:///test", java.util.UUID.randomUUID(), out, 4, 256, () -> false, n -> {}, lines);
-                    assertEquals(out.toString(StandardCharsets.UTF_8).lines().count(), lines.sum(), "Lines counted, " + what);
+                    ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)),
+                            Lang.NTRIPLES, "file:///test", java.util.UUID.randomUUID(), out, 4, 256,
+                            () -> false, n -> {}, lines);
+                    assertEquals(out.toString(StandardCharsets.UTF_8).lines().count(), lines.sum(),
+                            "Lines counted, " + what);
                     assertEquals(expected, withoutBlankNodes(lines(out)), what);
                 }
             }
@@ -214,9 +220,9 @@ public class TestParallelNodeParser {
         String shortLine = "<urn:s> <urn:p> <urn:o> .\n";
         String data = "<urn:s> <urn:p> \"" + "x".repeat(100_000) + "\" .\n" + shortLine.repeat(10_000);
         List<Long> perChunk = Collections.synchronizedList(new ArrayList<>());
-        long count = ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
-                                              "file:///test", java.util.UUID.randomUUID(), new ByteArrayOutputStream(), 2, 256,
-                                              () -> false, perChunk::add);
+        long count = ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)),
+                Lang.NTRIPLES, "file:///test", java.util.UUID.randomUUID(), new ByteArrayOutputStream(), 2, 256,
+                () -> false, perChunk::add);
         assertEquals(10_001, count);
         long large = perChunk.stream().filter(n -> n > 256 / shortLine.length()).count();
         assertEquals(1, large, "Chunks larger than the chunk size");
@@ -238,8 +244,10 @@ public class TestParallelNodeParser {
     @Test
     public void quads() {
         StringBuilder sb = new StringBuilder();
-        for ( int i = 0 ; i < 1_000 ; i++ )
-            sb.append("<urn:s").append(i % 13).append("> <urn:p> \"v").append(i).append("\" <urn:g").append(i % 3).append("> .\n");
+        for ( int i = 0 ; i < 1_000 ; i++ ) {
+            sb.append("<urn:s").append(i % 13).append("> <urn:p> \"v").append(i)
+                    .append("\" <urn:g").append(i % 3).append("> .\n");
+        }
         String data = sb.toString();
         Result expected = sequential(data, Lang.NQUADS);
         Result actual = parallel(data, Lang.NQUADS, 4, 200);

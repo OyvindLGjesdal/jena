@@ -32,11 +32,7 @@ import org.apache.jena.atlas.RuntimeIOException;
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.json.JSON;
 import org.apache.jena.atlas.json.JsonObject;
-import org.apache.jena.atlas.lib.BitsLong;
-import org.apache.jena.atlas.lib.DateTimeUtils;
-import org.apache.jena.atlas.lib.IRILib;
-import org.apache.jena.atlas.lib.Pair;
-import org.apache.jena.atlas.lib.Timer;
+import org.apache.jena.atlas.lib.*;
 import org.apache.jena.atlas.logging.FmtLog;
 import org.apache.jena.dboe.base.file.Location;
 import org.apache.jena.dboe.index.Index;
@@ -105,9 +101,12 @@ public class ProcIngestDataX {
                 Pair<Long, Long> counts;
                 // Close both intermediate files before publishing load information or
                 // committing, including when opening the second output or parsing fails.
-                try ( OutputStream triples = IO.ensureBuffered(IO.openOutputFile(loaderFiles.triplesFile, gzipLevel, gzipBufferSize));
-                      OutputStream quads = IO.ensureBuffered(IO.openOutputFile(loaderFiles.quadsFile, gzipLevel, gzipBufferSize)) ) {
-                    CompactNodeTable table = BulkLoaderX.NodeTableInMemory ? compactNodeTable(dsg) : null;
+                try ( OutputStream triples = IO.ensureBuffered(
+                              IO.openOutputFile(loaderFiles.triplesFile, gzipLevel, gzipBufferSize));
+                      OutputStream quads = IO.ensureBuffered(
+                              IO.openOutputFile(loaderFiles.quadsFile, gzipLevel, gzipBufferSize)) ) {
+                    boolean inMemory = BulkLoaderX.NodeTableInMemory && useCompactNodeTable(datafiles);
+                    CompactNodeTable table = inMemory ? compactNodeTable(dsg) : null;
                     counts = build(dsg, monitor, triples, quads, datafiles, BlankNodeSeed.read(loaderFiles), table);
                 } catch (IOException ex) {
                     throw new RuntimeIOException(ex);
@@ -185,13 +184,34 @@ public class ProcIngestDataX {
      * the current transaction; null if ingest is not parallel or the node table was not
      * built in hash order.
      */
-    private static CompactNodeTable compactNodeTable(DatasetGraph dsg) {
+    /**
+     * Whether to build the node table in memory ({@link BulkLoaderX#NodeTableInMemory}):
+     * only parallel ingest uses it, so not with one ingest thread, nor when no input is
+     * N-Triples or N-Quads; it would cost a scan of the node table and its heap for nothing.
+     */
+    /*package*/ static boolean useCompactNodeTable(List<String> datafiles) {
         if ( BulkLoaderX.ingestThreads() <= 1 ) {
-            FmtLog.warn(BulkLoaderX.LOG_Data, "Node table in memory: only for parallel ingest (ingest threads above 1); not used");
-            return null;
+            FmtLog.warn(BulkLoaderX.LOG_Data,
+                    "Node table in memory: only for parallel ingest (ingest threads above 1); not used");
+            return false;
         }
+        if ( datafiles.stream().noneMatch(datafile -> parallelSyntax(InputFile.lang(datafile))) ) {
+            FmtLog.warn(BulkLoaderX.LOG_Data,
+                    "Node table in memory: only for N-Triples and N-Quads input (parallel ingest); not used");
+            return false;
+        }
+        return true;
+    }
+
+    /** Syntaxes parallel ingest parses: line-based, so input can be cut into chunks at line ends. */
+    private static boolean parallelSyntax(Lang lang) {
+        return Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang);
+    }
+
+    private static CompactNodeTable compactNodeTable(DatasetGraph dsg) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
-        NodeTableTRDF nodeTable = (NodeTableTRDF)dsgtdb.getTripleTable().getNodeTupleTable().getNodeTable().baseNodeTable();
+        NodeTableTRDF nodeTable =
+                (NodeTableTRDF)dsgtdb.getTripleTable().getNodeTupleTable().getNodeTable().baseNodeTable();
         Index index = nodeTable.getIndex();
         Location location = dsgtdb.getLocation();
         long maxRecords;
@@ -238,12 +258,19 @@ public class ProcIngestDataX {
                 String datafile = datafiles.get(i);
                 Lang lang = InputFile.lang(datafile);
                 try ( InputFile input = InputFile.open(datafile) ) {
-                    if ( Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang) ) {
+                    if ( parallelSyntax(lang) ) {
                         // Without a seed from the node table step, still one seed for all chunks of the file.
-                        UUID seed = ( blankNodeSeed != null ) ? BlankNodeSeed.fileSeed(blankNodeSeed, i) : UUID.randomUUID();
-                        ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, table, input.stream(), lang, IRILib.filenameToIRI(datafile), seed,
-                                outputTriples, outputQuads, BulkLoaderX.ingestThreads(), BulkLoaderX.ParseChunkSize, () -> false,
-                                n -> { synchronized (monitor) { for ( long t = 0 ; t < n ; t++ ) monitor.tick(); } });
+                        UUID seed = ( blankNodeSeed != null )
+                                ? BlankNodeSeed.fileSeed(blankNodeSeed, i) : UUID.randomUUID();
+                        ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, table, input.stream(), lang,
+                                IRILib.filenameToIRI(datafile), seed, outputTriples, outputQuads,
+                                BulkLoaderX.ingestThreads(), BulkLoaderX.ParseChunkSize, () -> false,
+                                n -> {
+                                    synchronized (monitor) {
+                                        for ( long t = 0 ; t < n ; t++ )
+                                            monitor.tick();
+                                    }
+                                });
                         parallelTriples += counts.triples();
                         parallelQuads += counts.quads();
                     } else {

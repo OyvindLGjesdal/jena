@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.io.IOException;
@@ -28,6 +29,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TCompactProtocol;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
@@ -48,9 +52,6 @@ import org.apache.jena.tdb2.lib.NodeLib;
 import org.apache.jena.tdb2.store.Hash;
 import org.apache.jena.tdb2.store.NodeId;
 import org.apache.jena.tdb2.sys.SystemTDB;
-import org.apache.thrift.TException;
-import org.apache.thrift.TSerializer;
-import org.apache.thrift.protocol.TCompactProtocol;
 
 /**
  * An alternative N-Triples front end for the node table stage: a cache keyed on the raw
@@ -97,9 +98,10 @@ public class TestXLoaderTermCache {
             String name = fast ? "termCacheIri" : "termCache";
             System.out.printf("%n# %s: %,d terms, %,d cache hits (%.1f%%), %,d nodes written%n", name,
                               loader.terms, loader.hits, 100.0 * loader.hits / loader.terms, loader.written);
-            if ( !expected.hashes.equals(actual.hashes) )
+            if ( !expected.hashes.equals(actual.hashes) ) {
                 throw new IllegalStateException("Node hashes differ: nodeTableAsync " + expected.hashes.size()
                                                 + ", " + name + " " + actual.hashes.size());
+            }
         }
     }
 
@@ -136,7 +138,8 @@ public class TestXLoaderTermCache {
     private static final class TermCacheLoader {
         private final OutputStream output;
         // N-Triples does not resolve IRIs; the base is required but unused (RDFParser passes the file's IRI).
-        private final ParserProfile profile = RiotLib.profile(Lang.NTRIPLES, "file:///xloader-jmh", ErrorHandlerFactory.errorHandlerStd);
+        private final ParserProfile profile =
+                RiotLib.profile(Lang.NTRIPLES, "file:///xloader-jmh", ErrorHandlerFactory.errorHandlerStd);
         private final TSerializer serializer;
         private final Hash hash = new Hash(SystemTDB.LenNodeHash);
 

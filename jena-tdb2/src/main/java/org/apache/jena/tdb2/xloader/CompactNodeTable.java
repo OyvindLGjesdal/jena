@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.util.Iterator;
@@ -92,7 +93,8 @@ final class CompactNodeTable {
      * @throws NotApplicable if the records do not have increasing NodeIds (pointers below
      *         {@code objectFileLength}), or there are more than {@code maxRecords}
      */
-    static CompactNodeTable build(Iterator<Record> records, long maxRecords, long objectFileLength) throws NotApplicable {
+    static CompactNodeTable build(Iterator<Record> records, long maxRecords, long objectFileLength)
+            throws NotApplicable {
         long capacity = Math.max(1, maxRecords);
         int nodeIdBits = 64 - Long.numberOfLeadingZeros(Math.max(1, objectFileLength - 1));
         EliasFano.Builder hashes = new EliasFano.Builder(capacity, 64);
@@ -109,8 +111,10 @@ final class CompactNodeTable {
             // A pointer NodeId: bit 63 clear, an offset in the object file.
             if ( nodeId < 0 || nodeId >= objectFileLength )
                 throw new NotApplicable(String.format("NodeId 0x%016X is not an offset in the object file", nodeId));
-            if ( nodeId <= lastNodeId )
-                throw new NotApplicable("NodeIds do not increase with the hashes (not a node table built in hash order)");
+            if ( nodeId <= lastNodeId ) {
+                throw new NotApplicable("NodeIds do not increase with the hashes"
+                        + " (not a node table built in hash order)");
+            }
             if ( count > 0 && Long.compareUnsigned(hash, lastHash) < 0 )
                 throw new NotApplicable("records not in hash order");
             hashes.add(hash);

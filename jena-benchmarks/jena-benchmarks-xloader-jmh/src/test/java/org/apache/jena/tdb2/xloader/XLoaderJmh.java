@@ -18,6 +18,7 @@
  *
  *   SPDX-License-Identifier: Apache-2.0
  */
+
 package org.apache.jena.tdb2.xloader;
 
 import java.nio.file.Files;
@@ -66,6 +67,7 @@ class XLoaderJmh {
                 // As tdb2.xloader
                 .jvmArgs("-Xmx4G")
                 .resultFormat(ResultFormatType.JSON)
-                .result(c.getSimpleName() + "_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".json");
+                .result(c.getSimpleName() + "_"
+                        + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + ".json");
     }
 }

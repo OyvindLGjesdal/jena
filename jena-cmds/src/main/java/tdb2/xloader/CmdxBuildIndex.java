@@ -46,9 +46,14 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
         super.add(argIndex,         "--index=", "Index name, or a comma-separated list of names to build in parallel");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
-        super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
-        super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
-        super.add(argSortBuffer,    "--sort-buffer=", "Size for sort's --buffer-size (default: 50%); a percentage is shared between indexes built in parallel");
+        super.add(argSortProgram,   "--sort=",
+                "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
+        super.add(argSortCompress,  "--sort-compress=",
+                "Program sort(1) uses to compress its temporary files (default: gzip);"
+                + " run with no arguments and with -d");
+        super.add(argSortBuffer,    "--sort-buffer=",
+                "Size for sort's --buffer-size (default: 50%);"
+                + " a percentage is shared between indexes built in parallel");
         //super.add(argSortIndexArgs, "--sortIndexArgs=", "Specialised argument for the sort for the indexes");
     }
 
@@ -99,7 +104,8 @@ public class CmdxBuildIndex extends AbstractCmdxLoad {
 
         if ( tmpdir == null )
             tmpdir = location;
-        ProcBuildIndexX.exec(location, indexNames(), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs, loaderFiles);
+        ProcBuildIndexX.exec(location, indexNames(), sortProgram, sortCompressProgram, sortThreads,
+                sortIndexArgs, loaderFiles);
     }
 
     private List<String> indexNames() {

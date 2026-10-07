@@ -25,17 +25,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 import org.apache.jena.atlas.io.IO;
 import org.apache.jena.atlas.iterator.IteratorSlotted;
 import org.apache.jena.atlas.lib.*;
+import org.apache.jena.atlas.lib.Timer;
 import org.apache.jena.atlas.logging.FmtLog;
 import org.apache.jena.dboe.base.file.BinaryDataFile;
 import org.apache.jena.dboe.base.file.BufferChannel;
@@ -51,7 +48,6 @@ import org.apache.jena.graph.Node;
 import org.apache.jena.graph.Triple;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParserBuilder;
-import org.apache.jena.atlas.lib.IRILib;
 import org.apache.jena.riot.system.AsyncParser;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.thrift.RiotThriftException;
@@ -111,7 +107,8 @@ public class ProcBuildNodeTableX {
 //        FmtLog.info(LOG1, "  TMPDIR     = %s", tmpdir==null?"unset":tmpdir);
 //        FmtLog.info(LOG1, "  Data files = %s", StrUtils.strjoin(datafiles, " "));
         Pair<Long/*triples or quads*/, Long/*indexed nodes*/> buildCounts =
-                ProcBuildNodeTableX.exec2(location, loaderFiles, BulkLoaderX.sortProgram(sortProgram), sortCompressProgram, sortThreads, sortNodeTableArgs, datafiles);
+                ProcBuildNodeTableX.exec2(location, loaderFiles, BulkLoaderX.sortProgram(sortProgram),
+                        sortCompressProgram, sortThreads, sortNodeTableArgs, datafiles);
         long timeMillis = timer.endTimer();
 
         long items = buildCounts.getLeft();
@@ -125,7 +122,8 @@ public class ProcBuildNodeTableX {
     }
 
     /** @return Pair<triples, indexed nodes> */
-    private static Pair<Long, Long> exec2(String DB, XLoaderFiles loaderFiles, String sortProgram, String sortCompressProgram, int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
+    private static Pair<Long, Long> exec2(String DB, XLoaderFiles loaderFiles, String sortProgram,
+            String sortCompressProgram, int sortThreads, String sortNodeTableArgs, List<String> datafiles) {
 
         DatasetGraph dsg = DatabaseMgr.connectDatasetGraph(DB);
         try ( BulkLoaderX.Cleanup cleanup = () -> TDBInternal.expel(dsg) ) {
@@ -134,7 +132,7 @@ public class ProcBuildNodeTableX {
     }
 
     private static Pair<Long, Long> buildNodeTable(DatasetGraph dsg, XLoaderFiles loaderFiles,
-                                                  String sortProgram, String sortCompressProgram, int sortThreads, List<String> datafiles) {
+            String sortProgram, String sortCompressProgram, int sortThreads, List<String> datafiles) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
         NodeTable nt = dsgtdb.getTripleTable().getNodeTupleTable().getNodeTable();
         NodeTableTRDF nodeTable = (NodeTableTRDF)nt.baseNodeTable();
@@ -175,17 +173,23 @@ public class ProcBuildNodeTableX {
                         // Line-based syntax: parse chunks on several threads.
                         try ( InputFile input = InputFile.open(datafile) ) {
                             ParallelNodeParser.parse(input.stream(), lang, IRILib.filenameToIRI(datafile),
-                                                     BlankNodeSeed.fileSeed(loadSeed, fileIndex), output,
-                                                     BulkLoaderX.ParseThreads, BulkLoaderX.ParseChunkSize, sort::isCancelled,
-                                                     n -> { synchronized (monitor) { for ( long i = 0 ; i < n ; i++ ) monitor.tick(); } },
-                                                     parallelLines);
+                                    BlankNodeSeed.fileSeed(loadSeed, fileIndex), output,
+                                    BulkLoaderX.ParseThreads, BulkLoaderX.ParseChunkSize, sort::isCancelled,
+                                    n -> {
+                                        synchronized (monitor) {
+                                            for ( long i = 0 ; i < n ; i++ )
+                                                monitor.tick();
+                                        }
+                                    },
+                                    parallelLines);
                         }
                         continue;
                     }
                     stream.start();
                     try ( InputFile input = InputFile.open(datafile) ) {
                         // Parse on a separate thread; hashing and writing stay on this one.
-                        RDFParserBuilder parser = input.parser().labelToNode(BlankNodeSeed.labelToNode(loadSeed, fileIndex));
+                        RDFParserBuilder parser =
+                                input.parser().labelToNode(BlankNodeSeed.labelToNode(loadSeed, fileIndex));
                         AsyncParser.asyncParseSources(List.of(parser), stream);
                         // AsyncParser returns normally, and clears the interrupt,
                         // if this thread is interrupted while waiting for the parser.
@@ -235,8 +239,10 @@ public class ProcBuildNodeTableX {
                     });
                     long elapsed = timer.endTimer();
                     long count = monitor.getTicks();
-                    FmtLog.info(BulkLoaderX.LOG_Terms, "%s Index terms: %s seconds : %,d indexed RDF terms : %s PerSecond",
-                                BulkLoaderX.StageMarker, Timer.timeStr(elapsed), count, BulkLoaderX.rateStr(count, elapsed));
+                    FmtLog.info(BulkLoaderX.LOG_Terms,
+                            "%s Index terms: %s seconds : %,d indexed RDF terms : %s PerSecond",
+                            BulkLoaderX.StageMarker, Timer.timeStr(elapsed), count,
+                            BulkLoaderX.rateStr(count, elapsed));
                     return count;
                 }
             });
@@ -244,7 +250,10 @@ public class ProcBuildNodeTableX {
         }
     }
 
-    /** The node table records from the sorted node lines ({@code hash thrift}, in hex). Package-private for benchmarks. */
+    /**
+     * The node table records from the sorted node lines ({@code hash thrift}, in hex).
+     * Package-private for benchmarks.
+     */
     /*package*/ static SortedNodeRecords records(Logger logger, InputStream input, BinaryDataFile objectFile) {
         return new SortedNodeRecords(input, objectFile, BulkLoaderX.TermThreads);
     }

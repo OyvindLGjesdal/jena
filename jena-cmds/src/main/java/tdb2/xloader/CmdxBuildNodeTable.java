@@ -41,12 +41,17 @@ public class CmdxBuildNodeTable extends AbstractCmdxLoad {
         super.add(argLocation,      "--loc=", "Database location");
         super.add(argTmpdir,        "--tmpdir=", "Temporary directory (defaults to --loc)");
         super.add(argSortThreads,   "--threads=", "Number of threads; passed as an argument to sort(1)");
-        super.add(argSortProgram,   "--sort=", "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
-        super.add(argSortCompress,  "--sort-compress=", "Program sort(1) uses to compress its temporary files (default: gzip); run with no arguments and with -d");
-        super.add(argSortCompressNodes, "--sort-compress-nodes", "Compress the node table sort's temporary files too (default: only the index sorts)");
+        super.add(argSortProgram,   "--sort=",
+                "Sort program (default: sort on the PATH); must accept the GNU sort(1) options used by xloader");
+        super.add(argSortCompress,  "--sort-compress=",
+                "Program sort(1) uses to compress its temporary files (default: gzip);"
+                + " run with no arguments and with -d");
+        super.add(argSortCompressNodes, "--sort-compress-nodes",
+                "Compress the node table sort's temporary files too (default: only the index sorts)");
         super.add(argSortBuffer,    "--sort-buffer=", "Size for sort's --buffer-size (default: 50%)");
         super.add(argParseThreads,  "--parse-threads=", "Threads parsing N-Triples/N-Quads input (default: 1)");
-        super.add(argTermThreads,   "--term-threads=", "Threads decoding the sorted nodes for the term index (default: 1)");
+        super.add(argTermThreads,   "--term-threads=",
+                "Threads decoding the sorted nodes for the term index (default: 1)");
         //super.add(argSortNodeTableArgs, "--sortNodeTableArgs=", "Specialised argument for the sort for the node table");
     }
 
@@ -78,6 +83,7 @@ public class CmdxBuildNodeTable extends AbstractCmdxLoad {
             tmpdir = location;
         // Each xloader stage runs in its own JVM, so setting the switch here affects only this load.
         BulkLoaderX.CompressSortNodeTableFiles = sortCompressNodes;
-        ProcBuildNodeTableX.exec(location, loaderFiles, sortProgram, sortCompressProgram, sortThreads, sortNodeTableArgs, filenames);
+        ProcBuildNodeTableX.exec(location, loaderFiles, sortProgram, sortCompressProgram, sortThreads,
+                sortNodeTableArgs, filenames);
     }
 }
