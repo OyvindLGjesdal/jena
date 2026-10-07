@@ -45,10 +45,12 @@ final class InputFile implements AutoCloseable {
         return new InputFile(datafile);
     }
 
-    /** The RDF language for a data file's name, ignoring a {@code .gz} extension; null if none. */
+    /**
+     * The RDF language for a data file's name, ignoring a compression extension such as
+     * {@code .gz} (as RIOT does); null if none.
+     */
     static Lang lang(String datafile) {
-        String name = datafile.endsWith(".gz") ? datafile.substring(0, datafile.length() - ".gz".length()) : datafile;
-        return RDFLanguages.filenameToLang(name);
+        return RDFLanguages.filenameToLang(datafile);
     }
 
     /**

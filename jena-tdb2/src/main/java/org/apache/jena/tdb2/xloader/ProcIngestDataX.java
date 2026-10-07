@@ -180,11 +180,6 @@ public class ProcIngestDataX {
     }
 
     /**
-     * The node table's hash to NodeId mapping in memory, from one pass over the B+tree in
-     * the current transaction; null if ingest is not parallel or the node table was not
-     * built in hash order.
-     */
-    /**
      * Whether to build the node table in memory ({@link BulkLoaderX#NodeTableInMemory}):
      * only parallel ingest uses it, so not with one ingest thread, nor when no input is
      * N-Triples or N-Quads; it would cost a scan of the node table and its heap for nothing.
@@ -208,6 +203,11 @@ public class ProcIngestDataX {
         return Lang.NTRIPLES.equals(lang) || Lang.NQUADS.equals(lang);
     }
 
+    /**
+     * The node table's hash to NodeId mapping in memory, from one pass over the B+tree in
+     * the current transaction; null if the node table was not built in hash order.
+     * {@link #useCompactNodeTable} decides whether to call this.
+     */
     private static CompactNodeTable compactNodeTable(DatasetGraph dsg) {
         DatasetGraphTDB dsgtdb = TDBInternal.getDatasetGraphTDB(dsg);
         NodeTableTRDF nodeTable =
@@ -265,12 +265,7 @@ public class ProcIngestDataX {
                         ParallelIngest.Counts counts = ParallelIngest.ingest(dsg, table, input.stream(), lang,
                                 IRILib.filenameToIRI(datafile), seed, outputTriples, outputQuads,
                                 BulkLoaderX.ingestThreads(), BulkLoaderX.ParseChunkSize, () -> false,
-                                n -> {
-                                    synchronized (monitor) {
-                                        for ( long t = 0 ; t < n ; t++ )
-                                            monitor.tick();
-                                    }
-                                });
+                                BulkLoaderX.progressTicks(monitor));
                         parallelTriples += counts.triples();
                         parallelQuads += counts.quads();
                     } else {

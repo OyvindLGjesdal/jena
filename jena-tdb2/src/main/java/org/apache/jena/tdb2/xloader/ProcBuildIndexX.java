@@ -107,6 +107,24 @@ public class ProcBuildIndexX
         FmtLog.info(BulkLoaderX.LOG_Index, "%s Index %s : %s seconds - %s at %s TPS", BulkLoaderX.StepMarker, indexName, Timer.timeStr(timeMillis), elapsedStr, rateStr);
     }
 
+    /**
+     * Check the index names for {@link #exec(String, List, String, String, int, String, XLoaderFiles)}:
+     * at least one, each one of {@link #IndexNames}, and none twice (two builds of one
+     * index at the same time would write the same files).
+     * @throws TDBException naming the problem
+     */
+    public static void checkIndexNames(List<String> indexNames) {
+        if ( indexNames.isEmpty() )
+            throw new TDBException("No index to build");
+        Set<String> seen = new HashSet<>();
+        for ( String name : indexNames ) {
+            if ( !IndexNames.contains(name) )
+                throw new TDBException("Index name '" + name + "' not recognized");
+            if ( !seen.add(name) )
+                throw new TDBException("Index name '" + name + "' given more than once");
+        }
+    }
+
     /** Index names this class builds. */
     public static final List<String> IndexNames =
             List.of("SPO", "POS", "OSP", "GSPO", "GPOS", "GOSP", "SPOG", "POSG", "OSPG");
@@ -123,20 +141,11 @@ public class ProcBuildIndexX
      */
     public static void exec(String location, List<String> indexNames, String sortProgram, String sortCompressProgram,
                             int sortThreads, /*unused*/String sortIndexArgs, XLoaderFiles loaderFiles) {
-        if ( indexNames.isEmpty() )
-            throw new TDBException("No index to build");
+        checkIndexNames(indexNames);
         if ( indexNames.size() == 1 ) {
             exec(location, indexNames.get(0), sortProgram, sortCompressProgram, sortThreads, sortIndexArgs,
                     loaderFiles);
             return;
-        }
-        Set<String> seen = new HashSet<>();
-        for ( String name : indexNames ) {
-            if ( !IndexNames.contains(name) )
-                throw new TDBException("Index name '" + name + "' not recognized");
-            // Two builds of one index at the same time would write the same files.
-            if ( !seen.add(name) )
-                throw new TDBException("Index name '" + name + "' given more than once");
         }
         String bufferSize = BulkLoaderX.sortBufferSize(BulkLoaderX.SortBufferSize, indexNames.size());
         String names = String.join(" ", indexNames);

@@ -2,7 +2,16 @@
 
 # TDB2 xloader investigation and benchmark plan
 
-Started: 2026-09-29. Updated: 2026-09-29. Status: stream-closure fix committed
+Started: 2026-09-29. Updated: 2026-10-07.
+
+Status (2026-10-07): best lexemes load 7:21 (`20261006T073325Z-a355af21`), against
+25:23 for `baseline-t8` with main's code; counts identical. Two code reviews of the
+branch against main, and their fixes, are in `xloader-review.md` (untracked); the last
+build passed the 76 `TS_XLoader` tests. Next: preparing the PRs (see "Immediate next
+steps"). The truthy run of 2026-10-04, whose database is on the external SSD, is to be
+updated from that disk when it is mounted again.
+
+Status (2026-09-29): stream-closure fix committed
 (`b7df3069cf`). Cleanup, `--sort`, `--sort-compress` and the workfile gzip settings
 committed together as `7eaccb4124`; TS_XLoader (16) and TS_IO (125) passed in
 IntelliJ with GNU sort. Lexemes is pinned. Recorded lexemes imports: baseline 30:42,
@@ -1369,6 +1378,30 @@ The node table is as with per-worker caches on AC (2:10, not 2:20 shared). The i
 stages, which this change does not touch, were about 11 s slower than on AC; the
 battery run of 2026-10-06 was about 4 s slower there, so battery or noise.
 
+### Node table sort lines written in one call (2026-10-07, uncommitted)
+
+Second review #11: `NodeHashTmpStream` wrote each sort line a byte at a time (`hexWrite`,
+`write(int)` twice per byte), as on `main`; each `write(int)` takes the output's lock
+(`BufferedOutputStream`, or the parallel workers' `ByteArrayOutputStream`). Now the line is
+encoded into a reused 4 KB buffer (a longer line gets its own array) and written once.
+
+JMH `TestXLoaderParse.nodeTable` (`checking=true`, one thread, `lexemes-20M.nt.gz`, 1 warmup
+and 3 measured passes), Corretto 25 `-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders`,
+on battery, builds alternating (`build/node-cache` before, `build/hexline` after); script and
+results in the session scratchpad (`jmh-hexline.sh`, `jmh/`):
+
+| Run | Build | Passes | Mean |
+|---|---|---|---|
+| 1 | before | 29.26 / 29.97 / 30.38 | 29.87 s |
+| 2 | after | 26.91 / 27.08 / 26.92 | 26.97 s |
+| 3 | before | 29.57 / 29.16 / 28.84 | 29.19 s |
+| 4 | after | 26.15 / 26.18 / 26.03 | 26.12 s |
+
+About 3 s (10%) less per 20 M lines on one thread; every pass after is faster than every
+pass before. For lexemes (11.5 times the lines) about 35 CPU-seconds less in the parse
+(nodes) stage, at most about 6 s of its 83 s with 6 workers. Not yet measured in a load.
+Test: `TestParallelNodeParser.nodeLineFormat` (lines byte for byte as before).
+
 ### Further xloader improvements (2026-10-03, proposed)
 
 Within xloader, keeping Jena's parser and the loader's design. Measured basis: the
@@ -1764,23 +1797,56 @@ has only one run per configuration, report that limitation explicitly.
 
 ## Immediate next steps
 
-Updated 2026-10-04. Best lexemes load so far: 8:15 (see "Full load with the JVM
-recommendation"). Done since the first list: uu-sort, pigz, `--threads`, `compare.py`,
-`--xloader-arg`, the `AsyncParser` node stage, `--sort-compress-nodes`,
-`--sort-buffer`, `--parallel-indexes`, parallel parsing in the node table and ingest
-steps, the shared blank node seed, the JVM recommendation; `XLOADER_DECOMPRESS` tried and
-removed.
+Updated 2026-10-07. Best lexemes load: 7:21 (see "Node parser cache: shared or per
+worker"). Done since 2026-10-04: the correctness check of the parallel paths, the
+faster term index, two code reviews and their fixes (`xloader-review.md`), the coding
+conventions (`.claude/skills/coding-conventions`), per-worker node parser caches with a
+total cap, one write per node line (JMH: 10% less), the launcher's program check
+covering the programs a load runs, `--sort-buffer` left for sort to check, and the heap
+note for `--ingest-threads`.
 
-1. Free disk space (about 215 GB of old lexemes run databases; command in the
-   session notes: keep `651f55ca`, `44f3d594` and the newest run).
-2. Truthy 1B prefix (`truthy-1b`, cut and pinned) with the best configuration plus
-   `--sort-compress-nodes`; needs about 150-180 GB free. Measures ingest once the node
-   table no longer fits in memory, and space per triple, before a full truthy load.
-3. Correctness check of the parallel paths on lexemes: compare the 8:15 run's database
-   with a single-thread run's (sorted N-Quads dump and the node table's nodes).
-4. Next speed targets: the index stages (about 3:23 wall) and the single-threaded term
-   index in the node table step (about 100 s, `hexRead` byte by byte).
-   Done: comparison with `tdb2.tdbloader` (`parallel` 44:49, `phased` 47:50).
-5. Open from the first list: sort-only compressor test; repeats of baseline runs;
-   JFR profile; `check_sort.py`; OpenStack (see "Slow OpenStack volumes").
-6. Report upstream: the Ubuntu uutils sort issue, the `AsyncParser` interrupt issue.
+1. Commit the uncommitted work: second review #11 (one write per node line) and
+   #12-#14 (progress helper, `InputFile.lang`, shared index name check).
+2. ~~Run the full test suites.~~ Done 2026-10-07, a full reactor build with tests
+   (BUILD SUCCESS, 9:12) with the uncommitted work in the tree: jena-base 847,
+   jena-core 10,179, jena-arq 16,612 (12 skipped), jena-tdb2 941 (76 xloader) and
+   jena-cmds 77 tests, no failures or errors; the root module's license check passed.
+3. Split the work into PRs against main. Each is built from main without the
+   experiments (`jena-benchmarks/`: the Python harness, the JMH modules and their pom
+   changes; this plan; `discovered-issues.md`; the `.pyc` files), with the "wip"
+   history squashed:
+   - Fixes against main: close the workfile input stream (`b7df3069cf`; cherry-picks
+     onto main as is); default-graph statements counted as triples
+     (`discovered-issues.md` #4); the unused `hashNode` and static `Hash` removed (#5);
+     optionally the cleanup and failure handling from `7eaccb4124`, if it can be
+     separated from that commit's new options. The stream fix has no practical effect:
+     the launcher runs each index build in its own JVM, and `CmdxLoader`, the
+     single-JVM version, is only run by hand. Describe it as closing the stream, not as
+     a leak.
+   - Sort options and the launcher: `--sort`, `--sort-compress`, `SORT_COMPRESS_ARGS`,
+     `--sort-buffer`, `--parallel-indexes`, uutils sort (`discovered-issues.md` #2).
+   - Speed: parallel parsing and ingest, the term index pipeline, the in-memory node
+     table, the shared workfile reader, one write per node line.
+4. File the upstream issues drafted in `discovered-issues.md` first, so the PRs can
+   refer to them: blank nodes stored twice, uutils sort on Ubuntu, `AsyncParser`
+   interrupts, default-graph counts, `hashNode`.
+5. PR descriptions: the measured results (lexemes 25:23 to 7:21; truthy once updated);
+   the behaviour changes users will notice (workfile gzip level 1 by default, sort
+   checks `--sort-buffer`, the program check covers only the programs a load runs);
+   the recommended settings (`--parse-threads`, ParallelGC with 8 GB, the heap note for
+   `--ingest-threads`).
+6. Truthy: update the 2026-10-04 run (database on the external SSD, continued from
+   `resume.sh`) from that disk when it is mounted again, and decide then whether the
+   `truthy-1b` run from the 2026-10-04 list is still needed.
+7. Optional measurements: one write per node line in a full lexemes load
+   (`build/hexline`); the G1 rerun for the parse buffer reuse (`xloader-review.md`,
+   "Measured: G1 and humongous parse chunks"); whether the shared workfile reader slows
+   the parallel sorts.
+8. Open review items, not blocking: second review #8 (misleading `AsyncParser` log on
+   cancel; with `discovered-issues.md` #3), #10 (duplicated join and reader loops), #9
+   and first review #11 (settings as static fields; a follow-up PR), #6 (CR-only line
+   ends) and #15 (block reuse in the shared reader), both low priority.
+9. Next speed targets, after the PRs: the index stages (3:16 of the 7:21 lexemes load).
+10. Still open from the 2026-10-04 list: sort-only compressor test; repeats of the
+    baseline runs; JFR profile; `check_sort.py`; OpenStack (see "Slow OpenStack
+    volumes").

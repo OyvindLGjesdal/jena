@@ -25,9 +25,11 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.function.LongConsumer;
 import java.util.zip.Deflater;
 
 import org.apache.jena.atlas.io.IO;
+import org.apache.jena.system.progress.ProgressMonitor;
 import org.apache.jena.tdb2.TDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,6 +188,20 @@ public class BulkLoaderX {
                 return size;
         } catch (NumberFormatException ex) { /* Below */ }
         throw new TDBException(property + ": expected a number of entries, at least 1000: " + value);
+    }
+
+    /**
+     * A progress callback for parallel workers, called with the number of triples or
+     * quads in each chunk they parse. {@code monitor} is not thread-safe, so the ticks go
+     * in under its lock. It has no way to add a count at once, so this ticks once per item.
+     */
+    /*package*/ static LongConsumer progressTicks(ProgressMonitor monitor) {
+        return n -> {
+            synchronized (monitor) {
+                for ( long i = 0 ; i < n ; i++ )
+                    monitor.tick();
+            }
+        };
     }
 
     /**

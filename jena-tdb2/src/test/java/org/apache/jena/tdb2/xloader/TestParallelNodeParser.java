@@ -31,12 +31,17 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
+import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.graph.Triple;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotParseException;
 import org.apache.jena.riot.thrift.ThriftConvert;
 import org.apache.jena.tdb2.TDBException;
+import org.apache.jena.tdb2.lib.NodeLib;
+import org.apache.jena.tdb2.store.Hash;
+import org.apache.jena.tdb2.sys.SystemTDB;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TCompactProtocol;
 import org.junit.jupiter.api.Test;
@@ -198,6 +203,32 @@ public class TestParallelNodeParser {
             ParallelNodeParser.SharedCache = saved;
             ParallelNodeParser.CacheSize = savedSize;
         }
+    }
+
+    @Test
+    public void nodeLineFormat() throws Exception {
+        // Each line as hexWrite writes it, a byte at a time: the hash and the Thrift term
+        // in hex. The literal is longer than the reused line buffer.
+        Node s = NodeFactory.createURI("urn:s");
+        Node p = NodeFactory.createURI("urn:p");
+        Node o = NodeFactory.createLiteralString("y".repeat(ProcBuildNodeTableX.NodeHashTmpStream.LineSize));
+        ByteArrayOutputStream actual = new ByteArrayOutputStream();
+        new ProcBuildNodeTableX.NodeHashTmpStream(actual).triple(Triple.create(s, p, o));
+        assertEquals(expectedLine(s) + expectedLine(p) + expectedLine(o), actual.toString(StandardCharsets.US_ASCII));
+    }
+
+    private static String expectedLine(Node node) throws Exception {
+        Hash hash = new Hash(SystemTDB.LenNodeHash);
+        NodeLib.setHash(hash, node);
+        byte[] term = new TSerializer(new TCompactProtocol.Factory()).serialize(ThriftConvert.convert(node, false));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        for ( byte b : hash.getBytes() )
+            ProcBuildNodeTableX.hexWrite(out, b);
+        out.write(' ');
+        for ( byte b : term )
+            ProcBuildNodeTableX.hexWrite(out, b);
+        out.write('\n');
+        return out.toString(StandardCharsets.US_ASCII);
     }
 
     @Test

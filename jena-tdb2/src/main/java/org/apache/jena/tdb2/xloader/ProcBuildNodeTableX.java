@@ -175,13 +175,7 @@ public class ProcBuildNodeTableX {
                             ParallelNodeParser.parse(input.stream(), lang, IRILib.filenameToIRI(datafile),
                                     BlankNodeSeed.fileSeed(loadSeed, fileIndex), output,
                                     BulkLoaderX.ParseThreads, BulkLoaderX.ParseChunkSize, sort::isCancelled,
-                                    n -> {
-                                        synchronized (monitor) {
-                                            for ( long i = 0 ; i < n ; i++ )
-                                                monitor.tick();
-                                        }
-                                    },
-                                    parallelLines);
+                                    BulkLoaderX.progressTicks(monitor), parallelLines);
                         }
                         continue;
                     }
@@ -294,6 +288,9 @@ public class ProcBuildNodeTableX {
         private final Hash hash = new Hash(SystemTDB.LenNodeHash);
         private final TSerializer serializer;
         private long lines = 0;
+        /** Bytes in the reused line buffer; a longer line (a long literal) gets its own array. */
+        static final int LineSize = 4096;
+        private final byte[] line = new byte[LineSize];
 
         NodeHashTmpStream(OutputStream outputFile) {
             this(outputFile, CacheFactory.createCacheSet(CacheSize));
@@ -344,10 +341,7 @@ public class ProcBuildNodeTableX {
                 byte k[] = hash.getBytes();
                 RDF_Term term = ThriftConvert.convert(node, false);
                 byte[] tBytes = serializer.serialize(term);
-                write(outputData, k);
-                outputData.write(' ');
-                write(outputData, tBytes);
-                outputData.write('\n');
+                writeLine(k, tBytes);
                 lines++;
             } catch (TException | IOException ex) {
                 throw new TDBException("Failed to write node to sort", ex);
@@ -359,9 +353,29 @@ public class ProcBuildNodeTableX {
             return lines;
         }
 
-        private static void write(OutputStream outputData, byte[] bytes) throws IOException {
-            for ( byte bits8 : bytes )
-                hexWrite(outputData, bits8);
+        /**
+         * Write one sort line, the hash and the Thrift term in hex: {@code hash term\n}.
+         * One write for the line, where writing it a byte at a time took the output's
+         * lock (a {@code BufferedOutputStream} or {@code ByteArrayOutputStream}) per byte.
+         */
+        private void writeLine(byte[] hashBytes, byte[] termBytes) throws IOException {
+            int length = 2 * (hashBytes.length + termBytes.length) + 2;
+            byte[] buf = ( length <= line.length ) ? line : new byte[length];
+            int i = hex(hashBytes, buf, 0);
+            buf[i++] = ' ';
+            i = hex(termBytes, buf, i);
+            buf[i++] = '\n';
+            outputData.write(buf, 0, i);
+        }
+
+        /** Write {@code bytes} in hex (upper case) into {@code buf} at {@code start}; return the end. */
+        private static int hex(byte[] bytes, byte[] buf, int start) {
+            int i = start;
+            for ( byte b : bytes ) {
+                buf[i++] = Bytes.hexDigitsUC[(b >> 4) & 0xF];
+                buf[i++] = Bytes.hexDigitsUC[b & 0xF];
+            }
+            return i;
         }
 
         @Override
