@@ -39,6 +39,7 @@ import org.apache.jena.riot.RDFParser;
 import org.apache.jena.riot.RiotParseException;
 import org.apache.jena.riot.thrift.ThriftConvert;
 import org.apache.jena.graph.NodeFactory;
+import org.apache.jena.tdb2.TDBException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TCompactProtocol;
 import org.junit.jupiter.api.Test;
@@ -167,22 +168,43 @@ public class TestParallelNodeParser {
 
     @Test
     public void sharedOrPerWorkerCache() {
+        // The default size, and caches far smaller than the number of nodes (250 entries
+        // per worker), which write many nodes more than once.
         String data = data(5_000, 40);
         Set<String> expected = withoutBlankNodes(sequential(data, Lang.NTRIPLES).lines());
         boolean saved = ParallelNodeParser.SharedCache;
+        int savedSize = ParallelNodeParser.CacheSize;
         try {
-            for ( boolean shared : new boolean[] {true, false} ) {
-                ParallelNodeParser.SharedCache = shared;
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                LongAdder lines = new LongAdder();
-                ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
-                                         "file:///test", java.util.UUID.randomUUID(), out, 4, 256, () -> false, n -> {}, lines);
-                assertEquals(out.toString(StandardCharsets.UTF_8).lines().count(), lines.sum(), "Lines counted, shared=" + shared);
-                assertEquals(expected, withoutBlankNodes(lines(out)), "shared=" + shared);
+            for ( int size : new int[] {0, 1000} ) {
+                for ( boolean shared : new boolean[] {true, false} ) {
+                    String what = "shared=" + shared + ", size=" + size;
+                    ParallelNodeParser.SharedCache = shared;
+                    ParallelNodeParser.CacheSize = size;
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    LongAdder lines = new LongAdder();
+                    ParallelNodeParser.parse(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)), Lang.NTRIPLES,
+                                             "file:///test", java.util.UUID.randomUUID(), out, 4, 256, () -> false, n -> {}, lines);
+                    assertEquals(out.toString(StandardCharsets.UTF_8).lines().count(), lines.sum(), "Lines counted, " + what);
+                    assertEquals(expected, withoutBlankNodes(lines(out)), what);
+                }
             }
         } finally {
             ParallelNodeParser.SharedCache = saved;
+            ParallelNodeParser.CacheSize = savedSize;
         }
+    }
+
+    @Test
+    public void cacheSizes() {
+        assertEquals(3_000_000, ParallelNodeParser.cacheSize(null));
+        assertEquals(2_000_000, ParallelNodeParser.cacheSize("2_000_000"));
+        assertThrows(TDBException.class, () -> ParallelNodeParser.cacheSize("3M"));
+        assertThrows(TDBException.class, () -> ParallelNodeParser.cacheSize("10"));
+        // At most 500,000 each, as on one thread; more workers share the total.
+        assertEquals(500_000, ParallelNodeParser.workerCacheSize(3_000_000, 2));
+        assertEquals(500_000, ParallelNodeParser.workerCacheSize(3_000_000, 6));
+        assertEquals(250_000, ParallelNodeParser.workerCacheSize(3_000_000, 12));
+        assertEquals(93_750, ParallelNodeParser.workerCacheSize(3_000_000, 32));
     }
 
     @Test

@@ -38,7 +38,8 @@ SLEEP_TOLERANCE = 30.0
 
 
 def number(text):
-    """Parse a number in either locale; None if it isn't one."""
+    """Parse seconds in either locale; None if it isn't a number. Counts go through
+    integer(): "12,345" is 12.345 seconds in nb_NO but 12,345 terms in en."""
     s = re.sub(r"[\s  ]", "", text).rstrip(".,")
     if not s:
         return None
@@ -55,6 +56,13 @@ def number(text):
         return None
 
 
+def integer(text):
+    """Parse a count in either locale; None if it isn't one. A count has no fractional
+    part, so every '.', ',' or space in it separates thousands."""
+    s = re.sub(r"[\s  .,]", "", text)
+    return int(s) if re.fullmatch(r"[0-9]+", s) else None
+
+
 def parse_loader_log(text):
     """Stage times (seconds), index times, term count, overall and max RSS from loader.log."""
     result = {"indexes": {}}
@@ -66,7 +74,7 @@ def parse_loader_log(text):
         result["indexes"][match.group(1)] = number(match.group(2))
     match = TERM_COUNT.search(text)
     if match:
-        result["terms"] = int(number(match.group(1)))
+        result["terms"] = integer(match.group(1))
     match = OVERALL.search(text)
     if match:
         result["overall"] = number(match.group(1))

@@ -203,6 +203,9 @@ See https://jena.apache.org/documentation/tdb/tdb-xloader.html
     as before). In ingest each thread also finds node ids itself, in its own
     read transaction. Other syntaxes are parsed as before. Blank node labels
     use one seed per file, so a label is the same node in every chunk.
+    In the node table step each thread has a cache of recent nodes: 500,000
+    entries, or an equal share of 3,000,000 for more than 6 threads. Set the
+    total with -Djena.xloader.nodes.cacheSize=N in JVM_ARGS.
 
 --ingest-threads=N
     Threads for the ingest step only, instead of --parse-threads. When the

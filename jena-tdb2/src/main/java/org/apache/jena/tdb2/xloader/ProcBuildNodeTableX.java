@@ -104,6 +104,9 @@ public class ProcBuildNodeTableX {
         Timer timer = new Timer();
         timer.startTimer();
         FmtLog.info(BulkLoaderX.LOG_Nodes, "Build node table");
+        // A bad jena.xloader.nodes.cacheSize fails now, not at the first N-Triples or N-Quads file.
+        if ( BulkLoaderX.ParseThreads > 1 )
+            ParallelNodeParser.cacheSize();
 //        FmtLog.info(LOG1, "  Database   = %s", location);
 //        FmtLog.info(LOG1, "  TMPDIR     = %s", tmpdir==null?"unset":tmpdir);
 //        FmtLog.info(LOG1, "  Data files = %s", StrUtils.strjoin(datafiles, " "));

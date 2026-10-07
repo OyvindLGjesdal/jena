@@ -1319,6 +1319,47 @@ Truthy prefix: the first 1,000,000,000 lines cut with
 `rapidgzip -d -c -P 8 | head -n 1000000000 | pigz -1` in 4:21; 12.0 GB
 (`downloads/wikidata-20260926-truthy-BETA-1b.nt.gz`), pinned as `truthy-1b`.
 
+### Node parser cache: shared or per worker (2026-10-06)
+
+Lexemes, label `uusort1024M-pigz1-t8-parallel-pt6-j25par8g` (as the 8:15 run: uu-sort
+1024M, pigz -1, `--threads 8`, `--parallel-indexes`, `--parse-threads=6`, Corretto
+25.0.3, `-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders`). `build/review-fixes`
+is `5ea675496a` plus the review fixes (#2, #6-#9), with `ParallelNodeParser`'s shared
+node cache (one Caffeine `CacheSet` of 500,000 for all workers, review #5) on by default.
+
+| Run | Build | Node parser cache | Power | Parse (nodes) | Term index | Node table | Ingest | Indexes | Total |
+|---|---|---|---|---|---|---|---|---|---|
+| `20261004T172717Z-0c478c99` | terms-pipeline | 500,000 per worker | not recorded | 84.5 s | 46.7 s | 2:13 | 1:52 | 3:24 | 7:31 |
+| `20261006T070230Z-e0c64270` | review-fixes | shared, 500,000 | battery | 94.1 s | 47.7 s | 2:23 | 1:54 | 3:22 | 7:41 |
+| `20261006T072231Z-0d4ea665` | review-fixes | shared, 500,000 | AC | 94.5 s | 43.8 s | 2:20 | 1:53 | 3:18 | 7:31 |
+| `20261006T073325Z-a355af21` | review-fixes | 500,000 per worker (`-Djena.xloader.nodes.sharedCache=false`) | AC | **83.3 s** | 45.1 s | **2:10** | 1:53 | 3:16 | **7:21** |
+
+Counts identical in all four (229,010,967 triples, 51,145,822 terms). Max RSS 16.8 GB
+in both AC runs.
+
+- The shared cache costs about 10 s (11%) of parsing, on battery and on AC alike. It
+  sends 12% fewer node lines to sort (54.3 M against 61.8 M per worker), since every
+  worker skips nodes the others have written, but the term index gains only a second
+  or two from that. Likely cause: six workers contending on one Caffeine cache for
+  about 690 M lookups. In ingest a hit saves a B+tree read, so a shared cache pays off
+  there; here a hit only saves writing one line for sort.
+- `SharedWorkfileReader` (first loads with it): index stages within a few seconds of
+  before, so no cost, and no measurable gain with these sorts.
+- The 7:41 run started while Defender and Spotlight scanned the new build (about 100%
+  CPU) and on battery; its parse matches the AC run, so neither explains the 10 s.
+- The first AC run started at a 1-minute load average of 2.97, the second at 4.2 (after
+  the script's 3-minute wait for below 3 ran out), and was still the faster one. One
+  run of each setting on AC.
+
+**Change (after these runs):** one cache per worker again by default
+(`jena.xloader.nodes.sharedCache=true` for the shared one), with a total cap against
+review #5: each worker has 500,000 entries (as the single-threaded parser), or an equal
+share of the total for more than 6 workers. The total is 3,000,000 entries unless the
+system property `jena.xloader.nodes.cacheSize` is set (the shared cache has the total).
+So `--parse-threads=6` is unchanged from the 7:21 run, and 32 threads hold 3 M entries,
+not 16 M. The node table step logs the sizes ("Node cache: ...") and checks the
+property before opening the database. Not yet built or measured.
+
 ### Further xloader improvements (2026-10-03, proposed)
 
 Within xloader, keeping Jena's parser and the loader's design. Measured basis: the

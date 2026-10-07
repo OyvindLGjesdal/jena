@@ -180,6 +180,22 @@ public class BulkLoaderX {
     }
 
     /**
+     * A cache size given by a system property: a number of entries, at least 1000
+     * ({@code _} may separate digits), or {@code dflt} if the value is null or blank.
+     * @throws TDBException for any other value
+     */
+    /*package*/ static int cacheSize(String property, String value, int dflt) {
+        if ( value == null || value.isBlank() )
+            return dflt;
+        try {
+            int size = Integer.parseInt(value.strip().replace("_", ""));
+            if ( size >= 1000 )
+                return size;
+        } catch (NumberFormatException ex) { /* Below */ }
+        throw new TDBException(property + ": expected a number of entries, at least 1000: " + value);
+    }
+
+    /**
      * Default sort program, found on the PATH.
      * It must accept the GNU sort(1) options used by xloader.
      */

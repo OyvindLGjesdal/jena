@@ -100,14 +100,7 @@ final class ParallelIngest {
     }
 
     static int cacheSize(String value) {
-        if ( value == null || value.isBlank() )
-            return 10_000_000;
-        try {
-            int size = Integer.parseInt(value.strip().replace("_", ""));
-            if ( size >= 1000 )
-                return size;
-        } catch (NumberFormatException ex) { /* Below */ }
-        throw new TDBException("jena.xloader.ingest.cacheSize: expected a number of entries, at least 1000: " + value);
+        return BulkLoaderX.cacheSize("jena.xloader.ingest.cacheSize", value, 10_000_000);
     }
 
     /**

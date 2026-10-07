@@ -48,6 +48,17 @@ class NumberTests(unittest.TestCase):
     def test_not_a_number(self):
         self.assertIsNone(compare.number(" "))
 
+    def test_counts(self):
+        # No fractional part: "12,345" in an en log is 12345, not 12.345 as seconds would be.
+        cases = {"12,345": 12345, "12\xa0345": 12345, "12.345": 12345, "999": 999,
+                 "51,145,822": 51145822, "51\xa0145\xa0822": 51145822, "1 000 000": 1000000}
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(compare.integer(text), expected)
+        for text in (" ", "12,5x", "-3"):
+            with self.subTest(text=text):
+                self.assertIsNone(compare.integer(text))
+
 
 class LogTests(unittest.TestCase):
     def test_both_locales_parse_the_same(self):
@@ -63,6 +74,13 @@ class LogTests(unittest.TestCase):
         self.assertEqual(nb["overall"], 1825.0)
         self.assertEqual(nb["real"], 1825.80)
         self.assertEqual(nb["max_rss"], 13189840896)
+
+    def test_term_count_under_a_million(self):
+        # One thousands separator: en prints "12,345", nb_NO "12\xa0345".
+        en = compare.parse_loader_log(EN_LOG.replace("51,145,822 indexed", "12,345 indexed"))
+        nb = compare.parse_loader_log(NB_LOG.replace("51\xa0145\xa0822 indexed", "12\xa0345 indexed"))
+        self.assertEqual(en["terms"], 12345)
+        self.assertEqual(nb["terms"], 12345)
 
     def test_incomplete_log(self):
         partial = compare.parse_loader_log(NB_LOG.split("21:11:46")[0])
