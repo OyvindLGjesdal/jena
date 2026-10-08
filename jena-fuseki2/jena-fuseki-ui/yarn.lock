@@ -2257,13 +2257,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@popperjs/core@npm:^2.11.8":
-  version: 2.11.8
-  resolution: "@popperjs/core@npm:2.11.8"
-  checksum: 10c0/4681e682abc006d25eb380d0cf3efc7557043f53b6aea7a5057d0d1e7df849a00e281cd8ea79c902a35a414d7919621fc2ba293ecec05f413598e0b23d5a1e63
-  languageName: node
-  linkType: hard
-
 "@rolldown/binding-android-arm-eabi@npm:1.2.12":
   version: 1.2.12
   resolution: "@rolldown/binding-android-arm-eabi@npm:1.2.12"
@@ -3304,7 +3297,6 @@ __metadata:
     "@fortawesome/fontawesome-svg-core": "npm:^7.0.0"
     "@fortawesome/free-solid-svg-icons": "npm:^7.0.0"
     "@fortawesome/vue-fontawesome": "npm:^3.0.3"
-    "@popperjs/core": "npm:^2.11.8"
     "@vitejs/plugin-vue": "npm:^6.0.0"
     "@vitest/coverage-v8": "npm:^5.0.1"
     "@vue/compiler-dom": "npm:^3.5.41"
@@ -3314,7 +3306,7 @@ __metadata:
     "@zazuko/yasr": "npm:^4.6.0"
     axios: "npm:^1.6.1"
     babel-loader: "npm:^10"
-    bootstrap: "npm:^5.3.2"
+    bootstrap: "npm:6.0.0-alpha.1"
     codemirror: "npm:6.0.2"
     concurrently: "npm:^10.0.3"
     cypress: "npm:^16.0.0"
@@ -3636,12 +3628,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bootstrap@npm:^5.3.2":
-  version: 5.3.8
-  resolution: "bootstrap@npm:5.3.8"
+"bootstrap@npm:6.0.0-alpha.1":
+  version: 6.0.0-alpha.1
+  resolution: "bootstrap@npm:6.0.0-alpha.1"
   peerDependencies:
-    "@popperjs/core": ^2.11.8
-  checksum: 10c0/0039a9df2c3e7bfa04f1abca199c299ff3b75869d578c0cb1721c6f1f203c91531788a5631ecbee01513481979314d0e4ba0d90c2011e6ce18fc2e0bc93e18d9
+    "@floating-ui/dom": ^1.7.6
+    vanilla-calendar-pro: ^3.4.0
+  checksum: 10c0/da7d22a8b18e94658e9ef9dd590a2c70a4a186fa497a2acd4e5da78f9f6dc3d0475981eaff55a9be5e927e08f5595c0ed44c2c0599b54c74da9d753fca1c6c10
   languageName: node
   linkType: hard
 

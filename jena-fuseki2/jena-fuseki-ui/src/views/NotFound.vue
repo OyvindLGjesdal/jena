@@ -17,14 +17,14 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-2">
+    <div class="row mt-3">
       <div class="col-12">
         <div class="jumbotron">
-          <h1 class="display-4">
+          <h1 class="fs-5xl fw-light">
             404 Page Not Found
           </h1>
-          <p class="lead">
-            <button type="button" class="btn btn-primary" @click="$router.push('/')">
+          <p class="fs-lg fw-light">
+            <button type="button" class="btn-solid theme-primary" @click="$router.push('/')">
               <FontAwesomeIcon icon="arrow-left" /> Back to Home
             </button>
           </p>

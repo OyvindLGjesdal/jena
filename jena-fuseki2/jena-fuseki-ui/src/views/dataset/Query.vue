@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>/{{ datasetName }}</h2>
         <div class="card">
@@ -43,7 +43,7 @@
                         :key="query.text"
                         @click="setQuery(query.value)"
                         href="#"
-                        class="badge text-bg-info p-2 me-2"
+                        class="badge theme-info p-3 me-3"
                       >{{ query.text }}</span>
                     </div>
                   </fieldset>
@@ -60,7 +60,7 @@
                       <span
                         v-for="prefix of prefixes"
                         :key="prefix.uri"
-                        :class="`badge text-bg-${getPrefixBadgeVariant(prefix)} p-2 me-2`"
+                        :class="['badge', getPrefixBadgeVariant(prefix), 'p-3', 'me-3']"
                         @click.capture="togglePrefix(prefix)"
                         href="#"
                       >{{ prefix.text }}</span>
@@ -69,7 +69,7 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col-sm-12 col-md-4">
+                <div class="sm:col-12 md:col-4">
                   <fieldset
                     class="form-group"
                     aria-labelledby="sparql-endpoint-label"
@@ -92,7 +92,7 @@
                     </div>
                   </fieldset>
                 </div>
-                <div class="col-sm-12 col-md-4">
+                <div class="sm:col-12 md:col-4">
                   <fieldset
                     class="form-group"
                     aria-labelledby="content-type-label"
@@ -108,7 +108,7 @@
                         <select
                           v-model="contentTypeSelect"
                           id="content-type-select"
-                          class="form-select"
+                          class="form-control"
                           aria-label="Content Type select"
                         >
                           <option
@@ -123,7 +123,7 @@
                     </div>
                   </fieldset>
                 </div>
-                <div class="col-sm-12 col-md-4">
+                <div class="sm:col-12 md:col-4">
                   <fieldset
                     class="form-group"
                     aria-labelledby="content-type-graph-label"
@@ -139,7 +139,7 @@
                         <select
                           v-model="contentTypeGraph"
                           id="content-type-graph"
-                          class="form-select"
+                          class="form-control"
                           aria-label="Content Type select"
                         >
                           <option
@@ -163,10 +163,10 @@
                 <span class="visually-hidden">Loading...</span>
               </div>
               <div class="row">
-                <div class="col-sm-12">
+                <div class="sm:col-12">
                   <div id="yasqe"></div>
                 </div>
-                <div class="col-sm-12">
+                <div class="sm:col-12">
                   <div id="yasr"></div>
                 </div>
               </div>
@@ -367,9 +367,10 @@ export default {
     },
     getPrefixBadgeVariant (prefix) {
       if (this.currentQueryPrefixes.includes(prefix.uri)) {
-        return 'primary'
+        return 'theme-primary'
       }
-      return 'light'
+      // A badge without a theme class uses the neutral surface (the v5 'light' look).
+      return null
     },
     syncYasqePrefixes () {
       const prefixes = this.yasqe.getPrefixesFromQuery()
@@ -424,5 +425,19 @@ export default {
 }
 .yasr .yasr_btnGroup .select_geo .plugin_icon {
   margin-bottom: 20%;
+}
+// YASR wraps its "Simple view" and "Ellipse" checkboxes in a .switch element, which Bootstrap 6
+// now styles as its switch component. Revert those styles and keep YASR's own layout.
+.yasr .switch {
+  all: revert;
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+  &::before {
+    content: none;
+  }
+  input {
+    all: revert;
+  }
 }
 </style>

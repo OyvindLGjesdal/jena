@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>New dataset</h2>
         <div class="card">
@@ -32,8 +32,8 @@
                     @submit="onSubmit"
                     ref="form"
                   >
-                    <div class="row input-group has-validation align-items-center">
-                      <label for="dataset-name" class="col-4 col-lg-2 form-label col-form-label-sm">Dataset name</label>
+                    <div class="row input-group align-items-center">
+                      <label for="dataset-name" class="col-4 lg:col-2 form-label col-form-label-sm">Dataset name</label>
                       <div class="col g-0">
                         <input
                           v-model="form.datasetName"
@@ -49,20 +49,20 @@
                         Please choose a dataset name.
                       </div>
                     </div>
-                    <div class="row input-group has-validation align-items-center">
-                      <label class="col-4 col-lg-2 form-label col-form-label-sm">Dataset type</label>
+                    <div class="row input-group align-items-center">
+                      <label class="col-4 lg:col-2 form-label col-form-label-sm">Dataset type</label>
                       <div class="col">
                         <div class="row">
                           <div
                             v-for="datasetType of datasetTypes"
                             :key="datasetType.item"
-                            class="form-check"
+                            class="form-field"
                           >
                             <input
                               :id="`data-set-type-${datasetType.item}`"
                               :value="datasetType.item"
                               v-model="form.datasetType"
-                              class="form-check-input"
+                              class="radio"
                               type="radio"
                               name="dataset-type"
                               required
@@ -70,7 +70,6 @@
                             <label
                               :for="`data-set-type-${datasetType.item}`"
                               :key="`data-set-type-${datasetType.item}`"
-                              class="form-check-label"
                             >
                               {{ datasetType.name }}
                             </label>
@@ -83,7 +82,7 @@
                     </div>
                     <button
                       type="submit"
-                      class="btn btn-primary"
+                      class="btn-solid theme-primary"
                     >
                       <FontAwesomeIcon icon="check" />
                       <span class="ms-1">create dataset</span>
