@@ -264,7 +264,7 @@ describe('datasets', () => {
         .should('contain', '/j')
       // Clear the text now.
       cy
-        .get('button.btn')
+        .get('button.btn-solid')
         .contains('Clear')
         .click()
       // Now the table is showing 5 (paginated) datasets.

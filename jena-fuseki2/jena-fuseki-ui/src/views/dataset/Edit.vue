@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>/{{ datasetName }}</h2>
         <div class="card">
@@ -25,21 +25,21 @@
             <Menu :dataset-name="datasetName" />
           </nav>
           <div class="card-body" v-if="services !== null && (!services['gsp-rw'] || services['gsp-rw'].length === 0)">
-            <div class="alert alert-warning">
+            <div class="alert theme-warning">
               No service for adding data available. The Graph Store Protocol service should be configured to allow adding data.
             </div>
           </div>
           <div class="card-body" v-else>
             <h3>Available Graphs</h3>
             <div>
-              <div class="row mb-2">
-                <div class="col-sm-12 col-md-4">
-                  <div class="mb-2">
+              <div class="row mb-3">
+                <div class="sm:col-12 md:col-4">
+                  <div class="mb-3">
                     <button
                       :disabled="loadingGraphs"
                       @click="listCurrentGraphs()"
                       type="button"
-                      class="btn btn-primary"
+                      class="btn-solid theme-primary"
                     >
                       list current graphs
                     </button>
@@ -65,7 +65,7 @@
                       </table-listing>
                     </li>
                     <li
-                      class="list-group-item placeholder-glow"
+                      class="list-group-item placeholder-pulse"
                       v-else
                     >
                       <span class="placeholder col-10"></span>
@@ -98,11 +98,11 @@
                     @update-value="(strNew) => { updateChanges(strNew); }"
                     @destroy="() => { cmView = null; }"
                   />
-                  <div class="mt-2 text-right">
+                  <div class="mt-3 text-right">
                     <button
                       @click="discardChanges()"
                       type="button"
-                      class="btn btn-secondary me-2"
+                      class="btn-solid theme-secondary me-3"
                     >
                       <FontAwesomeIcon icon="times" />
                       <span class="ms-1">discard changes</span>
@@ -111,7 +111,7 @@
                       :disabled="saveGraphDisabled"
                       @click="saveGraph()"
                       type="button"
-                      class="btn btn-info"
+                      class="btn-solid theme-info"
                     >
                       <FontAwesomeIcon icon="check" />
                       <span

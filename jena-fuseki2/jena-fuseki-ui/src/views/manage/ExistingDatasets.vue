@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>Manage datasets</h2>
         <div class="card">
@@ -44,7 +44,7 @@
                       <button
                         @click="$router.push(`/dataset${data.item.name}/query`)"
                         type="button"
-                        class="btn btn-primary me-0 me-md-2 mb-2 mb-md-0 d-block d-md-inline-block dataset-query"
+                        class="btn-solid theme-primary me-0 md:me-3 mb-3 md:mb-0 d-block md:d-inline-block dataset-query"
                       >
                         <FontAwesomeIcon icon="question-circle" />
                         <span class="ms-1">query</span>
@@ -56,19 +56,19 @@
                             Confirm
                           </div>
                           <div class="text-center">
-                            <div class="alert alert-danger">
+                            <div class="alert theme-danger mb-5">
                               Are you sure you want to delete dataset {{ data.item.name }}?<br /><br />This action cannot be reversed.
                             </div>
                             <button
                               @click="hidePopover();deleteDataset(data.item.name)"
-                              class="btn btn-primary me-2"
+                              class="btn-solid theme-primary me-3"
                             >
                               submit
                             </button>
                             <button
                               @click="hidePopover()"
                               type="button"
-                              class="btn btn-secondary"
+                              class="btn-solid theme-secondary"
                             >
                               cancel
                             </button>
@@ -81,7 +81,7 @@
                         @click="showPopover(`delete-dataset-${data.item.name}`)"
                         type="button"
                         href="#"
-                        class="btn btn-primary me-0 me-md-2 mb-2 mb-md-0 d-block d-md-inline-block dataset-remove"
+                        class="btn-solid theme-primary me-0 md:me-3 mb-3 md:mb-0 d-block md:d-inline-block dataset-remove"
                       >
                         <FontAwesomeIcon icon="times-circle" />
                         <span class="ms-1">remove</span>
@@ -92,20 +92,20 @@
                             Confirm
                           </div>
                           <div class="text-center">
-                            <div class="alert alert-danger">
+                            <div class="alert theme-danger mb-5">
                               Are you sure you want to create a backup of dataset {{ data.item.name }}?<br /><br />This action may take some time to complete.
                             </div>
                             <button
                               @click="hidePopover();backupDataset(data.item.name)"
                               type="button"
-                              class="btn btn-primary me-2"
+                              class="btn-solid theme-primary me-3"
                             >
                               submit
                             </button>
                             <button
                               @click="hidePopover()"
                               type="button"
-                              class="btn btn-secondary"
+                              class="btn-solid theme-secondary"
                             >
                               cancel
                             </button>
@@ -118,7 +118,7 @@
                         @click="showPopover(`backup-dataset-${data.item.name}`)"
                         type="button"
                         href="#"
-                        class="btn btn-primary me-0 me-md-2 me-0 mb-2 mb-md-0 d-block d-md-inline-block dataset-backup"
+                        class="btn-solid theme-primary me-0 md:me-3 me-0 mb-3 md:mb-0 d-block md:d-inline-block dataset-backup"
                       >
                         <FontAwesomeIcon icon="download" />
                         <span class="ms-1">backup</span>
@@ -126,7 +126,7 @@
                       <button
                         @click="$router.push(`/dataset${data.item.name}/upload`)"
                         type="button"
-                        class="btn btn-primary me-0 me-md-2 me-0 mb-2 mb-md-0 d-block d-md-inline-block dataset-add-data"
+                        class="btn-solid theme-primary me-0 md:me-3 me-0 mb-3 md:mb-0 d-block md:d-inline-block dataset-add-data"
                       >
                         <FontAwesomeIcon icon="upload" />
                         <span class="ms-1">add data</span>
@@ -134,7 +134,7 @@
                       <button
                         @click="$router.push(`/dataset${data.item.name}/info`)"
                         type="button"
-                        class="btn btn-primary me-0 mb-md-0 d-block d-md-inline-block dataset-info"
+                        class="btn-solid theme-primary me-0 md:mb-0 d-block md:d-inline-block dataset-info"
                       >
                         <FontAwesomeIcon icon="tachometer-alt" />
                         <span class="ms-1">info</span>
@@ -159,7 +159,7 @@ import TableListing from '@/components/dataset/TableListing.vue'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { faTimesCircle, faDownload, faTachometerAlt } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { Popover } from 'bootstrap'
+import { Popover } from 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { displayNotification } from '@/utils'
 
 library.add(faTimesCircle, faDownload, faTachometerAlt)

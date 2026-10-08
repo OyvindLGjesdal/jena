@@ -20,7 +20,7 @@
     role="menubar"
     aria-disabled="false"
     aria-label="Pagination"
-    class="pagination flex-wrap mb-2 mx-0 p-0 justify-content-center"
+    class="pagination flex-wrap mb-3 mx-0 p-0 justify-content-center"
   >
     <!-- pages backward controls -->
     <li

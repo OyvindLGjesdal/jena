@@ -21,7 +21,7 @@
     aria-live="polite"
     aria-atomic="true"
   >
-    <div class="position-fixed top-0 end-0 px-2" style="z-index: 11">
+    <div class="position-fixed top-0 end-0 px-3" style="z-index: 11">
       <transition-group
         name="toast"
         tag="div"
@@ -30,7 +30,7 @@
         <div
           v-for="message in messages"
           :key="message.id"
-          class="toast show mt-2"
+          class="toast show mt-3"
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
@@ -38,14 +38,14 @@
           <div
             :class="getToastHeaderClass(message.type)"
           >
-            <strong class="me-auto text-white">
+            <strong class="me-auto">
               {{ getMessageHeaderText(message.type) }}
             </strong>
             <button
               v-if="message.closeable"
               @click="removeMessage(message.id)"
               type="button"
-              class="me-2 mb-1 btn-close btn-close-white"
+              class="me-3 mb-1 btn-close"
               data-bs-dismiss="toast"
               aria-label="Close"
             >
@@ -125,7 +125,8 @@ export default {
     getToastHeaderClass (type) {
       return [
         'toast-header',
-        `bg-${type}`
+        `bg-${type}`,
+        `fg-contrast-${type}`
       ]
     },
 

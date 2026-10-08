@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>/{{ datasetName }}</h2>
         <div class="card">
@@ -27,11 +27,11 @@
           <div class="card-body">
             <div>
               <div class="row">
-                <div class="col-sm-12 col-md-6">
+                <div class="sm:col-12 md:col-6">
                   <h3 class="text-center">
                     Available Services
                   </h3>
-                  <p class="card-text placeholder-glow" v-if="services == null">
+                  <p class="card-text placeholder-pulse" v-if="services == null">
                     <span class="placeholder col-12"></span>
                     <span class="placeholder col-12"></span>
                     <span class="placeholder col-12"></span>
@@ -52,14 +52,14 @@
                       </div>
                     </div>
                   </div>
-                  <div class="row my-4">
+                  <div class="row my-7">
                     <div class="col-12 text-center">
                       <h3>Dataset size</h3>
-                      <div class="mb-2">
+                      <div class="mb-3">
                         <div hidden>
                           <div ref="count-triples-content">
                             <div class="text-center">
-                              <div class="alert alert-warning">
+                              <div class="alert theme-warning mb-5">
                                 This may be slow and impose a significant load on large datasets.
                               </div>
                               <button
@@ -69,12 +69,12 @@
                                 "
                                 id="count-triples-submit-button"
                                 type="button"
-                                class="btn btn-primary me-2"
+                                class="btn-solid theme-primary me-3"
                               >
                                 submit
                               </button>
                               <button
-                                class="btn btn-secondary"
+                                class="btn-solid theme-secondary"
                                 @click="
                                   $refs['count-triples-button'].disabled = isDatasetStatsLoading
                                 "
@@ -88,7 +88,7 @@
                           ref="count-triples-button"
                           id="count-triples-button"
                           type="button"
-                          class="btn btn-primary"
+                          class="btn-solid theme-primary"
                           data-bs-toggle="popover"
                           data-bs-placement="auto"
                           data-bs-trigger="focus"
@@ -103,13 +103,13 @@
                         :busy="isDatasetSizeLoading"
                         :filterable="false"
                         id="dataset-size-table"
-                        class="mt-3"
+                        class="mt-5"
                         bordered
                         hover
                         small
                       >
                         <template #table-busy>
-                          <div class="text-center text-danger my-2">
+                          <div class="text-center fg-danger my-3">
                             <div class="spinner-border align-middle" role="status">
                               <span class="visually-hidden">Loading...</span>
                             </div>
@@ -123,7 +123,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="col-sm-12 col-md-6">
+                <div class="sm:col-12 md:col-6">
                   <h3 class="text-center">
                     Statistics
                   </h3>
@@ -137,7 +137,7 @@
                     small
                   >
                     <template #table-busy>
-                      <div class="text-center text-danger my-2">
+                      <div class="text-center fg-danger my-3">
                         <div class="spinner-border align-middle" role="status">
                           <span class="visually-hidden">Loading...</span>
                         </div>
@@ -167,7 +167,7 @@ import Menu from '@/components/dataset/Menu.vue'
 import { displayError } from '@/utils'
 import currentDatasetMixin from '@/mixins/current-dataset'
 import currentDatasetMixinNavigationGuards from '@/mixins/current-dataset-navigation-guards'
-import { Popover } from 'bootstrap'
+import { Popover } from 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import JenaTable from '@/components/dataset/JenaTable.vue'
 import TableListing from "@/components/dataset/TableListing.vue";
 

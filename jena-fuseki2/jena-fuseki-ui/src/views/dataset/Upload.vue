@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2>/{{ datasetName }}</h2>
         <div class="card">
@@ -25,7 +25,7 @@
             <Menu :dataset-name="datasetName" />
           </nav>
           <div class="card-body" v-if="services !== null && (!services['gsp-rw'] || services['gsp-rw'].length === 0)">
-            <div class="alert alert-warning">
+            <div class="alert theme-warning">
               No service for adding data available. The Graph Store Protocol service should be configured to allow adding data.
             </div>
           </div>
@@ -34,7 +34,7 @@
               <h3>Drop files to upload</h3>
             </div>
             <div class="row">
-              <div class="col-sm-12">
+              <div class="sm:col-12">
                 <h3>Upload files {{ postActionUrl }}</h3>
                 <p>
                   Load data into the default graph of the currently selected dataset, or the given named graph.
@@ -48,9 +48,9 @@
                   >
                     <label
                       for="dataset-graph-name"
-                      class="col-sm-4 col-md-4 col-lg-2 col-12 col-form-label col-form-label-sm"
+                      class="sm:col-4 md:col-4 lg:col-2 col-12 col-form-label col-form-label-sm"
                     >Dataset graph name</label>
-                    <div class="col input-group has-validation">
+                    <div class="col">
                       <input
                         v-model="datasetGraphName"
                         :class="graphNameClasses"
@@ -70,9 +70,9 @@
                     class="form-row form-group"
                   >
                     <label
-                      class="col-sm-4 col-md-4 col-lg-2 col-12 col-form-label col-form-label-sm"
+                      class="sm:col-4 md:col-4 lg:col-2 col-12 col-form-label col-form-label-sm"
                     >Files to upload</label>
-                    <div class="col has-validation">
+                    <div class="col">
                       <!-- eslint-disable vue/v-on-event-hyphenation -->
                       <file-upload
                         ref="upload"
@@ -94,32 +94,32 @@
                         :custom-action="handleUploadWithErrorHandling"
                       >
                         <FontAwesomeIcon icon="plus" />
-                        <span class="ms-2">select files</span>
+                        <span class="ms-3">select files</span>
                       </file-upload>
                       <button
                         v-if="!$refs.upload || !$refs.upload.active"
                         @click.prevent="uploadAll()"
                         type="button"
-                        class="btn btn-primary ms-2 d-inline upload-files"
+                        class="btn-solid theme-primary ms-3 d-inline upload-files"
                       >
                         <FontAwesomeIcon icon="upload" />
-                        <span class="ms-2">upload all</span>
+                        <span class="ms-3">upload all</span>
                       </button>
                       <button
                         v-else
                         @click.prevent="$refs.upload.active = false"
                         type="button"
-                        class="btn btn-primary ms-2 d-inline"
+                        class="btn-solid theme-primary ms-3 d-inline"
                       >
                         <FontAwesomeIcon icon="times-circle" />
-                        <span class="ms-2">stop upload</span>
+                        <span class="ms-3">stop upload</span>
                       </button>
                       <div class="invalid-feedback">
                         Invalid upload files. Please select at least one file to upload.
                       </div>
                     </div>
                   </div>
-                  <div class="pt-2 pb-2">
+                  <div class="pt-3 pb-3">
                     <div class="progress" style="height: 1.5rem;">
                       <div
                         :style="`width: ${uploadSucceededPercentage}%`"
@@ -182,7 +182,7 @@
                       {{ data.item.response.tripleCount }}
                     </span>
                     <span v-else class="small">0</span>
-                    <div v-if="data.item.error" class="small text-danger upload-error-message">
+                    <div v-if="data.item.error" class="small fg-danger upload-error-message">
                       {{ getUploadErrorMessage(data.item) }}
                     </div>
                   </template>
@@ -190,18 +190,18 @@
                     <button
                       @click.prevent="data.item.success || data.item.error === 'compressing' ? false : $refs.upload.update(data.item, {active: true})"
                       type="button"
-                      class="btn btn-outline-primary me-0 mb-2 d-block upload-file"
+                      class="btn-outline theme-primary me-0 mb-3 d-block upload-file"
                     >
                       <FontAwesomeIcon icon="upload" />
-                      <span class="ms-2">upload now</span>
+                      <span class="ms-3">upload now</span>
                     </button>
                     <button
                       @click.prevent="remove(data.item)"
                       type="button"
-                      class="btn btn-outline-primary me-0 mb-md-0 d-block d-md-inline-block remove-file"
+                      class="btn-outline theme-primary me-0 md:mb-0 d-block md:d-inline-block remove-file"
                     >
                       <FontAwesomeIcon icon="minus-circle" />
-                      <span class="ms-2">remove</span>
+                      <span class="ms-3">remove</span>
                     </button>
                   </template>
                 </jena-table>
@@ -252,8 +252,8 @@ export default {
         'form-control'
       ],
       fileUploadClasses: [
-        'btn',
-        'btn-success'
+        'btn-solid',
+        'theme-success'
       ],
       upload: {
         files: [],
@@ -446,11 +446,11 @@ export default {
      */
     validateFiles (explicit = true) {
       if (this.upload.files !== null && this.upload.files.length > 0) {
-        this.fileUploadClasses = ['btn', 'btn-success', 'is-valid']
+        this.fileUploadClasses = ['btn-solid', 'theme-success', 'is-valid']
       } else if (explicit || this.fileUploadClasses.includes('is-invalid')) {
-        this.fileUploadClasses = ['btn', 'btn-success', 'is-invalid']
+        this.fileUploadClasses = ['btn-solid', 'theme-success', 'is-invalid']
       } else {
-        this.fileUploadClasses = ['btn', 'btn-success']
+        this.fileUploadClasses = ['btn-solid', 'theme-success']
       }
       return this.fileUploadClasses.includes('is-valid')
     },

@@ -16,36 +16,44 @@
 -->
 
 <template>
-  <nav class="navbar navbar-expand-md bg-light">
-    <div class="container-fluid mx-2 mx-md-0">
+  <nav class="navbar md:navbar-expand bg-1">
+    <div class="container-fluid mx-3 md:mx-0">
       <router-link to="/" class="navbar-brand">
         <img alt="Apache Jena logo" src="../assets/logo.svg" style="width: 52px;"> Apache Jena Fuseki
       </router-link>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
+      <button class="btn-icon navbar-toggler" type="button" data-bs-toggle="drawer" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon" aria-hidden="true"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <router-link to="/" class="nav-link" exact-active-class="active">
-              <FontAwesomeIcon icon="database" /> datasets
-            </router-link>
-          </li>
-          <li class="nav-item">
-            <router-link to="/manage" class="nav-link" exact-active-class="active">
-              <FontAwesomeIcon icon="cogs" /> manage
-            </router-link>
-          </li>
-          <li class="nav-item">
-            <router-link to="/documentation" class="nav-link" exact-active-class="active">
-              <FontAwesomeIcon icon="info-circle" /> help
-            </router-link>
-          </li>
-        </ul>
-        <ul class="navbar-nav ms-auto">
-          <ServerStatus />
-        </ul>
-      </div>
+      <dialog ref="navbarDrawer" class="drawer drawer-end" tabindex="-1" id="navbarNav" aria-labelledby="navbarNavLabel">
+        <div class="drawer-header">
+          <h5 class="drawer-title" id="navbarNavLabel">
+            Apache Jena Fuseki
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="drawer" aria-label="Close"></button>
+        </div>
+        <div class="drawer-body">
+          <ul class="nav navbar-nav">
+            <li class="nav-item">
+              <router-link to="/" class="nav-link" exact-active-class="active">
+                <FontAwesomeIcon icon="database" /> datasets
+              </router-link>
+            </li>
+            <li class="nav-item">
+              <router-link to="/manage" class="nav-link" exact-active-class="active">
+                <FontAwesomeIcon icon="cogs" /> manage
+              </router-link>
+            </li>
+            <li class="nav-item">
+              <router-link to="/documentation" class="nav-link" exact-active-class="active">
+                <FontAwesomeIcon icon="info-circle" /> help
+              </router-link>
+            </li>
+          </ul>
+          <ul class="nav navbar-nav ms-auto">
+            <ServerStatus />
+          </ul>
+        </div>
+      </dialog>
     </div>
   </nav>
 </template>
@@ -54,6 +62,7 @@
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { faDatabase, faCogs, faInfoCircle } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { Drawer } from 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import ServerStatus from '@/components/ServerStatus.vue'
 
 library.add(faDatabase, faCogs, faInfoCircle)
@@ -64,6 +73,14 @@ export default {
   components: {
     FontAwesomeIcon,
     ServerStatus
+  },
+
+  watch: {
+    // Below the md breakpoint the nav is a modal drawer, which stays open over the new page after
+    // a router-link navigates, so close it on every route change.
+    $route () {
+      Drawer.getInstance(this.$refs.navbarDrawer)?.hide()
+    }
   }
 }
 </script>

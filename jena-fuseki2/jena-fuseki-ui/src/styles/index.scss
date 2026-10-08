@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-@import '/node_modules/bootstrap/dist/css/bootstrap.min';
-@import '/node_modules/bootstrap/scss/bootstrap.scss';
-@import 'upload.scss';
+@use 'upload';
 
 #app {
   .navbar {
     .navbar-brand {
       a {
-        color: $gray-600;
+        color: var(--bs-gray-600);
         &:hover {
-          color: $gray-800;
+          color: var(--bs-gray-800);
           text-decoration: none;
         }
       }
@@ -41,10 +39,10 @@
     height: 2em;
     circle {
       &.success {
-        fill: $success;
+        fill: var(--bs-success-base);
       }
       &.failure {
-        fill: $danger;
+        fill: var(--bs-danger-base);
       }
     }
   }

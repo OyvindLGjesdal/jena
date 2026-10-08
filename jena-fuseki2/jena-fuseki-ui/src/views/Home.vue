@@ -17,13 +17,13 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col-12">
         <h2 class="text-center">
           Apache Jena Fuseki
         </h2>
         <div class="text-center">
-          <span class="badge text-bg-secondary">{{ headerString }}</span>
+          <span class="badge theme-secondary">{{ headerString }}</span>
         </div>
       </div>
     </div>
@@ -43,7 +43,7 @@
         <button
           @click="$router.push(`/dataset${data.item.name}/query`)"
           type="button"
-          class="btn btn-primary me-0 me-md-2 mb-2 mb-md-0 d-block d-md-inline-block"
+          class="btn-solid theme-primary me-0 md:me-3 mb-3 md:mb-0 d-block md:d-inline-block"
         >
           <FontAwesomeIcon icon="question-circle" />
           <span class="ms-1">query</span>
@@ -51,7 +51,7 @@
         <button
           @click="$router.push(`/dataset${data.item.name}/upload`)"
           type="button"
-          class="btn btn-primary me-0 me-md-2 mb-2 mb-md-0 d-block d-md-inline-block"
+          class="btn-solid theme-primary me-0 md:me-3 mb-3 md:mb-0 d-block md:d-inline-block"
         >
           <FontAwesomeIcon icon="upload" />
           <span class="ms-1">add data</span>
@@ -59,7 +59,7 @@
         <button
           @click="$router.push(`/dataset${data.item.name}/edit`)"
           type="button"
-          class="btn btn-primary me-0 me-md-2 mb-2 mb-md-0 d-block d-md-inline-block"
+          class="btn-solid theme-primary me-0 md:me-3 mb-3 md:mb-0 d-block md:d-inline-block"
         >
           <FontAwesomeIcon icon="edit" />
           <span class="ms-1">edit</span>
@@ -67,7 +67,7 @@
         <button
           @click="$router.push(`/dataset${data.item.name}/info`)"
           type="button"
-          class="btn btn-primary me-0 mb-md-0 d-block d-md-inline-block"
+          class="btn-solid theme-primary me-0 md:mb-0 d-block md:d-inline-block"
         >
           <FontAwesomeIcon icon="tachometer-alt" />
           <span class="ms-1">info</span>

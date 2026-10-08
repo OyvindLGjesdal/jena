@@ -19,7 +19,7 @@
   <div>
     <span>server status</span>
     <a class="d-inline-block" href="#" data-bs-toggle="tooltip" :title="serverStatusText">
-      <svg id="status-icon" class="ms-2">
+      <svg id="status-icon" class="ms-3">
         <circle cx="1em" cy="1em" r="1em" stroke="transparent" stroke-width="0" fill="transparent" :class="isUp" />
       </svg>
     </a>

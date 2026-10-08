@@ -17,7 +17,7 @@
 
 <template>
   <div class="container-fluid">
-    <div class="row mt-4">
+    <div class="row mt-7">
       <div class="col">
         <h1>Fuseki Documentation</h1>
         <p><a href="https://jena.apache.org/documentation/fuseki2/">Apache Jena Fuseki</a></p>

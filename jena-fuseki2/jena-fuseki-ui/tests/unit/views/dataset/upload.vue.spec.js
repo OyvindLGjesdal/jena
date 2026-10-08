@@ -98,21 +98,21 @@ describe('Upload.vue', () => {
 
       wrapper.vm.upload.files = [{ id: '1', name: 'broken.ttl', error: null, success: false, active: false, response: {} }]
       await nextTick()
-      expect(wrapper.vm.fileUploadClasses).toEqual(['btn', 'btn-success', 'is-valid'])
+      expect(wrapper.vm.fileUploadClasses).toEqual(['btn-solid', 'theme-success', 'is-valid'])
 
       wrapper.vm.upload.files = [{ id: '1', name: 'broken.ttl', error: 'denied', success: false, active: false, response: 'Parse Error' }]
       await nextTick()
-      expect(wrapper.vm.fileUploadClasses).toEqual(['btn', 'btn-success', 'is-valid'])
+      expect(wrapper.vm.fileUploadClasses).toEqual(['btn-solid', 'theme-success', 'is-valid'])
 
       wrapper.vm.upload.files = []
       await nextTick()
-      expect(wrapper.vm.fileUploadClasses).toEqual(['btn', 'btn-success'])
+      expect(wrapper.vm.fileUploadClasses).toEqual(['btn-solid', 'theme-success'])
     })
 
     it('still flags the form invalid on an explicit submit attempt with no files', () => {
       const wrapper = mountFunction()
       expect(wrapper.vm.validateFiles()).toBe(false)
-      expect(wrapper.vm.fileUploadClasses).toEqual(['btn', 'btn-success', 'is-invalid'])
+      expect(wrapper.vm.fileUploadClasses).toEqual(['btn-solid', 'theme-success', 'is-invalid'])
     })
   })
 })

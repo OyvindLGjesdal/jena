@@ -56,6 +56,9 @@ export default defineConfig({
     },
   },
   build: {
+    // Bootstrap 6 supports Chrome/Edge 130, Firefox 132 and Safari 18 and up, with no fallbacks below.
+    // Match that floor, so the CSS minifier keeps light-dark() instead of rewriting it into variables.
+    cssTarget: ['chrome130', 'edge130', 'firefox132', 'safari18'],
     // Our largest chunk: target/webapp/static/Query-CakHSd_3.js  1,172.48 kB │ gzip: 350.95 kB
     chunkSizeWarningLimit: 1250,
     // Change build paths to make them Maven compatible.

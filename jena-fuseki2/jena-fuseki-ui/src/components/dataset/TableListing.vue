@@ -18,7 +18,7 @@
 <template>
   <div class="container-fluid">
     <div class="row" v-if="filterable">
-      <div class="col-12 input-group has-validation align-items-center my-2 g-0">
+      <div class="col-12 input-group align-items-center my-3 g-0">
         <div class="col g-0">
           <div class="input-group">
             <input
@@ -32,7 +32,7 @@
               :disabled="!filter"
               @click="filter = ''"
               type="button"
-              class="btn btn-secondary input-group-text"
+              class="btn-solid theme-secondary input-group-text"
             >
               Clear
             </button>
@@ -57,7 +57,7 @@
           striped
         >
           <template #table-busy>
-            <div class="text-center text-danger my-2">
+            <div class="text-center fg-danger my-3">
               <div class="spinner-border align-middle" role="status">
                 <span class="visually-hidden">Loading...</span>
               </div>
