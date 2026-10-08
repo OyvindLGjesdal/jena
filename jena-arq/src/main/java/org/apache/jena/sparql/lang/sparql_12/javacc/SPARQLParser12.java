@@ -34,6 +34,20 @@ import org.apache.jena.sparql.modify.request.* ;
 
 @SuppressWarnings("all")
 public class SPARQLParser12 extends org.apache.jena.sparql.lang.sparql_12.SPARQLParser12Base implements SPARQLParser12Constants {
+  // With USER_CHAR_STREAM, javacc does not generate SimpleCharStream.java
+  // or the InputStream and Reader constructors and ReInit operations.
+  // SimpleCharStream.java is maintained in the source tree (GH-1324).
+  // These are the constructors and ReInit operations javacc would generate.
+  public SPARQLParser12(java.io.InputStream stream) { this(stream, null); }
+  public SPARQLParser12(java.io.InputStream stream, String encoding) { this(newCharStream(stream, encoding)); }
+  public SPARQLParser12(java.io.Reader stream) { this(new SimpleCharStream(stream, 1, 1)); }
+  public void ReInit(java.io.InputStream stream) { ReInit(stream, null); }
+  public void ReInit(java.io.InputStream stream, String encoding) { ReInit(newCharStream(stream, encoding)); }
+  public void ReInit(java.io.Reader stream) { ReInit(new SimpleCharStream(stream, 1, 1)); }
+  private static SimpleCharStream newCharStream(java.io.InputStream stream, String encoding) {
+    try { return new SimpleCharStream(stream, encoding, 1, 1); }
+    catch (java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
+  }
 
 // // Common top for single entry point.
 // void Top(): {}
@@ -5996,7 +6010,6 @@ lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
 
   /** Generated Token Manager. */
   public SPARQLParser12TokenManager token_source;
-  SimpleCharStream jj_input_stream;
   /** Current token. */
   public Token token;
   /** Next token. */
@@ -6042,14 +6055,9 @@ lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
 	   jj_la1_6 = new int[] {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x80,0x0,0x0,0x0,0x0,0x80,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1002,0x1002,0x0,0x1002,0x1002,0x0,0x800,0x100,0x20a0,0x1002,0x20a0,0x2,0x800,0x1000,0x1000,0x0,0x1000,0x0,0x0,0x0,0x0,0x1,0x1,0x1,0x1,0x0,0x0,0x0,0x1,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x8,0x10,0x0,0x0,0x60,0x0,0x180,0x180,0x60,0x180,0x180,0x62,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xe2,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x200,0x200,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,};
 	}
 
-  /** Constructor with InputStream. */
-  public SPARQLParser12(java.io.InputStream stream) {
-	  this(stream, null);
-  }
-  /** Constructor with InputStream and supplied encoding */
-  public SPARQLParser12(java.io.InputStream stream, String encoding) {
-	 try { jj_input_stream = new SimpleCharStream(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
-	 token_source = new SPARQLParser12TokenManager(jj_input_stream);
+  /** Constructor with user supplied CharStream. */
+  public SPARQLParser12(CharStream stream) {
+	 token_source = new SPARQLParser12TokenManager(stream);
 	 token = new Token();
 	 jj_ntk = -1;
 	 jj_gen = 0;
@@ -6057,41 +6065,8 @@ lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
   }
 
   /** Reinitialise. */
-  public void ReInit(java.io.InputStream stream) {
-	  ReInit(stream, null);
-  }
-  /** Reinitialise. */
-  public void ReInit(java.io.InputStream stream, String encoding) {
-	 try { jj_input_stream.ReInit(stream, encoding, 1, 1); } catch(java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
-	 token_source.ReInit(jj_input_stream);
-	 token = new Token();
-	 jj_ntk = -1;
-	 jj_gen = 0;
-	 for (int i = 0; i < 177; i++) jj_la1[i] = -1;
-  }
-
-  /** Constructor. */
-  public SPARQLParser12(java.io.Reader stream) {
-	 jj_input_stream = new SimpleCharStream(stream, 1, 1);
-	 token_source = new SPARQLParser12TokenManager(jj_input_stream);
-	 token = new Token();
-	 jj_ntk = -1;
-	 jj_gen = 0;
-	 for (int i = 0; i < 177; i++) jj_la1[i] = -1;
-  }
-
-  /** Reinitialise. */
-  public void ReInit(java.io.Reader stream) {
-	if (jj_input_stream == null) {
-	   jj_input_stream = new SimpleCharStream(stream, 1, 1);
-	} else {
-	   jj_input_stream.ReInit(stream, 1, 1);
-	}
-	if (token_source == null) {
- token_source = new SPARQLParser12TokenManager(jj_input_stream);
-	}
-
-	 token_source.ReInit(jj_input_stream);
+  public void ReInit(CharStream stream) {
+	 token_source.ReInit(stream);
 	 token = new Token();
 	 jj_ntk = -1;
 	 jj_gen = 0;
@@ -6225,4 +6200,4 @@ lex = unescapeStr(lex, t.beginLine, t.beginColumn) ;
   final public void disable_tracing() {
   }
 
- }
+}

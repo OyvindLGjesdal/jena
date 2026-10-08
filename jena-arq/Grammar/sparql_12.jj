@@ -26,6 +26,8 @@ options
   JAVA_UNICODE_ESCAPE = false ;
   UNICODE_INPUT = true ;
   STATIC = false ;
+// SimpleCharStream.java is not generated. See the parser class below.
+  USER_CHAR_STREAM = true ;
 //  DEBUG_PARSER          = true ;
 //  DEBUG_TOKEN_MANAGER   = true ;
 }
@@ -62,7 +64,22 @@ import org.apache.jena.sparql.expr.aggregate.lib.* ;
 import org.apache.jena.update.* ;
 import org.apache.jena.sparql.modify.request.* ;
 public class SPARQLParser12 extends org.apache.jena.sparql.lang.sparql_12.SPARQLParser12Base
-{}
+{
+  // With USER_CHAR_STREAM, javacc does not generate SimpleCharStream.java
+  // or the InputStream and Reader constructors and ReInit operations.
+  // SimpleCharStream.java is maintained in the source tree (GH-1324).
+  // These are the constructors and ReInit operations javacc would generate.
+  public SPARQLParser12(java.io.InputStream stream) { this(stream, null); }
+  public SPARQLParser12(java.io.InputStream stream, String encoding) { this(newCharStream(stream, encoding)); }
+  public SPARQLParser12(java.io.Reader stream) { this(new SimpleCharStream(stream, 1, 1)); }
+  public void ReInit(java.io.InputStream stream) { ReInit(stream, null); }
+  public void ReInit(java.io.InputStream stream, String encoding) { ReInit(newCharStream(stream, encoding)); }
+  public void ReInit(java.io.Reader stream) { ReInit(new SimpleCharStream(stream, 1, 1)); }
+  private static SimpleCharStream newCharStream(java.io.InputStream stream, String encoding) {
+    try { return new SimpleCharStream(stream, encoding, 1, 1); }
+    catch (java.io.UnsupportedEncodingException e) { throw new RuntimeException(e); }
+  }
+}
 PARSER_END(SPARQLParser12)
 // // Common top for single entry point.
 // void Top(): {}
