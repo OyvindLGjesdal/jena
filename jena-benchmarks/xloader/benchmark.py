@@ -291,7 +291,7 @@ def run(args, home):
                 "xloader_args": args.xloader_arg or [],
                 "java": capture([env["JAVA"], "-version"], env),
                 "environment": {k: env.get(k) for k in ("PATH", "JAVA", "JAVA_HOME", "JVM_ARGS",
-                                  "LC_ALL", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS",
+                                  "JVM_ARGS_INGEST", "LC_ALL", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS",
                                   "SORT_COMPRESS_ARGS")},
                 "sort_wrapper_sha256": digest(wrapper),
                 "sort_compress": compress_check or "as passed by xloader",

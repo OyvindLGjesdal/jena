@@ -2,7 +2,12 @@
 
 # TDB2 xloader investigation and benchmark plan
 
-Started: 2026-09-29. Updated: 2026-10-07.
+Started: 2026-09-29. Updated: 2026-10-10.
+
+Status (2026-10-10): truthy loaded from the start in **6:54:43** on the 32 GB Mac
+(`20261010T082153Z-f332d3b1`, build `0a6c1c7954`): 8,261,251,250 statements,
+8,254,221,349 distinct triples, database 698 GB. The three index sorts are 4:40 of it;
+POS and OSP take almost twice SPO's time (see "Third full truthy run").
 
 Status (2026-10-07): best lexemes load 7:21 (`20261006T073325Z-a355af21`), against
 25:23 for `baseline-t8` with main's code; counts identical. Two code reviews of the
@@ -1049,7 +1054,104 @@ plan (`LoaderPlans`). `sequential` and `basic` were not run (expected to take ho
   bottom-up. Already at 229 M triples on 32 GB, random inserts are the limit; at
   billions of triples the gap to xloader should grow (not measured).
 
-### Second full truthy run (2026-10-04, in progress)
+### Third full truthy run, clean from the start (2026-10-10)
+
+Run `/Volumes/SamsungSSD/xloader-benchmark/runs/truthy/20261010T082153Z-f332d3b1`, label
+`uusort1024M-pigz1-t8-pt6-tt4-it12-ntmem-preload-j25par8g-cnodes`, status `counted`.
+Build `build/current-0a6c1c7` (apache-jena tarball of `0a6c1c7954`, built 2026-10-10;
+launcher identical to HEAD's). One harness run, no restarts, so every step is timed.
+Database on the external SSD, tmp on the internal disk, indexes one at a time. On mains
+power, `caffeinate -dims`, IntelliJ open. Script `truthy-run3.sh` in the benchmark root:
+
+```sh
+export JENA_BENCHMARK_HOME=/Volumes/SamsungSSD/xloader-benchmark
+export JENA_HOME=/Users/oyvindlgjesdal/xloader-benchmark/build/current-0a6c1c7
+export JAVA=/Users/oyvindlgjesdal/Library/Java/JavaVirtualMachines/corretto-25.0.3/Contents/Home/bin/java
+export JVM_ARGS_INGEST='-Xmx12G -Xmn1536M -XX:+UseParallelGC -XX:+UseCompactObjectHeaders -Djena.xloader.ingest.cacheSize=1000000'
+cd /Users/oyvindlgjesdal/repos/apache/jena
+caffeinate -dims python3 -B jena-benchmarks/xloader/benchmark.py run truthy \
+  --label uusort1024M-pigz1-t8-pt6-tt4-it12-ntmem-preload-j25par8g-cnodes \
+  --revision 0a6c1c7954 --threads 8 \
+  --sort /Users/oyvindlgjesdal/xloader-benchmark/tools/uu-sort-xloader \
+  --sort-compress /opt/homebrew/bin/pigz --sort-compress-args=-1 \
+  --jvm-args='-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders' \
+  --xloader-arg=--parse-threads=6 --xloader-arg=--term-threads=4 \
+  --xloader-arg=--ingest-threads=12 --xloader-arg=--node-table-in-memory \
+  --xloader-arg=--preload-node-table --xloader-arg=--sort-compress-nodes \
+  --tmp-home /Users/oyvindlgjesdal/xloader-benchmark/tmp-truthy \
+  --cache-note '...'
+```
+
+| Step | Time | Elapsed at end | Second run (2026-10-04, restarted) |
+|---|---|---|---|
+| Node table | 1:28:29 | 1:28:31 | 1:34:03 |
+| - parse (nodes), 2,379,730,330 node lines to sort | 55:23 (2.49 M/s) | | 60:30 (2.28 M/s) |
+| - node sort merge | about 9 min | | about 9.5 min |
+| - term index, 1,609,180,945 terms | 23:55 (1.12 M/s) | | 24:18 (1.10 M/s) |
+| Ingest: preload 11.3 s, table 2:04 (8,305 MB), ingest 43:59 | 46:15 (3.13 M/s) | 2:14:46 | about 47:50 (3.02 M/s) |
+| SPO | 1:05:49 | 3:20:36 | stopped in the sort |
+| POS | 1:58:46 | 5:19:24 | |
+| OSP | 1:35:19 | **6:54:43** | |
+
+- `/usr/bin/time`: 24,884 s real, 123,827 s user, 12,554 s sys (about 5.5 of 12 cores on
+  average), maximum RSS 21.3 GB, 0 swaps. 2,889 compressor calls.
+- Count: 8,254,221,349 distinct triples, 7,029,901 (0.085%) fewer than the statements
+  parsed. The index sorts run with `--unique` (on main as well), so duplicate statements
+  are dropped, as for lexemes (381,132). Truthy repeats a `wdt:` triple when an item has
+  two best-rank statements with the same value (for example with different qualifiers).
+  Checked against the input (2026-10-10, `truthy-uniq.sh` next to the runs folder):
+  - `rapidgzip --count-lines`: 8,261,251,250 lines (1,070,496,030,205 bytes), equal to
+    the statements parsed; no blank or comment lines. 4:21 on 12 cores.
+  - The index sort's command on the raw lines (`uu-sort-xloader --buffer-size=50%
+    --parallel=8 --unique`, pigz -1 spills, tmp on the SSD) piped to `wc -l`:
+    8,254,262,421 distinct lines, 41,072 more than the database. All 41,072 are
+    decimals that differ only in trailing zeros, which TDB2 inlines as one value
+    (`NodeIdInline` calls `XSDNumUtils.canonicalDecimal` since GH-3404, also on main):
+    `truthy-collisions.sh` and `InlineKeys.java` (Jena's own `NodeId.inline`/`extract`
+    from this build) over the 404,598,920 XSD-typed lines (dateTime 201.7 M inlined,
+    65,647 not; integer 126.8 M inlined; decimal 67.9 M inlined, 8.2 M not; no other
+    XSD types): 399,810,342 distinct lines, 399,769,270 distinct as stored, exactly
+    41,072 fewer. 41,066 pairs and 3 triples of lines; 36,274 groups differ in zeros
+    after the point (`"+40.7"`/`"+40.70"`), 4,795 as integer and `.0` (`"+66"`/
+    `"+66.0"`); none in sign. Mostly astronomy: P10752/P10751 (proper motion, 31,862
+    groups), P2216 radial velocity 3,893, P1090 redshift 1,648, P2046 area 1,349. No
+    other normalisation applies: literals escape all non-ASCII as `\uXXXX` with capital
+    hex, raw non-ASCII occurs only in IRIs, no surrogate or `\U0000` escapes, no
+    language tags with capitals. In RDF terms the graph has 8,254,262,421 triples;
+    TDB2 stores 8,254,221,349 because it keeps decimal values, not lexical forms.
+    1:19:08 (run phase about 23 min, intermediate merges about 36, final merge about
+    19); spill peak 92.1 GB (about 12 to 1 with pigz -1); 11,011 s user, 7,211 s sys;
+    maximum RSS 2.5 GB.
+  - `tdb2.tdbquery` count again: 8,254,221,349, in 17:12 (alongside the sort).
+- Ingest: 2,282,102,266 lookups answered by the in-memory table, 770,775 by the B+tree.
+- Database 650 GiB (698 GB): `SPO.dat`, `POS.dat`, `OSP.dat` 198.3 GB each (24 bytes a
+  triple), `nodes-data.obj` 61.9 GB, `nodes.dat` 38.7 GB. Workfile `triples.tmp.gz` 57.0 GB.
+- Sort spills (sampled every 30 s from `du` of the `uutils_sort*` folder; `tmp-usage.log`
+  in the run folder): peak 74.8 GB (SPO), 93.2 GB (POS), 88.2 GB (OSP); 786 spill files of
+  10.5 M rows for each index; lowest internal free space 99 GiB (POS). The harness's
+  `lowest_free_bytes` for tmp: 105.0 GB. Peak internal use for the index stage is the
+  workfile plus one index's spills, about 150 GB.
+- **`--term-threads=4` gave nothing at this scale**: 1.12 M terms/s against 1.10 M with
+  one decoder; Java at about 1.6 cores, `uu-sort`'s final merge at 0.33. The thread
+  writing the object file and packing the B+tree is the limit, not decoding.
+- **POS and OSP cost almost twice SPO.** Run phase (spill files written, `uu-sort` at
+  about 7 cores): SPO 30 min, POS 39, OSP 38; spill files about 84 MB (SPO) and about
+  110 MB (POS, OSP). Intermediate merge (786 files to 13, 64 at a time, `uu-sort` at about
+  1.3 cores): SPO 16 min, POS about 44, OSP about 33. Final merge and B+tree: SPO 18
+  min, POS about 36. The workfile is in subject order, so SPO's spill files cover separate
+  key ranges and merging them is close to concatenation; POS and OSP spill files overlap
+  completely and every row goes through the merge's comparisons, on one thread.
+- Not used here: the shared workfile reader (`--parallel-indexes` only); each index read
+  and decompressed the workfile itself, but sort, not the reader, was the limit there.
+
+Next for the index stages (estimates, not measured): `--parallel-indexes` with tmp on the
+SSD (three merges on separate cores; about 310 GB of tmp, about 9 GB of sort memory),
+perhaps 2.5-3 h for the indexes instead of 4:40; skipping the intermediate pass (larger
+segments and `--batch-size` above the file count, `UU_SORT_BATCH` in the wrapper),
+about 1:45 less when the indexes are built one at a time; splitting each index sort into
+key ranges (NodeIds spread evenly), so there is no global merge and every core sorts.
+
+### Second full truthy run (2026-10-04, stopped by hand in the SPO sort)
 
 Run `runs/truthy/20261004T173618Z-b18cd538` on the SSD, build `terms-pipeline`, settings
 as the first run plus `--ingest-threads=32 --preload-node-table`.
@@ -1120,6 +1222,10 @@ as the first run plus `--ingest-threads=32 --preload-node-table`.
   files, 60-70 GB (not the 170 GB estimated). Estimated SPO done about 00:25-00:35,
   all three indexes about 03:30-04:30. Run continues from `resume.sh`; step times in
   `loader-resume.log`.
+- Stopped by hand at about 23:30, during the SPO sort (`loader-resume.log` ends at "Build
+  index SPO"; the index files are still empty). Node table and ingest are complete
+  (`load.json`: 8,261,251,250 triples), but the stages ran on three builds with restarts,
+  so the run gives no end-to-end time. Replaced by a clean run from the start (2026-10-10).
 - Estimated full run with these settings: node table 1:34 + ingest about 0:48 + indexes
   about 4:15, so about 6:40 (the first truthy run was heading for 15 h or more; main's
   ingest alone about 2 days).
@@ -1135,7 +1241,7 @@ as the first run plus `--ingest-threads=32 --preload-node-table`.
   startup from one sequential read of `nodes.dat` (like the preload), checking the
   NodeIds increase; B+tree only for what the table lacks. Benchmark first on lexemes.
 
-### Term index decoder threads (2026-10-04, uncommitted; not yet measured)
+### Term index decoder threads (2026-10-04; measured 2026-10-10: no gain on truthy)
 
 `--term-threads=N` (default 1, the behaviour before). In the second truthy run the term
 index ran at 1.11 M terms/s with Java at about 1.3 cores: the single decoding thread
@@ -1146,6 +1252,9 @@ At most 4N blocks are in flight. Errors are the same as with one decoder (tested
 1 and 4). Expected: perhaps 2-3x, until the writer or the sort's final merge limits.
 To measure after the truthy run: `TestXLoaderTermIndex` variants `pipeline`,
 `pipeline2`, `pipeline4` on the 20M lines.
+
+Measured in the third truthy run (2026-10-10), `--term-threads=4`: 1.12 M terms/s, as
+with one decoder (1.10 M): the writer thread is the limit (see "Third full truthy run").
 
 ### Sort merge passes (2026-10-04, notes; not pursued)
 
@@ -1835,9 +1944,9 @@ note for `--ingest-threads`.
    checks `--sort-buffer`, the program check covers only the programs a load runs);
    the recommended settings (`--parse-threads`, ParallelGC with 8 GB, the heap note for
    `--ingest-threads`).
-6. Truthy: update the 2026-10-04 run (database on the external SSD, continued from
-   `resume.sh`) from that disk when it is mounted again, and decide then whether the
-   `truthy-1b` run from the 2026-10-04 list is still needed.
+6. ~~Truthy: a clean timed run from the start.~~ Done 2026-10-10: 6:54:43 (see "Third
+   full truthy run"). Next truthy run: `--parallel-indexes` with tmp on the SSD.
+   The `truthy-1b` run from the 2026-10-04 list is no longer needed for timing.
 7. Optional measurements: one write per node line in a full lexemes load
    (`build/hexline`); the G1 rerun for the parse buffer reuse (`xloader-review.md`,
    "Measured: G1 and humongous parse chunks"); whether the shared workfile reader slows
@@ -1846,7 +1955,8 @@ note for `--ingest-threads`.
    cancel; with `discovered-issues.md` #3), #10 (duplicated join and reader loops), #9
    and first review #11 (settings as static fields; a follow-up PR), #6 (CR-only line
    ends) and #15 (block reuse in the shared reader), both low priority.
-9. Next speed targets, after the PRs: the index stages (3:16 of the 7:21 lexemes load).
+9. Next speed targets, after the PRs: the index stages (3:16 of the 7:21 lexemes load;
+   4:40 of the 6:55 truthy load, POS and OSP merges on one thread).
 10. Still open from the 2026-10-04 list: sort-only compressor test; repeats of the
     baseline runs; JFR profile; `check_sort.py`; OpenStack (see "Slow OpenStack
     volumes").
