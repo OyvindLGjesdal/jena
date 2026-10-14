@@ -335,6 +335,62 @@ installation hashing, database verification and final disk accounting are exclud
 from the measured import elapsed time. The checksum scan affects filesystem cache;
 these are **not cold-cache benchmarks**. Keep the same protocol for comparisons.
 
+## Run xloader without the harness
+
+The harness only sets up the environment and runs `tdb2.xloader`. Every setting it
+changes is a launcher option or an environment variable, so you can run a load by
+hand. xloader already runs sort with `LC_ALL=C`, and `--sort` replaces the harness's
+sort wrapper. Point `JENA_HOME` at the unpacked distribution. `RUN` holds the
+database, the workfiles and the log; the database directory must not exist yet:
+
+```sh
+export JENA_HOME=/path/to/apache-jena-<version>
+export JAVA=/path/to/jdk-25/bin/java
+export JVM_ARGS='-Xmx8G -XX:+UseParallelGC -XX:+UseCompactObjectHeaders'
+export SORT_COMPRESS_ARGS=-1
+RUN=/path/to/runs/lexemes-1
+mkdir -p "$RUN/tmp"
+
+caffeinate -i /usr/bin/time -l "$JENA_HOME/bin/tdb2.xloader" \
+  --loc "$RUN/database" --tmpdir "$RUN/tmp" \
+  --threads 8 --sort uu-sort --sort-buffer=1024M --sort-compress pigz \
+  --parallel-indexes --parse-threads=6 \
+  /path/to/wikidata-20260925-lexemes-BETA.nt.gz > "$RUN/loader.log" 2>&1
+
+"$JENA_HOME/bin/tdb2.tdbquery" --loc "$RUN/database" 'SELECT (COUNT(*) AS ?n) { ?s ?p ?o }'
+```
+
+This is the fastest lexemes configuration (7:21; 229,010,967 triples). Follow progress
+with `tail -f "$RUN/loader.log"`. `--sort-buffer=1024M` does the job of the
+`uu-sort-xloader` wrapper: uutils sort rejects a percentage and takes the size per
+segment. With `--parallel-indexes`, each of the three sorts gets 1024M. For GNU sort,
+use `--sort gsort` (`sort` on most Linux systems) and a percentage such as
+`--sort-buffer=35%`, which the parallel sorts share. On Linux, drop `caffeinate -i` and
+use `/usr/bin/time -v`. Without the `JVM_ARGS` export the launcher uses `-Xmx4G`. On
+Java 21, drop `-XX:+UseCompactObjectHeaders`.
+
+The full truthy load (6:54:43 on a 32 GB Mac; 8,254,221,349 triples) builds the indexes
+one at a time and gives the ingest step its own heap. The database (698 GB) is on an
+external SSD. The workfiles and sort spills (peak about 150 GB) are on the internal
+disk:
+
+```sh
+export JVM_ARGS_INGEST='-Xmx12G -Xmn1536M -XX:+UseParallelGC -XX:+UseCompactObjectHeaders -Djena.xloader.ingest.cacheSize=1000000'
+RUN=/path/on/external/ssd/runs/truthy-1
+TMP=/path/on/internal/disk/truthy-1-tmp
+mkdir -p "$RUN" "$TMP"
+
+caffeinate -dims /usr/bin/time -l "$JENA_HOME/bin/tdb2.xloader" \
+  --loc "$RUN/database" --tmpdir "$TMP" \
+  --threads 8 --sort uu-sort --sort-buffer=1024M --sort-compress pigz \
+  --sort-compress-nodes --parse-threads=6 --term-threads=4 --ingest-threads=12 \
+  --node-table-in-memory --preload-node-table \
+  /path/to/wikidata-20260926-truthy-BETA.nt.gz > "$RUN/loader.log" 2>&1
+```
+
+`JENA_HOME`, `JAVA`, `JVM_ARGS` and `SORT_COMPRESS_ARGS` are the same as for lexemes.
+xloader does not delete its workfiles, so remove `$TMP` once the load has been checked.
+
 ## Comparing with tdb2.tdbloader
 
 The harness runs `tdb2.xloader` only. For reference, `tdb2.tdbloader` (modes `basic`,
