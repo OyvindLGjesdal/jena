@@ -14,7 +14,7 @@
     "lint": "eslint --fix src",
     "coverage:unit": "yarn run test:unit --coverage",
     "coverage:e2e": "CYPRESS_COVERAGE=true yarn run test:e2e",
-    "serve:fuseki": "nodemon src/services/mock/json-server.js",
+    "serve:fuseki": "node --watch --watch-preserve-output src/services/mock/json-server.js",
     "serve:offline": "FUSEKI_PORT=\"${FUSEKI_PORT:-3030}\" PORT=\"${PORT:-8080}\" concurrently --names 'SERVER,CLIENT' --prefix-colors 'yellow,blue' --success 'first' --kill-others 'yarn run serve:fuseki' 'yarn wait-on http://localhost:${FUSEKI_PORT}/\\$/ping && yarn run dev'"
   },
   "dependencies": {
@@ -70,7 +70,6 @@
     "globals": "^17.4.0",
     "jsdom": "^30.0.0",
     "json-server": "^0.17.4",
-    "nodemon": "^3.0.1",
     "sass-embedded": "^1.97.1",
     "sinon": "^22.0.0",
     "typescript": "^7.0.2",
@@ -80,12 +79,6 @@
     "vue-eslint-parser": "^10.4.0",
     "wait-on": "^9.0.0",
     "webpack": "^5.104.1"
-  },
-  "resolutions": {
-    "on-headers": ">=1.1.0",
-    "picomatch": ">=4.0.4",
-    "minimatch": ">=9.0.7",
-    "shell-quote": "^1.12.0"
   },
   "packageManager": "yarn@4.18.0+sha512.fcb8716fe7cd0eece141ffc18b92193a9df9204c1ba83189c288835223fc0bbe64af473bab0d5e9927a7daeb5caf2bb07eb2787cc9338ca040ea125f2a1f2f7e"
 }
