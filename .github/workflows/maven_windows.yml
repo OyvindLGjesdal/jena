@@ -19,11 +19,6 @@ jobs:
     defaults:
       run:
         shell: bash
-
-    # "windows" takes up a lot of disk space due to a longstanding JDK issue.
-    # The build, the local Maven repository and the temporary files go on the
-    # drive of the checkout (D:). The disk space steps show how much each
-    # drive has and what uses it.
     steps:
     - uses: actions/checkout@v7
 
@@ -33,24 +28,5 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
-    - name: Disk space before build
-      run: df -h
-
     - name: Build with Maven
-      env:
-        TMP: ${{ runner.temp }}
-        TEMP: ${{ runner.temp }}
-      run: mvn -B --file pom.xml -Dmaven.javadoc.skip=true -Dmaven.repo.local="$RUNNER_TEMP/m2/repository" install
-
-    - name: Disk space after build
-      if: always()
-      run: |
-        df -h
-        echo "Largest directories:"
-        for d in "$RUNNER_TEMP/m2/repository" "$RUNNER_TEMP" "$GITHUB_WORKSPACE" \
-                 "$USERPROFILE/.m2" "$LOCALAPPDATA/Temp" "$LOCALAPPDATA/Yarn" "$LOCALAPPDATA/Cypress"; do
-          p=$(cygpath -u "$d")
-          if [ -d "$p" ]; then du -sh "$p"; fi
-        done
-        echo "Largest target directories:"
-        find . -name target -type d -prune -exec du -sh {} + | sort -h | tail -15
+      run: mvn -B --file pom.xml -Dmaven.javadoc.skip=true install
